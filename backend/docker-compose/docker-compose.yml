@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: torneos-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 1234
+      POSTGRES_DB: torneos_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - torneos_data:/var/lib/postgresql/data
+
+volumes:
+  torneos_data:
