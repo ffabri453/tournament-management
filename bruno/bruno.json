@@ -1,4 +1,5 @@
 {
   "version": "1",
-  "name": "Gestion Torneos Deportivos"
+  "name": "Gestion Torneos Deportivos",
+  "type": "collection"
 }
