@@ -1,13 +1,11 @@
 import express, { Request, Response } from 'express';
 import pool from './src/config/db';
 import tournamentRoutes from './src/routes/tournamentRoutes';
-import matchRoutes from './src/routes/matchRoutes';
 
 const app = express();
 
 app.use(express.json());
 app.use(tournamentRoutes);
-app.use(matchRoutes);
 
 const PORT = process.env.PORT || 3000;
 
