@@ -1,0 +1,24 @@
+meta {
+  name: POST tournament
+  type: http
+  seq: 3
+}
+
+post {
+  url: http://localhost:3000/tournaments
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "Summer Cup",
+    "location": "Venado Tuerto",
+    "rules": "Basic football tournament rules",
+    "format": "league",
+    "modality": "futbol_11",
+    "max_teams": 8
+  }
+}
