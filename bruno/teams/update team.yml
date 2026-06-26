@@ -1,0 +1,26 @@
+info:
+  name: update team
+  type: http
+  seq: 1
+
+http:
+  method: PUT
+  url: http://localhost:3000/api/teams/:id
+  body:
+    type: json
+    data: |-
+      {
+        "tournament_id": 1,
+        "name": "Los Tigres FC",
+        "captain": "Juan Perez",
+        "city": "Rosario",
+        "players_count": 12
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
+​

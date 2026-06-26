@@ -1,0 +1,24 @@
+info:
+  name: create a team
+  type: http
+  seq: 1
+
+http:
+  method: post
+  url: http://localhost:3000/api/teams/
+  body:
+    type: json
+    data: |-
+      {
+              "tournament_id": 2,
+              "name": "Los Tigres FC",
+              "captain": "Juan Perez",
+              "city": "Rosario",
+              "players_count": 12
+            }
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
