@@ -1,0 +1,26 @@
+info:
+  name: POST tournament
+  type: http
+  seq: 3
+
+http:
+  method: POST
+  url: http://localhost:3000/tournaments
+  body:
+    type: json
+    data: |-
+      {
+        "name": "Summer Cup",
+        "location": "Venado Tuerto",
+        "rules": "Basic football tournament rules",
+        "format": "league",
+        "modality": "futbol_11",
+        "max_teams": 8
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
