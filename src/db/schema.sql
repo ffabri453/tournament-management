@@ -49,44 +49,51 @@ CREATE TABLE IF NOT EXISTS tournaments (
 -- Guarda los equipos que participan en un torneo.
 -- Cada equipo pertenece a un torneo específico.
 -- =========================================================
-
 CREATE TABLE IF NOT EXISTS teams (
-    id SERIAL PRIMARY KEY,                         -- Identificador único del equipo. Se genera automáticamente.
+    id SERIAL PRIMARY KEY,                         -- Identificador único del equipo.
 
-    tournament_id INTEGER NOT NULL,                -- Identificador del torneo al que pertenece el equipo.
+    tournament_id INTEGER NOT NULL,                -- Torneo al que pertenece el equipo.
 
-    name VARCHAR(100) NOT NULL,                    -- Nombre del equipo. Ejemplo: "Los Halcones".
+    name VARCHAR(100) NOT NULL,                    -- Nombre del equipo.
 
-    captain VARCHAR(100) NOT NULL,                 -- Nombre del capitán o responsable del equipo.
+    captain VARCHAR(100) NOT NULL,                 -- Capitán o responsable del equipo.
 
-    city VARCHAR(100) NOT NULL,                    -- Ciudad de origen del equipo.
+    location VARCHAR(100) NOT NULL,                -- Localidad del equipo.
 
-    players_count INTEGER NOT NULL,                -- Cantidad de jugadores cargados o declarados para el equipo.
+    players_count INTEGER NOT NULL,                -- Cantidad de jugadores.
 
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                                                      -- Fecha y hora en que se creó el equipo.
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Fecha de creación.
 
     CONSTRAINT fk_team_tournament
         FOREIGN KEY (tournament_id)
         REFERENCES tournaments(id)
         ON DELETE CASCADE,
-                                                      -- Relaciona el equipo con un torneo.
-                                                      -- Si se elimina el torneo, también se eliminan sus equipos.
 
     CONSTRAINT chk_team_players_count
-        CHECK (players_count > 0),
-                                                      -- Evita equipos con 0 jugadores o cantidad negativa.
+        CHECK (players_count BETWEEN 1 AND 11),
+
+    CONSTRAINT chk_team_location
+        CHECK (
+            location IN (
+                'Venado Tuerto',
+                'Firmat',
+                'Rosario',
+                'Elortondo'
+            )
+        ),
 
     CONSTRAINT unique_team_name_per_tournament
         UNIQUE (tournament_id, name),
-                                                      -- Evita que dos equipos tengan el mismo nombre dentro del mismo torneo.
 
     CONSTRAINT unique_team_id_tournament
-        UNIQUE (id, tournament_id)
-                                                      -- Permite validar desde matches que el equipo pertenece al torneo correcto.
+        UNIQUE (id, tournament_id),
+
+    CONSTRAINT chk_team_name
+        CHECK (TRIM(name) <> ''),
+
+    CONSTRAINT chk_team_captain
+        CHECK (TRIM(captain) <> '')
 );
-
-
 -- =========================================================
 -- TABLE: matches
 -- Guarda los partidos de cada torneo.

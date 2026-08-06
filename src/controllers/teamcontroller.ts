@@ -21,22 +21,23 @@ const validateTeamBody = (
   message?: string;
   data?: CreateTeamInput;
 } => {
-  const { tournament_id, name, captain, city, players_count } = body;
+  const { tournament_id, name, captain, location, players_count } = body;
 
   const parsedTournamentId = Number(tournament_id);
   const parsedPlayersCount = Number(players_count);
+  const allowedLocations = ['Venado Tuerto', 'Firmat', 'Rosario', 'Elortondo'];
 
   if (
     tournament_id === undefined ||
     name === undefined ||
     captain === undefined ||
-    city === undefined ||
+    location === undefined ||
     players_count === undefined
   ) {
     return {
       valid: false,
       message:
-        'tournament_id, name, captain, city and players_count are required'
+        'tournament_id, name, captain, location and players_count are required'
     };
   }
 
@@ -54,14 +55,28 @@ const validateTeamBody = (
     };
   }
 
+  if (parsedPlayersCount > 11) {
+    return {
+      valid: false,
+      message: 'players_count cannot be greater than 11'
+    };
+  }
+
   if (
     String(name).trim() === '' ||
     String(captain).trim() === '' ||
-    String(city).trim() === ''
+    String(location).trim() === ''
   ) {
     return {
       valid: false,
-      message: 'name, captain and city cannot be empty'
+      message: 'name, captain and location cannot be empty'
+    };
+  }
+
+  if (!allowedLocations.includes(String(location).trim())) {
+    return {
+      valid: false,
+      message: 'location must be Venado Tuerto, Firmat, Rosario or Elortondo'
     };
   }
 
@@ -71,7 +86,7 @@ const validateTeamBody = (
       tournament_id: parsedTournamentId,
       name: String(name).trim(),
       captain: String(captain).trim(),
-      city: String(city).trim(),
+      location: String(location).trim(),
       players_count: parsedPlayersCount
     }
   };
@@ -177,7 +192,8 @@ export const createNewTeam = async (
     if (error.code === '23514') {
       res.status(400).json({
         error: true,
-        message: 'players_count must be greater than 0'
+        message:
+          'players_count must be between 1 and 11, location must be Venado Tuerto, Firmat, Rosario or Elortondo, and name and captain cannot be empty'
       });
       return;
     }

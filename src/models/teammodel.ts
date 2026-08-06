@@ -4,7 +4,7 @@ export interface Team {
   tournament_id: number;
   name: string;
   captain: string;
-  city: string;
+  location: string;
   players_count: number;
   created_at: Date;
 }
@@ -13,13 +13,13 @@ export interface CreateTeamInput {
   tournament_id: number;
   name: string;
   captain: string;
-  city: string;
+  location: string;
   players_count: number;
 }
 
 export const getAllTeams = async (): Promise<Team[]> => {
   const result = await pool.query(`
-    SELECT id, tournament_id, name, captain, city, players_count, created_at
+    SELECT id, tournament_id, name, captain, location, players_count, created_at
     FROM teams
     ORDER BY id ASC
   `);
@@ -30,7 +30,7 @@ export const getAllTeams = async (): Promise<Team[]> => {
 export const getTeamById = async (id: number): Promise<Team | null> => {
   const result = await pool.query(
     `
-    SELECT id, tournament_id, name, captain, city, players_count, created_at
+    SELECT id, tournament_id, name, captain, location, players_count, created_at
     FROM teams
     WHERE id = $1
     `,
@@ -43,11 +43,11 @@ export const getTeamById = async (id: number): Promise<Team | null> => {
 export const createTeam = async (team: CreateTeamInput): Promise<Team> => {
   const result = await pool.query(
     `
-    INSERT INTO teams (tournament_id, name, captain, city, players_count)
+    INSERT INTO teams (tournament_id, name, captain, location, players_count)
     VALUES ($1, $2, $3, $4, $5)
-    RETURNING id, tournament_id, name, captain, city, players_count, created_at
+    RETURNING id, tournament_id, name, captain, location, players_count, created_at
     `,
-    [team.tournament_id, team.name, team.captain, team.city, team.players_count]
+    [team.tournament_id, team.name, team.captain, team.location, team.players_count]
   );
 
   return result.rows[0];
@@ -63,12 +63,12 @@ export const updateTeam = async (
     SET tournament_id = $1,
         name = $2,
         captain = $3,
-        city = $4,
+        location = $4,
         players_count = $5
     WHERE id = $6
-    RETURNING id, tournament_id, name, captain, city, players_count, created_at
+    RETURNING id, tournament_id, name, captain, location, players_count, created_at
     `,
-    [team.tournament_id, team.name, team.captain, team.city, team.players_count, id]
+    [team.tournament_id, team.name, team.captain, team.location, team.players_count, id]
   );
 
   return result.rows[0] ?? null;
