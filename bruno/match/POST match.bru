@@ -1,0 +1,27 @@
+meta {
+  name: POST match
+  type: http
+  seq: 3
+}
+
+post {
+  url: http://localhost:3000/matches
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+  "tournament_id": 13,
+  "home_team_id": 14,
+  "away_team_id": 15,
+  "match_date": "2026-08-09 17:00",
+  "location": "Cancha 1",
+  "round": "quarter_final",
+  "status": "scheduled"
+  }
+}

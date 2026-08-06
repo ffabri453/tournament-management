@@ -1,11 +1,17 @@
 import express, { Request, Response } from 'express';
 import pool from './src/config/db';
+
 import tournamentRoutes from './src/routes/tournamentRoutes';
+import matchRoutes from './src/routes/matchRoutes';
+import teamroutes from './src/routes/teamroutes';
 
 const app = express();
 
 app.use(express.json());
+
 app.use(tournamentRoutes);
+app.use(matchRoutes);
+app.use('/api/teams', teamroutes);
 
 const PORT = process.env.PORT || 3000;
 
@@ -18,6 +24,7 @@ app.get('/', (req: Request, res: Response) => {
 app.get('/db-test', async (req: Request, res: Response): Promise<void> => {
   try {
     const result = await pool.query('SELECT NOW()');
+
     res.json({
       ok: true,
       message: 'PostgreSQL connection successful',

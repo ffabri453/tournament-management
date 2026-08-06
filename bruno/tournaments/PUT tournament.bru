@@ -1,0 +1,26 @@
+meta {
+  name: PUT tournament
+  type: http
+  seq: 4
+}
+
+put {
+  url: http://localhost:3000/tournaments/1
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "Updated Summer Cup",
+    "location": "Venado Tuerto",
+    "format": "knockout",
+    "modality": "futbol_7",
+    "max_teams": 12,
+    "status": "open"
+  }
+}
