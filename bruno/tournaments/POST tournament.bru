@@ -6,6 +6,8 @@ meta {
 
 post {
   url: http://localhost:3000/tournaments
+  body: json
+  auth: none
 }
 
 headers {
@@ -16,9 +18,9 @@ body:json {
   {
     "name": "Summer Cup",
     "location": "Venado Tuerto",
-    "rules": "Basic football tournament rules",
-    "format": "league",
-    "modality": "futbol_11",
+    "rules": "official_rules_football_7",
+    "format": "knockout",
+    "modality": "futbol_7",
     "max_teams": 8
   }
 }

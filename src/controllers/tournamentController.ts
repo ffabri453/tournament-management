@@ -1,316 +1,253 @@
 import { Request, Response } from 'express';
 import {
+  DomainError,
+  RULES_BY_MODALITY,
+  TOURNAMENT_CAPACITIES,
+  TOURNAMENT_LOCATIONS,
+  TOURNAMENT_MODALITIES,
+  TOURNAMENT_STATUSES,
+  hasOnlyFields,
+  isNonNumericName,
+  isPlainObject
+} from '../domain/competitionRules';
+import {
   CreateTournamentInput,
   UpdateTournamentInput,
   createTournament,
   deleteTournament,
   getAllTournaments,
   getTournamentById,
-  updateTournament,
+  updateTournament
 } from '../models/Tournament';
 
-const allowedFormats = ['league', 'knockout', 'group_stage'];
-const allowedModalities = ['futbol_5', 'futbol_7', 'futbol_8', 'futbol_11'];
-const allowedStatuses = ['open', 'in_progress', 'finished'];
-const allowedUpdateFields = ['name', 'location', 'rules', 'format', 'modality', 'max_teams', 'status'];
+const createFields = ['name', 'location', 'rules', 'format', 'modality', 'max_teams', 'status'];
+const updateFields = ['name', 'location', 'format', 'modality', 'max_teams', 'status'];
 
-const isObjectBody = (body: unknown): body is Record<string, unknown> => {
-  return typeof body === 'object' && body !== null && !Array.isArray(body);
+const parseId = (value: unknown): number | null => {
+  if (typeof value !== 'string') return null;
+  const id = Number(value);
+  return Number.isInteger(id) && id > 0 ? id : null;
 };
 
-const getIdParam = (id: unknown): number | null => {
-  if (typeof id !== 'string') {
-    return null;
-  }
-
-  const parsedId = Number(id);
-
-  if (!Number.isInteger(parsedId) || parsedId <= 0) {
-    return null;
-  }
-
-  return parsedId;
-};
-
-const isNonEmptyString = (value: unknown): value is string => {
-  return typeof value === 'string' && value.trim().length > 0;
-};
-
-const parsePositiveInteger = (value: unknown): number | null => {
-  if (value === null || value === undefined || value === '') {
-    return null;
-  }
-
-  const parsedValue = Number(value);
-
-  if (!Number.isInteger(parsedValue) || parsedValue <= 0) {
-    return null;
-  }
-
-  return parsedValue;
-};
-
-const validateCreateTournament = (
-  body: unknown
-): { data?: CreateTournamentInput; errors: string[] } => {
-  const errors: string[] = [];
-
-  if (!isObjectBody(body)) {
+export const validateTournament = (
+  body: unknown,
+  partial: boolean
+): { data?: CreateTournamentInput | UpdateTournamentInput; errors: string[] } => {
+  if (!isPlainObject(body)) {
     return { errors: ['Request body must be a JSON object'] };
   }
 
-  const name = isNonEmptyString(body.name) ? body.name.trim() : null;
-  const location = isNonEmptyString(body.location) ? body.location.trim() : null;
-  const rules = isNonEmptyString(body.rules) ? body.rules.trim() : null;
-  const format = isNonEmptyString(body.format) ? body.format : null;
-  const modality = isNonEmptyString(body.modality) ? body.modality : null;
-  const status = isNonEmptyString(body.status) ? body.status : 'open';
-
-  if (!name) errors.push('name is required');
-  if (!location) errors.push('location is required');
-  if (!rules) errors.push('rules is required');
-
-  if (!format) {
-    errors.push('format is required');
-  } else if (!allowedFormats.includes(format)) {
-    errors.push(`format must be one of: ${allowedFormats.join(', ')}`);
-  }
-
-  if (!modality) {
-    errors.push('modality is required');
-  } else if (!allowedModalities.includes(modality)) {
-    errors.push(`modality must be one of: ${allowedModalities.join(', ')}`);
-  }
-
-  const maxTeams = parsePositiveInteger(body.max_teams);
-  if (maxTeams === null) {
-    errors.push('max_teams is required and must be a positive integer');
-  }
-
-  if (body.status !== undefined && body.status !== null) {
-    if (!isNonEmptyString(body.status) || !allowedStatuses.includes(status)) {
-      errors.push(`status must be one of: ${allowedStatuses.join(', ')}`);
-    }
-  }
-
-  if (errors.length > 0 || maxTeams === null || !name || !location || !rules || !format || !modality) {
-    return { errors };
-  }
-
-  return {
-    errors,
-    data: {
-      name,
-      location,
-      rules,
-      format,
-      modality,
-      max_teams: maxTeams,
-      status,
-    },
-  };
-};
-
-const validateUpdateTournament = (
-  body: unknown
-): { data?: UpdateTournamentInput; errors: string[] } => {
   const errors: string[] = [];
   const data: UpdateTournamentInput = {};
+  const unknownFields = hasOnlyFields(body, partial ? updateFields : createFields);
 
-  if (!isObjectBody(body)) {
-    return { errors: ['Request body must be a JSON object'] };
+  if (unknownFields.length > 0) {
+    errors.push(`Unknown fields: ${unknownFields.join(', ')}`);
   }
 
-  const fields = Object.keys(body);
-
-  if (fields.length === 0) {
-    return { errors: ['Request body cannot be empty'] };
+  if (partial && Object.keys(body).length === 0) {
+    errors.push('Request body cannot be empty');
   }
 
-  for (const field of fields) {
-    if (!allowedUpdateFields.includes(field)) {
-      errors.push(`${field} is not a valid tournament field`);
+  const required = ['name', 'location', 'rules', 'format', 'modality', 'max_teams'];
+  if (!partial) {
+    for (const field of required) {
+      if (body[field] === undefined) errors.push(`${field} is required`);
     }
   }
 
-  if (Object.prototype.hasOwnProperty.call(body, 'name')) {
-    if (!isNonEmptyString(body.name)) errors.push('name cannot be empty');
-    else data.name = body.name.trim();
-  }
-
-  if (Object.prototype.hasOwnProperty.call(body, 'location')) {
-    if (!isNonEmptyString(body.location)) errors.push('location cannot be empty');
-    else data.location = body.location.trim();
-  }
-
-  if (Object.prototype.hasOwnProperty.call(body, 'rules')) {
-    if (!isNonEmptyString(body.rules)) errors.push('rules cannot be empty');
-    else data.rules = body.rules.trim();
-  }
-
-  if (Object.prototype.hasOwnProperty.call(body, 'format')) {
-    if (!isNonEmptyString(body.format) || !allowedFormats.includes(body.format)) {
-      errors.push(`format must be one of: ${allowedFormats.join(', ')}`);
+  if (body.name !== undefined) {
+    if (!isNonNumericName(body.name)) {
+      errors.push('name must be a non-empty, non-numeric string');
     } else {
-      data.format = body.format;
+      data.name = body.name.trim();
     }
   }
 
-  if (Object.prototype.hasOwnProperty.call(body, 'modality')) {
-    if (!isNonEmptyString(body.modality) || !allowedModalities.includes(body.modality)) {
-      errors.push(`modality must be one of: ${allowedModalities.join(', ')}`);
+  if (body.location !== undefined) {
+    const location = typeof body.location === 'string' ? body.location.trim() : body.location;
+    if (!TOURNAMENT_LOCATIONS.includes(location as never)) {
+      errors.push(`location must be one of: ${TOURNAMENT_LOCATIONS.join(', ')}`);
     } else {
-      data.modality = body.modality;
+      data.location = location as CreateTournamentInput['location'];
     }
   }
 
-  if (Object.prototype.hasOwnProperty.call(body, 'max_teams')) {
-    const maxTeams = parsePositiveInteger(body.max_teams);
-
-    if (maxTeams === null) {
-      errors.push('max_teams must be a positive integer');
+  if (body.format !== undefined) {
+    if (body.format !== 'knockout') {
+      errors.push('format must be knockout');
     } else {
-      data.max_teams = maxTeams;
+      data.format = 'knockout';
     }
   }
 
-  if (Object.prototype.hasOwnProperty.call(body, 'status')) {
-    if (!isNonEmptyString(body.status) || !allowedStatuses.includes(body.status)) {
-      errors.push(`status must be one of: ${allowedStatuses.join(', ')}`);
+  if (body.modality !== undefined) {
+    if (!TOURNAMENT_MODALITIES.includes(body.modality as never)) {
+      errors.push(`modality must be one of: ${TOURNAMENT_MODALITIES.join(', ')}`);
     } else {
-      data.status = body.status;
+      data.modality = body.modality as CreateTournamentInput['modality'];
     }
   }
 
-  if (errors.length > 0) {
-    return { errors };
+  if (!partial && body.rules !== undefined) {
+    const modality = body.modality as CreateTournamentInput['modality'];
+    const expectedRules = RULES_BY_MODALITY[modality];
+
+    if (typeof body.rules !== 'string' || !expectedRules || body.rules !== expectedRules) {
+      errors.push(
+        `rules must match modality: futbol_5=${RULES_BY_MODALITY.futbol_5}, ` +
+        `futbol_7=${RULES_BY_MODALITY.futbol_7}, futbol_11=${RULES_BY_MODALITY.futbol_11}`
+      );
+    }
   }
 
-  return { errors, data };
+  if (body.max_teams !== undefined) {
+    if (
+      typeof body.max_teams !== 'number' ||
+      !TOURNAMENT_CAPACITIES.includes(body.max_teams as never)
+    ) {
+      errors.push(`max_teams must be one of: ${TOURNAMENT_CAPACITIES.join(', ')}`);
+    } else {
+      data.max_teams = body.max_teams as CreateTournamentInput['max_teams'];
+    }
+  }
+
+  if (body.status !== undefined) {
+    if (!TOURNAMENT_STATUSES.includes(body.status as never)) {
+      errors.push(`status must be one of: ${TOURNAMENT_STATUSES.join(', ')}`);
+    } else {
+      data.status = body.status as CreateTournamentInput['status'];
+    }
+  } else if (!partial) {
+    data.status = 'open';
+  }
+
+  if (errors.length > 0) return { errors };
+  return { data, errors };
 };
 
-export const getTournaments = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const tournaments = await getAllTournaments();
-
-    res.status(200).json(tournaments);
-  } catch (error: any) {
-    res.status(500).json({
+const respondWithWriteError = (
+  error: any,
+  res: Response,
+  fallbackMessage: string
+): void => {
+  if (
+    error?.code === '23505' &&
+    error?.constraint === 'unique_tournament_name_location'
+  ) {
+    res.status(409).json({
       error: true,
-      message: 'Error getting tournaments',
-      detail: error.message
+      message: 'A tournament with the same name already exists in that location'
     });
+    return;
+  }
+
+  if (error instanceof DomainError) {
+    res.status(409).json({ error: true, message: error.message });
+    return;
+  }
+
+  if (error?.code === '23514') {
+    res.status(400).json({ error: true, message: 'Tournament data violates a domain rule' });
+    return;
+  }
+
+  res.status(500).json({ error: true, message: fallbackMessage });
+};
+
+export const getTournaments = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    res.status(200).json(await getAllTournaments());
+  } catch {
+    res.status(500).json({ error: true, message: 'Error getting tournaments' });
   }
 };
 
 export const getTournament = async (req: Request, res: Response): Promise<void> => {
   try {
-    const id = getIdParam(req.params.id);
-
+    const id = parseId(req.params.id);
     if (id === null) {
-      res.status(400).json({ message: 'Invalid tournament id' });
+      res.status(400).json({ error: true, message: 'Invalid tournament id' });
       return;
     }
 
     const tournament = await getTournamentById(id);
-
     if (!tournament) {
-      res.status(404).json({ message: 'Tournament not found' });
+      res.status(404).json({ error: true, message: 'Tournament not found' });
       return;
     }
 
     res.status(200).json(tournament);
-  } catch (error: any) {
-    res.status(500).json({
-      error: true,
-      message: 'Error getting tournament',
-      detail: error.message
-    });
+  } catch {
+    res.status(500).json({ error: true, message: 'Error getting tournament' });
   }
 };
 
 export const postTournament = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const validation = validateCreateTournament(req.body);
-
-    if (!validation.data) {
-      res.status(400).json({
-        message: 'Invalid tournament data',
-        errors: validation.errors
-      });
-      return;
-    }
-
-    const tournament = await createTournament(validation.data);
-
-    res.status(201).json(tournament);
-  } catch (error: any) {
-    res.status(500).json({
+  const validation = validateTournament(req.body, false);
+  if (!validation.data) {
+    res.status(400).json({
       error: true,
-      message: 'Error creating tournament',
-      detail: error.message
+      message: 'Invalid tournament data',
+      errors: validation.errors
     });
+    return;
+  }
+
+  try {
+    const tournament = await createTournament(validation.data as CreateTournamentInput);
+    res.status(201).json(tournament);
+  } catch (error) {
+    respondWithWriteError(error, res, 'Error creating tournament');
   }
 };
 
 export const putTournament = async (req: Request, res: Response): Promise<void> => {
+  const id = parseId(req.params.id);
+  if (id === null) {
+    res.status(400).json({ error: true, message: 'Invalid tournament id' });
+    return;
+  }
+
+  const validation = validateTournament(req.body, true);
+  if (!validation.data) {
+    res.status(400).json({
+      error: true,
+      message: 'Invalid tournament data',
+      errors: validation.errors
+    });
+    return;
+  }
+
   try {
-    const id = getIdParam(req.params.id);
-
-    if (id === null) {
-      res.status(400).json({ message: 'Invalid tournament id' });
-      return;
-    }
-
-    const validation = validateUpdateTournament(req.body);
-
-    if (!validation.data) {
-      res.status(400).json({
-        message: 'Invalid tournament data',
-        errors: validation.errors
-      });
-      return;
-    }
-
     const tournament = await updateTournament(id, validation.data);
-
     if (!tournament) {
-      res.status(404).json({ message: 'Tournament not found' });
+      res.status(404).json({ error: true, message: 'Tournament not found' });
       return;
     }
 
     res.status(200).json(tournament);
-  } catch (error: any) {
-    res.status(500).json({
-      error: true,
-      message: 'Error updating tournament',
-      detail: error.message
-    });
+  } catch (error) {
+    respondWithWriteError(error, res, 'Error updating tournament');
   }
 };
 
 export const removeTournament = async (req: Request, res: Response): Promise<void> => {
   try {
-    const id = getIdParam(req.params.id);
-
+    const id = parseId(req.params.id);
     if (id === null) {
-      res.status(400).json({ message: 'Invalid tournament id' });
+      res.status(400).json({ error: true, message: 'Invalid tournament id' });
       return;
     }
 
     const tournament = await deleteTournament(id);
-
     if (!tournament) {
-      res.status(404).json({ message: 'Tournament not found' });
+      res.status(404).json({ error: true, message: 'Tournament not found' });
       return;
     }
 
     res.status(200).json({ message: 'Tournament deleted successfully' });
-  } catch (error: any) {
-    res.status(500).json({
-      error: true,
-      message: 'Error deleting tournament',
-      detail: error.message
-    });
+  } catch {
+    res.status(500).json({ error: true, message: 'Error deleting tournament' });
   }
 };

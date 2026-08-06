@@ -6,6 +6,8 @@ meta {
 
 put {
   url: http://localhost:3000/tournaments/1
+  body: json
+  auth: none
 }
 
 headers {
@@ -16,7 +18,6 @@ body:json {
   {
     "name": "Updated Summer Cup",
     "location": "Venado Tuerto",
-    "rules": "Updated tournament rules",
     "format": "knockout",
     "modality": "futbol_7",
     "max_teams": 12,
