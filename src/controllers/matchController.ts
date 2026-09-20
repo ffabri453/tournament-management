@@ -6,7 +6,8 @@ import {
   hasOnlyFields,
   isNonNumericName,
   isPlainObject,
-  isPositiveInteger
+  isPositiveInteger,
+  parseMatchDate
 } from '../domain/competitionRules';
 import {
   MatchInput,
@@ -55,38 +56,7 @@ const parseGoals = (
 const matchDateError =
   'match_date must use YYYY-MM-DD HH:mm (for example, 2026-08-09 17:00)';
 
-export const parseMatchDate = (value: unknown): Date | null => {
-  if (typeof value !== 'string') return null;
-
-  const trimmed = value.trim();
-  const localMatch = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})$/.exec(trimmed);
-
-  if (localMatch) {
-    const [, yearText, monthText, dayText, hourText, minuteText] = localMatch;
-    const year = Number(yearText);
-    const month = Number(monthText);
-    const day = Number(dayText);
-    const hour = Number(hourText);
-    const minute = Number(minuteText);
-    const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
-
-    if (
-      month < 1 || month > 12 ||
-      day < 1 || day > daysInMonth ||
-      hour < 0 || hour > 23 ||
-      minute < 0 || minute > 59
-    ) {
-      return null;
-    }
-
-    return new Date(
-      `${yearText}-${monthText}-${dayText}T${hourText}:${minuteText}:00-03:00`
-    );
-  }
-
-  const isoDate = new Date(trimmed);
-  return Number.isNaN(isoDate.getTime()) ? null : isoDate;
-};
+export { parseMatchDate };
 
 export const validateMatchBody = (
   body: unknown,

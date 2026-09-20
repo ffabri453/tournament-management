@@ -74,6 +74,7 @@ Sólo se pueden registrar o editar equipos mientras el torneo esté `open`, y nu
 ## Rutas actuales
 
 - Torneos: `/tournaments` y `/tournaments/:id`.
+- Inicio del torneo: `POST /tournaments/:id/start` con `match_date` futuro.
 - Equipos: `/api/teams` y `/api/teams/:id`.
 - Partidos: `/matches` y `/matches/:id`.
 

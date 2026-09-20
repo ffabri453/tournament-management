@@ -1,4 +1,5 @@
 import pool from '../config/db';
+import { PoolClient } from 'pg';
 import {
   MatchRound,
   MatchStatus,
@@ -44,6 +45,8 @@ export interface MatchValidationContext {
   away_team_exists: boolean;
   team_round_conflict: boolean;
 }
+
+type MatchQueryClient = Pick<PoolClient, 'query'>;
 
 const matchSelect = `
   id, tournament_id, home_team_id, away_team_id, match_date, location, round,
@@ -106,8 +109,11 @@ export const getMatchValidationContext = async (
   return result.rows[0] ?? null;
 };
 
-export const createMatch = async (match: MatchInput): Promise<Match> => {
-  const result = await pool.query<Match>(
+export const createMatch = async (
+  match: MatchInput,
+  queryClient: MatchQueryClient = pool
+): Promise<Match> => {
+  const result = await queryClient.query<Match>(
     `INSERT INTO matches (
        tournament_id, home_team_id, away_team_id, match_date, location, round,
        home_goals, away_goals, home_penalties, away_penalties,

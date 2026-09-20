@@ -8,20 +8,24 @@ import {
   TOURNAMENT_STATUSES,
   hasOnlyFields,
   isNonNumericName,
-  isPlainObject
+  isPlainObject,
+  parseMatchDate
 } from '../domain/competitionRules';
 import {
   CreateTournamentInput,
+  StartTournamentInput,
   UpdateTournamentInput,
   createTournament,
   deleteTournament,
   getAllTournaments,
   getTournamentById,
+  startTournament as startTournamentModel,
   updateTournament
 } from '../models/Tournament';
 
 const createFields = ['name', 'location', 'rules', 'format', 'modality', 'max_teams', 'status'];
 const updateFields = ['name', 'location', 'format', 'modality', 'max_teams', 'status'];
+const startFields = ['match_date'];
 
 const parseId = (value: unknown): number | null => {
   if (typeof value !== 'string') return null;
@@ -126,6 +130,39 @@ export const validateTournament = (
   return { data, errors };
 };
 
+export const validateStartTournamentBody = (
+  body: unknown,
+  now = new Date()
+): { data?: StartTournamentInput; errors: string[] } => {
+  if (!isPlainObject(body)) {
+    return { errors: ['Request body must be a JSON object'] };
+  }
+
+  const errors: string[] = [];
+  const unknownFields = hasOnlyFields(body, startFields);
+  if (unknownFields.length > 0) {
+    errors.push(`Unknown fields: ${unknownFields.join(', ')}`);
+  }
+
+  if (body.match_date === undefined) {
+    errors.push('match_date is required');
+  }
+
+  const matchDate = parseMatchDate(body.match_date);
+  if (!matchDate) {
+    errors.push('match_date must use YYYY-MM-DD HH:mm (for example, 2026-08-09 17:00)');
+  } else if (matchDate <= now) {
+    errors.push('match_date must be in the future');
+  }
+
+  if (errors.length > 0 || !matchDate) return { errors };
+
+  return {
+    errors,
+    data: { match_date: matchDate }
+  };
+};
+
 const respondWithWriteError = (
   error: any,
   res: Response,
@@ -153,6 +190,25 @@ const respondWithWriteError = (
   }
 
   res.status(500).json({ error: true, message: fallbackMessage });
+};
+
+const respondWithStartError = (error: unknown, res: Response): void => {
+  if (!(error instanceof DomainError)) {
+    res.status(500).json({ error: true, message: 'Error starting tournament' });
+    return;
+  }
+
+  if (error.code === 'TOURNAMENT_NOT_FOUND') {
+    res.status(404).json({ error: true, message: error.message });
+    return;
+  }
+
+  const conflictCodes = [
+    'TOURNAMENT_NOT_OPEN',
+    'TOURNAMENT_MATCHES_ALREADY_EXIST'
+  ];
+  const status = conflictCodes.includes(error.code) ? 409 : 400;
+  res.status(status).json({ error: true, message: error.message });
 };
 
 export const getTournaments = async (_req: Request, res: Response): Promise<void> => {
@@ -199,6 +255,34 @@ export const postTournament = async (req: Request, res: Response): Promise<void>
     res.status(201).json(tournament);
   } catch (error) {
     respondWithWriteError(error, res, 'Error creating tournament');
+  }
+};
+
+export const startTournament = async (req: Request, res: Response): Promise<void> => {
+  const id = parseId(req.params.id);
+  if (id === null) {
+    res.status(400).json({ error: true, message: 'Invalid tournament id' });
+    return;
+  }
+
+  const validation = validateStartTournamentBody(req.body);
+  if (!validation.data) {
+    res.status(400).json({
+      error: true,
+      message: 'Invalid tournament start data',
+      errors: validation.errors
+    });
+    return;
+  }
+
+  try {
+    const result = await startTournamentModel(id, validation.data);
+    res.status(201).json({
+      message: 'Tournament started successfully',
+      data: result
+    });
+  } catch (error) {
+    respondWithStartError(error, res);
   }
 };
 

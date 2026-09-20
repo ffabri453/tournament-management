@@ -51,6 +51,13 @@ export const ROUNDS_BY_CAPACITY: Record<TournamentCapacity, MatchRound[]> = {
   32: ['round_of_32', 'round_of_16', 'quarter_final', 'semi_final', 'final']
 };
 
+export const INITIAL_ROUND_BY_CAPACITY: Record<TournamentCapacity, MatchRound> = {
+  4: 'semi_final',
+  8: 'quarter_final',
+  16: 'round_of_16',
+  32: 'round_of_32'
+};
+
 export const isPlainObject = (value: unknown): value is Record<string, unknown> => {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 };
@@ -64,6 +71,39 @@ export const isNonNumericName = (value: unknown): value is string => {
 
   const trimmed = value.trim();
   return trimmed.length > 0 && !/^\d+(?:[.,]\d+)?$/.test(trimmed);
+};
+
+export const parseMatchDate = (value: unknown): Date | null => {
+  if (typeof value !== 'string') return null;
+
+  const trimmed = value.trim();
+  const localMatch = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})$/.exec(trimmed);
+
+  if (localMatch) {
+    const [, yearText, monthText, dayText, hourText, minuteText] = localMatch;
+    const year = Number(yearText);
+    const month = Number(monthText);
+    const day = Number(dayText);
+    const hour = Number(hourText);
+    const minute = Number(minuteText);
+    const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+
+    if (
+      month < 1 || month > 12 ||
+      day < 1 || day > daysInMonth ||
+      hour < 0 || hour > 23 ||
+      minute < 0 || minute > 59
+    ) {
+      return null;
+    }
+
+    return new Date(
+      `${yearText}-${monthText}-${dayText}T${hourText}:${minuteText}:00-03:00`
+    );
+  }
+
+  const isoDate = new Date(trimmed);
+  return Number.isNaN(isoDate.getTime()) ? null : isoDate;
 };
 
 export const hasOnlyFields = (
