@@ -1,0 +1,35 @@
+meta {
+  name: POST away team
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/teams
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "tournament_id": {{crudTournamentId}},
+    "name": "Equipo Visitante",
+    "players_count": 11
+  }
+}
+
+script:post-response {
+  if (res.getStatus() === 201) {
+    bru.setVar("crudAwayId", res.getBody().data.id);
+  }
+}
+
+tests {
+  test("HTTP 201", function () {
+    expect(res.getStatus()).to.equal(201);
+  });
+}

@@ -1,0 +1,36 @@
+meta {
+  name: 07 Finalizar semifinal 1
+  type: http
+  seq: 7
+}
+
+put {
+  url: {{baseUrl}}/matches/{{semi1Id}}
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "tournament_id": {{flowTournamentId}},
+    "home_team_id": {{semi1HomeId}},
+    "away_team_id": {{semi1AwayId}},
+    "match_date": "{{resultDate}}",
+    "location": "Venado Tuerto",
+    "round": "semi_final",
+    "status": "finished",
+    "home_goals": 2,
+    "away_goals": 0
+  }
+}
+
+tests {
+  test("HTTP 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+  test("Gana el local", function () { expect(res.getBody().data.winner_team_id).to.equal(Number(bru.getVar("semi1HomeId"))); });
+}

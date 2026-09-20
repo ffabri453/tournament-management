@@ -1,0 +1,29 @@
+meta {
+  name: PUT team
+  type: http
+  seq: 9
+}
+
+put {
+  url: {{baseUrl}}/api/teams/{{crudHomeId}}
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "tournament_id": {{crudTournamentId}},
+    "name": "Equipo Local Editado",
+    "players_count": 14
+  }
+}
+
+tests {
+  test("HTTP 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+}

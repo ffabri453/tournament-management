@@ -1,0 +1,35 @@
+meta {
+  name: POST team
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/teams
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "tournament_id": {{crudTournamentId}},
+    "name": "Equipo Local",
+    "players_count": 11
+  }
+}
+
+script:post-response {
+  if (res.getStatus() === 201) {
+    bru.setVar("crudHomeId", res.getBody().data.id);
+  }
+}
+
+tests {
+  test("HTTP 201", function () {
+    expect(res.getStatus()).to.equal(201);
+  });
+}

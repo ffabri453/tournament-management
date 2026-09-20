@@ -3,6 +3,7 @@ import {
   DomainError,
   MATCH_ROUNDS,
   MATCH_STATUSES,
+  MAX_DATABASE_INTEGER,
   ROUNDS_BY_CAPACITY,
   hasOnlyFields,
   isNonNumericName,
@@ -38,7 +39,7 @@ const matchFields = [
 const parseId = (value: unknown): number | null => {
   if (typeof value !== 'string') return null;
   const id = Number(value);
-  return Number.isInteger(id) && id > 0 ? id : null;
+  return isPositiveInteger(id) ? id : null;
 };
 
 const parseGoals = (
@@ -47,8 +48,11 @@ const parseGoals = (
   errors: string[]
 ): number | null => {
   if (value === undefined || value === null) return null;
-  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
-    errors.push(`${field} must be null or a non-negative integer`);
+  if (
+    typeof value !== 'number' || !Number.isInteger(value) ||
+    value < 0 || value > MAX_DATABASE_INTEGER
+  ) {
+    errors.push(`${field} must be null or an integer between 0 and ${MAX_DATABASE_INTEGER}`);
     return null;
   }
   return value;
@@ -105,7 +109,7 @@ export const validateMatchBody = (
   }
 
   if (!isNonNumericName(body.location)) {
-    errors.push('location must be a non-empty, non-numeric string');
+    errors.push('location must be a non-empty, non-numeric string of at most 100 characters');
   }
 
   if (!MATCH_ROUNDS.includes(body.round as never)) {

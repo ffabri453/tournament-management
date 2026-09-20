@@ -4,6 +4,7 @@ import {
   DomainError,
   MatchRound,
   MatchStatus,
+  ROUNDS_BY_CAPACITY,
   TournamentCapacity,
   TournamentStatus
 } from '../domain/competitionRules';
@@ -80,9 +81,10 @@ export const getMatchValidationContext = async (
   homeTeamId: number,
   awayTeamId: number,
   round: MatchRound,
-  excludedMatchId: number | null
+  excludedMatchId: number | null,
+  queryClient: MatchQueryClient = pool
 ): Promise<MatchValidationContext | null> => {
-  const result = await pool.query<MatchValidationContext>(
+  const result = await queryClient.query<MatchValidationContext>(
     `SELECT t.max_teams,
             t.status AS tournament_status,
             EXISTS (
@@ -109,6 +111,27 @@ export const getMatchValidationContext = async (
     [tournamentId, homeTeamId, awayTeamId, round, excludedMatchId]
   );
   return result.rows[0] ?? null;
+};
+
+const validateLockedMatchRelationships = async (
+  client: MatchQueryClient,
+  match: MatchInput,
+  excludedMatchId: number | null
+): Promise<void> => {
+  // Revalida bajo el bloqueo del torneo: otra solicitud pudo cambiar los cruces.
+  const context = await getMatchValidationContext(
+    match.tournament_id, match.home_team_id, match.away_team_id,
+    match.round, excludedMatchId, client
+  );
+  if (!context || !context.home_team_exists || !context.away_team_exists) {
+    throw new DomainError('MATCH_PARTICIPANTS_CHANGED', 'Both teams must belong to the selected tournament');
+  }
+  if (!ROUNDS_BY_CAPACITY[context.max_teams]?.includes(match.round)) {
+    throw new DomainError('MATCH_ROUND_CHANGED', 'Round is not valid for this tournament capacity');
+  }
+  if (context.team_round_conflict) {
+    throw new DomainError('MATCH_TEAM_ROUND_CONFLICT', 'A team cannot play more than one match in the same round');
+  }
 };
 
 export const createMatch = async (
@@ -141,11 +164,20 @@ export const createMatch = async (
   return result.rows[0]!;
 };
 
-export const validateManualMatchCreation = (status: TournamentStatus): void => {
+export const validateManualMatchCreation = (
+  status: TournamentStatus,
+  match: Pick<MatchInput, 'round' | 'status'>
+): void => {
   if (status !== 'open') {
     throw new DomainError(
       'MANUAL_MATCH_CREATION_LOCKED',
       'Manual matches can only be created while the tournament is open'
+    );
+  }
+  if (match.round === 'final' && match.status === 'finished') {
+    throw new DomainError(
+      'MANUAL_FINISHED_FINAL_LOCKED',
+      'A final must be completed through the tournament flow, not created with finished status'
     );
   }
 };
@@ -168,7 +200,8 @@ export const createManualMatch = async (match: MatchInput): Promise<Match> => {
       throw new DomainError('TOURNAMENT_NOT_FOUND', 'Tournament not found');
     }
 
-    validateManualMatchCreation(tournament.status);
+    validateManualMatchCreation(tournament.status, match);
+    await validateLockedMatchRelationships(client, match, null);
 
     const created = await createMatch(match, client);
     await client.query('COMMIT');
@@ -350,6 +383,7 @@ export const updateMatch = async (id: number, match: MatchInput): Promise<Match 
     );
 
     const completesTournament = match.round === 'final' && match.status === 'finished';
+    await validateLockedMatchRelationships(client, match, id);
     let championTeamId: number | null = null;
 
     if (completesTournament) {

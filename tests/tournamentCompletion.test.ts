@@ -8,6 +8,7 @@ import { DomainError, TournamentStatus } from '../src/domain/competitionRules';
 import {
   Match,
   MatchInput,
+  createManualMatch,
   updateMatch,
   validateFinalCompletion
 } from '../src/models/Match';
@@ -57,6 +58,7 @@ class FakeFinalClient {
   public failOnMatchUpdate = false;
   public failOnTournamentUpdate = false;
   public winnerBelongs = true;
+  public teamRoundConflict = false;
   public finalMatchIds = [10];
 
   private stagedMatch: Match | null = null;
@@ -96,6 +98,20 @@ class FakeFinalClient {
     if (sql.includes('FROM tournaments') && sql.includes('ANY($1::integer[])')) {
       const ids = values[0] as number[];
       return this.result(ids.includes(this.tournament.id) ? [this.tournament] : []);
+    }
+
+    if (sql.startsWith('SELECT status FROM tournaments')) {
+      return this.result([this.tournament]);
+    }
+
+    if (sql.startsWith('SELECT t.max_teams')) {
+      return this.result([{
+        max_teams: 4,
+        tournament_status: this.tournament.status,
+        home_team_exists: true,
+        away_team_exists: true,
+        team_round_conflict: this.teamRoundConflict
+      }]);
     }
 
     if (sql.includes("round = 'final'") && sql.includes('ORDER BY id ASC')) {
@@ -361,6 +377,37 @@ test('duplicate completion cannot replace the champion', async () => {
   );
   assert.equal(client.tournament.status, 'finished');
   assert.equal(client.tournament.champion_team_id, 7);
+});
+
+test('match update rechecks round participants after acquiring the tournament lock', async () => {
+  const client = new FakeFinalClient(createFinalFixture(), completionTournament());
+  client.teamRoundConflict = true;
+  await assert.rejects(
+    withFakeClient(client, () => updateMatch(client.match.id, createFinishedFinalInput())),
+    (error: unknown) => error instanceof DomainError && error.code === 'MATCH_TEAM_ROUND_CONFLICT'
+  );
+  const lockIndex = client.commands.findIndex(sql => sql.includes('ANY($1::integer[])'));
+  const validationIndex = client.commands.findIndex(sql => sql.startsWith('SELECT t.max_teams'));
+  assert.ok(lockIndex >= 0 && validationIndex > lockIndex);
+  assert.ok(client.commands.includes('ROLLBACK'));
+  assert.ok(!client.commands.some(sql => sql.startsWith('UPDATE matches')));
+});
+
+test('manual creation rechecks round participants before inserting', async () => {
+  const client = new FakeFinalClient(createFinalFixture(), completionTournament('open'));
+  client.teamRoundConflict = true;
+  await assert.rejects(
+    withFakeClient(client, () => createManualMatch({
+      ...createFinishedFinalInput(), status: 'scheduled',
+      home_goals: null, away_goals: null, winner_team_id: null
+    })),
+    (error: unknown) => error instanceof DomainError && error.code === 'MATCH_TEAM_ROUND_CONFLICT'
+  );
+  const lockIndex = client.commands.findIndex(sql => sql.startsWith('SELECT status FROM tournaments'));
+  const validationIndex = client.commands.findIndex(sql => sql.startsWith('SELECT t.max_teams'));
+  assert.ok(lockIndex >= 0 && validationIndex > lockIndex);
+  assert.ok(client.commands.includes('ROLLBACK'));
+  assert.ok(!client.commands.some(sql => sql.startsWith('INSERT INTO matches')));
 });
 
 test('multiple final matches abort before any update', async () => {

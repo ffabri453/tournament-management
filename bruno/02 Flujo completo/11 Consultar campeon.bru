@@ -1,0 +1,18 @@
+meta {
+  name: 11 Consultar campeon
+  type: http
+  seq: 11
+}
+
+get {
+  url: {{baseUrl}}/tournaments/{{flowTournamentId}}
+  body: none
+  auth: none
+}
+
+tests {
+  test("HTTP 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+  test("Torneo terminado con campeon", function () { expect(res.getBody().status).to.equal("finished"); expect(res.getBody().champion_team_id).to.equal(Number(bru.getVar("championId"))); });
+}

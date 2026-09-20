@@ -1,0 +1,17 @@
+meta {
+  name: Reject deleting referenced team
+  type: http
+  seq: 21
+}
+
+delete {
+  url: {{baseUrl}}/api/teams/{{crudHomeId}}
+  body: none
+  auth: none
+}
+
+tests {
+  test("HTTP 409", function () {
+    expect(res.getStatus()).to.equal(409);
+  });
+}

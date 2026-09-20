@@ -74,15 +74,20 @@ export const isPlainObject = (value: unknown): value is Record<string, unknown> 
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 };
 
+export const MAX_DATABASE_INTEGER = 2147483647;
+
 export const isPositiveInteger = (value: unknown): value is number => {
-  return typeof value === 'number' && Number.isInteger(value) && value > 0;
+  return typeof value === 'number' && Number.isInteger(value) &&
+    value > 0 && value <= MAX_DATABASE_INTEGER;
 };
 
 export const isNonNumericName = (value: unknown): value is string => {
   if (typeof value !== 'string') return false;
 
   const trimmed = value.trim();
-  return trimmed.length > 0 && !/^\d+(?:[.,]\d+)?$/.test(trimmed);
+  return trimmed.length > 0 && Array.from(trimmed).length <= 100 &&
+    !trimmed.includes('\0') &&
+    !/^[+-]?(?:\d+(?:[.,]\d*)?|[.,]\d+)(?:[eE][+-]?\d+)?$/.test(trimmed);
 };
 
 export const parseMatchDate = (value: unknown): Date | null => {
@@ -90,32 +95,31 @@ export const parseMatchDate = (value: unknown): Date | null => {
 
   const trimmed = value.trim();
   const localMatch = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})$/.exec(trimmed);
+  const isoMatch = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?(Z|[+-]\d{2}:\d{2})$/.exec(trimmed);
+  const parts = localMatch ?? isoMatch;
+  if (!parts) return null;
 
-  if (localMatch) {
-    const [, yearText, monthText, dayText, hourText, minuteText] = localMatch;
-    const year = Number(yearText);
-    const month = Number(monthText);
-    const day = Number(dayText);
-    const hour = Number(hourText);
-    const minute = Number(minuteText);
-    const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const [, yearText, monthText, dayText, hourText, minuteText] = parts;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
 
-    if (
-      month < 1 || month > 12 ||
-      day < 1 || day > daysInMonth ||
-      hour < 0 || hour > 23 ||
-      minute < 0 || minute > 59
-    ) {
-      return null;
-    }
-
-    return new Date(
-      `${yearText}-${monthText}-${dayText}T${hourText}:${minuteText}:00-03:00`
-    );
+  if (
+    year < 1 || month < 1 || month > 12 ||
+    day < 1 || day > daysInMonth ||
+    hour < 0 || hour > 23 ||
+    minute < 0 || minute > 59 || Number(parts[6] ?? 0) > 59
+  ) {
+    return null;
   }
 
-  const isoDate = new Date(trimmed);
-  return Number.isNaN(isoDate.getTime()) ? null : isoDate;
+  const date = new Date(localMatch
+    ? `${yearText}-${monthText}-${dayText}T${hourText}:${minuteText}:00-03:00`
+    : trimmed);
+  return Number.isNaN(date.getTime()) ? null : date;
 };
 
 export const hasOnlyFields = (

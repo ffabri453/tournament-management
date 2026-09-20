@@ -1,0 +1,35 @@
+meta {
+  name: 03 Crear equipo 2
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/teams
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "tournament_id": {{flowTournamentId}},
+    "name": "Equipo Beta",
+    "players_count": 7
+  }
+}
+
+script:post-response {
+  if (res.getStatus() === 201) {
+    bru.setVar("flowTeam2Id", res.getBody().data.id);
+  }
+}
+
+tests {
+  test("HTTP 201", function () {
+    expect(res.getStatus()).to.equal(201);
+  });
+}

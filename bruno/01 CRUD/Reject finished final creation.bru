@@ -1,0 +1,35 @@
+meta {
+  name: Reject finished final creation
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{baseUrl}}/matches
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "tournament_id": {{crudTournamentId}},
+    "home_team_id": {{crudHomeId}},
+    "away_team_id": {{crudAwayId}},
+    "match_date": "{{resultDate}}",
+    "location": "Cancha Uno",
+    "round": "final",
+    "status": "finished",
+    "home_goals": 2,
+    "away_goals": 0
+  }
+}
+
+tests {
+  test("HTTP 409", function () {
+    expect(res.getStatus()).to.equal(409);
+  });
+}

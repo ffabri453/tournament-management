@@ -1,0 +1,17 @@
+meta {
+  name: GET deleted tournament
+  type: http
+  seq: 27
+}
+
+get {
+  url: {{baseUrl}}/tournaments/{{crudTournamentId}}
+  body: none
+  auth: none
+}
+
+tests {
+  test("HTTP 404", function () {
+    expect(res.getStatus()).to.equal(404);
+  });
+}

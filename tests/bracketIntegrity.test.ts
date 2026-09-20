@@ -165,13 +165,13 @@ test('teams can only be deleted while their tournament is open', () => {
 });
 
 test('manual match creation is limited to open tournaments', () => {
-  assert.doesNotThrow(() => validateManualMatchCreation('open'));
+  assert.doesNotThrow(() => validateManualMatchCreation('open', matchFixture));
   assertDomainCode(
-    () => validateManualMatchCreation('in_progress'),
+    () => validateManualMatchCreation('in_progress', matchFixture),
     'MANUAL_MATCH_CREATION_LOCKED'
   );
   assertDomainCode(
-    () => validateManualMatchCreation('finished'),
+    () => validateManualMatchCreation('finished', matchFixture),
     'MANUAL_MATCH_CREATION_LOCKED'
   );
 });

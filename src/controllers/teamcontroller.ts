@@ -19,7 +19,7 @@ const teamFields = ['tournament_id', 'name', 'players_count'];
 
 const parseId = (value: string): number | null => {
   const id = Number(value);
-  return Number.isInteger(id) && id > 0 ? id : null;
+  return isPositiveInteger(id) ? id : null;
 };
 
 export const validateTeamBody = (
@@ -43,7 +43,7 @@ export const validateTeamBody = (
     errors.push('tournament_id must be a positive integer');
   }
   if (!isNonNumericName(body.name)) {
-    errors.push('name must be a non-empty, non-numeric string');
+    errors.push('name must be a non-empty, non-numeric string of at most 100 characters');
   }
   if (!isPositiveInteger(body.players_count)) {
     errors.push('players_count must be a positive integer');

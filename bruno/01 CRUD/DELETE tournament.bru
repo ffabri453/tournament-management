@@ -1,0 +1,17 @@
+meta {
+  name: DELETE tournament
+  type: http
+  seq: 26
+}
+
+delete {
+  url: {{baseUrl}}/tournaments/{{crudTournamentId}}
+  body: none
+  auth: none
+}
+
+tests {
+  test("HTTP 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+}

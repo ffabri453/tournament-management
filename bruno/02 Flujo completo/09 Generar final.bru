@@ -1,0 +1,37 @@
+meta {
+  name: 09 Generar final
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/tournaments/{{flowTournamentId}}/next-round
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "match_date": "{{futureDate}}"
+  }
+}
+
+script:post-response {
+  if (res.getStatus() === 201) {
+    const final = res.getBody().data.matches[0];
+    bru.setVar("finalId", final.id);
+    bru.setVar("finalHomeId", final.home_team_id);
+    bru.setVar("finalAwayId", final.away_team_id);
+  }
+}
+
+tests {
+  test("HTTP 201", function () {
+    expect(res.getStatus()).to.equal(201);
+  });
+  test("Final entre ganadores", function () { const final = res.getBody().data.matches[0]; expect(final.round).to.equal("final"); expect(final.home_team_id).to.equal(Number(bru.getVar("semi1HomeId"))); expect(final.away_team_id).to.equal(Number(bru.getVar("semi2AwayId"))); });
+}

@@ -1,0 +1,17 @@
+meta {
+  name: GET all matches
+  type: http
+  seq: 12
+}
+
+get {
+  url: {{baseUrl}}/matches
+  body: none
+  auth: none
+}
+
+tests {
+  test("HTTP 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+}

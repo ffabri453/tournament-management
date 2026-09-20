@@ -1,0 +1,17 @@
+meta {
+  name: GET tournament by id
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/tournaments/{{crudTournamentId}}
+  body: none
+  auth: none
+}
+
+tests {
+  test("HTTP 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+}

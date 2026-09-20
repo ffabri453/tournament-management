@@ -1,0 +1,17 @@
+meta {
+  name: GET match by id
+  type: http
+  seq: 13
+}
+
+get {
+  url: {{baseUrl}}/matches/{{crudMatchId}}
+  body: none
+  auth: none
+}
+
+tests {
+  test("HTTP 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+}

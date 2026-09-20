@@ -1,0 +1,43 @@
+meta {
+  name: POST tournament
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/tournaments
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "Copa CRUD {{crudRunId}}",
+    "location": "Venado Tuerto",
+    "rules": "official_rules_football_7",
+    "format": "knockout",
+    "modality": "futbol_7",
+    "max_teams": 8,
+    "status": "open"
+  }
+}
+
+script:pre-request {
+  bru.setVar("crudRunId", Date.now() + "-" + Math.floor(Math.random() * 100000));
+}
+
+script:post-response {
+  if (res.getStatus() === 201) {
+    bru.setVar("crudTournamentId", res.getBody().id);
+  }
+}
+
+tests {
+  test("HTTP 201", function () {
+    expect(res.getStatus()).to.equal(201);
+  });
+}

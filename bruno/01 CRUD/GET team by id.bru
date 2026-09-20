@@ -1,0 +1,17 @@
+meta {
+  name: GET team by id
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{baseUrl}}/api/teams/{{crudHomeId}}
+  body: none
+  auth: none
+}
+
+tests {
+  test("HTTP 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+}

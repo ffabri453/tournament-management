@@ -16,6 +16,21 @@ API REST en TypeScript, Express y PostgreSQL para administrar torneos regionales
 
 El contenedor aplica `src/db/schema.sql` automáticamente sólo cuando PostgreSQL inicializa un volumen nuevo. No elimina ni modifica volúmenes existentes.
 
+Si ya tenés una base, aplicá las migraciones pendientes antes de iniciar la API. En particular, el flujo con campeón requiere `005_tournament_champion.sql`; encender Docker no actualiza un volumen existente.
+
+## Pruebas con Bruno
+
+Abrí la colección de la carpeta `bruno`, con el backend en `http://localhost:3000`.
+
+- `01 CRUD`: ejecutá la carpeta completa en orden. Crea sus propios torneos, equipos y partidos, verifica las operaciones y elimina sus datos al terminar. Incluye rechazos esperados `400`, `404` y `409`, que tienen tests para distinguirlos de fallos.
+- `02 Flujo completo`: ejecutá del 01 al 11 para crear un torneo de fútbol 5, registrar cuatro equipos, iniciar las semifinales, cargar resultados, generar la final y consultar el campeón. Los pasos 12 a 14 comprueban protecciones y esperan `409`.
+
+Los scripts guardan los IDs en variables de ejecución y generan nombres únicos y fechas dinámicas. También podés enviar las solicitudes una por una respetando ese orden. Para repetir, comenzá nuevamente por la creación del torneo; no hace falta editar IDs. Cada ejecución del flujo completo deja un torneo `Copa Bruno ...` terminado como ejemplo consultable.
+
+En estas pruebas el PUT de resultado coloca la fecha un minuto en el pasado para simular un partido jugado, mientras que el inicio y las rondas se programan para mañana.
+
+El botón de ejecutar toda la colección recorre ambas carpetas. Desde Bruno CLI, dentro de `bruno`: `bru run --bail`. El runner permite indicar otro servidor con `--env-var baseUrl=http://localhost:3000`.
+
 ## Scripts
 
 - `npm run dev`: servidor con recarga.
@@ -57,7 +72,7 @@ Los equipos no tienen ciudad ni capitán. El nombre debe ser texto no numérico 
 | `futbol_7` | 7 | 14 |
 | `futbol_11` | 11 | 22 |
 
-Sólo se pueden registrar o editar equipos mientras el torneo esté `open`, y nunca se puede superar `max_teams`.
+Sólo se pueden registrar equipos o cambiar su estructura mientras el torneo esté `open`, y nunca se puede superar `max_teams`. Después del inicio, únicamente se permite cambiar su nombre.
 
 ### Partidos
 
@@ -68,6 +83,8 @@ Sólo se pueden registrar o editar equipos mientras el torneo esté `open`, y nu
 - Ambos equipos deben existir, ser distintos y pertenecer al torneo.
 - Los goles son enteros no negativos.
 - En un partido `finished`, el ganador se calcula automáticamente.
+- El POST no permite crear una final ya terminada: debe finalizarse por PUT dentro del flujo del torneo para guardar el campeón de forma atómica.
+- Los nombres de torneos/equipos y la ubicación del partido admiten hasta 100 caracteres, sin contar espacios exteriores.
 - Si los goles son distintos, `home_penalties` y `away_penalties` deben ser `null`.
 - Si los goles terminan empatados, ambos penales son obligatorios, deben ser enteros no negativos y no pueden volver a empatar.
 - El equipo con más penales se guarda como `winner_team_id` y avanza a la siguiente ronda.

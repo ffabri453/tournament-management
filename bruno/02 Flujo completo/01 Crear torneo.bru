@@ -1,0 +1,44 @@
+meta {
+  name: 01 Crear torneo
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/tournaments
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "Copa Bruno {{flowRunId}}",
+    "location": "Venado Tuerto",
+    "rules": "official_rules_football_5",
+    "format": "knockout",
+    "modality": "futbol_5",
+    "max_teams": 4,
+    "status": "open"
+  }
+}
+
+script:pre-request {
+  bru.setVar("flowRunId", Date.now() + "-" + Math.floor(Math.random() * 100000));
+}
+
+script:post-response {
+  if (res.getStatus() === 201) {
+    bru.setVar("flowTournamentId", res.getBody().id);
+  }
+}
+
+tests {
+  test("HTTP 201", function () {
+    expect(res.getStatus()).to.equal(201);
+  });
+  test("Torneo abierto sin campeon", function () { expect(res.getBody().status).to.equal("open"); expect(res.getBody().champion_team_id).to.equal(null); });
+}

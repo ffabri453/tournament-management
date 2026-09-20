@@ -9,6 +9,7 @@ import {
   hasOnlyFields,
   isNonNumericName,
   isPlainObject,
+  isPositiveInteger,
   parseMatchDate
 } from '../domain/competitionRules';
 import {
@@ -31,7 +32,7 @@ const startFields = ['match_date'];
 const parseId = (value: unknown): number | null => {
   if (typeof value !== 'string') return null;
   const id = Number(value);
-  return Number.isInteger(id) && id > 0 ? id : null;
+  return isPositiveInteger(id) ? id : null;
 };
 
 export const validateTournament = (
@@ -63,7 +64,7 @@ export const validateTournament = (
 
   if (body.name !== undefined) {
     if (!isNonNumericName(body.name)) {
-      errors.push('name must be a non-empty, non-numeric string');
+      errors.push('name must be a non-empty, non-numeric string of at most 100 characters');
     } else {
       data.name = body.name.trim();
     }

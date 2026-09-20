@@ -1,0 +1,39 @@
+meta {
+  name: POST match
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/matches
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "tournament_id": {{crudTournamentId}},
+    "home_team_id": {{crudHomeId}},
+    "away_team_id": {{crudAwayId}},
+    "match_date": "{{futureDate}}",
+    "location": "Cancha Uno",
+    "round": "quarter_final",
+    "status": "scheduled"
+  }
+}
+
+script:post-response {
+  if (res.getStatus() === 201) {
+    bru.setVar("crudMatchId", res.getBody().data.id);
+  }
+}
+
+tests {
+  test("HTTP 201", function () {
+    expect(res.getStatus()).to.equal(201);
+  });
+}
