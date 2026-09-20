@@ -30,6 +30,7 @@ export interface Tournament {
   modality: TournamentModality;
   max_teams: TournamentCapacity;
   status: TournamentStatus;
+  champion_team_id: number | null;
   created_at: Date;
 }
 
@@ -71,7 +72,8 @@ const tournamentColumns: Record<keyof UpdateTournamentInput, string> = {
 };
 
 const tournamentSelect = `
-  id, name, location, rules, format, modality, max_teams, status, created_at
+  id, name, location, rules, format, modality, max_teams, status,
+  champion_team_id, created_at
 `;
 
 const teamSelect = 'id, tournament_id, name, players_count, created_at';

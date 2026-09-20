@@ -33,6 +33,7 @@ El contenedor aplica `src/db/schema.sql` automáticamente sólo cuando PostgreSQ
 - Modalidades: `futbol_5`, `futbol_7`, `futbol_11`.
 - Capacidad máxima: `4`, `8`, `16` o `32` equipos.
 - Estados: `open`, `in_progress`, `finished`.
+- `champion_team_id` permanece `null` hasta que termina la final y se completa automáticamente.
 - El nombre no puede ser vacío ni exclusivamente numérico.
 - El mismo nombre no puede repetirse en una localidad, ignorando mayúsculas y espacios exteriores.
 
@@ -83,6 +84,8 @@ Se conservaron las rutas existentes para no romper consumidores actuales.
 
 Una vez iniciado el torneo, el CRUD general no permite cambiar su estructura, agregar o eliminar participantes, crear partidos manuales, alterar la estructura de los cruces ni modificar o borrar partidos finalizados. Los resultados de partidos todavía no finalizados se cargan mediante el CRUD existente.
 
+Al finalizar correctamente el partido `final`, su `winner_team_id` se guarda automáticamente como `champion_team_id` y el torneo pasa a `finished`. El campeón y el estado no pueden modificarse mediante el CRUD general.
+
 ## Decisiones preparadas para una expansión
 
 El `CHECK` de localidades es adecuado mientras el alcance sea regional y la lista cambie muy poco. Si la aplicación crece, conviene reemplazarlo por una tabla `locations` administrable, con identificador estable, nombre, provincia, país y estado activo; los torneos deberían guardar `location_id`. Así se agregan localidades sin desplegar una migración por cada cambio.
@@ -98,6 +101,7 @@ Get-Content -Raw .\src\db\migrations\001_tournament_name_location_and_team_colum
 Get-Content -Raw .\src\db\migrations\002_domain_validation.sql | docker compose -f .\docker-compose\docker-compose.yml exec -T postgres psql -U postgres -d torneos_db -v ON_ERROR_STOP=1
 Get-Content -Raw .\src\db\migrations\003_penalty_shootouts.sql | docker compose -f .\docker-compose\docker-compose.yml exec -T postgres psql -U postgres -d torneos_db -v ON_ERROR_STOP=1
 Get-Content -Raw .\src\db\migrations\004_rename_official_rules.sql | docker compose -f .\docker-compose\docker-compose.yml exec -T postgres psql -U postgres -d torneos_db -v ON_ERROR_STOP=1
+Get-Content -Raw .\src\db\migrations\005_tournament_champion.sql | docker compose -f .\docker-compose\docker-compose.yml exec -T postgres psql -U postgres -d torneos_db -v ON_ERROR_STOP=1
 ```
 
 La migración `002` instala los nuevos `CHECK` como `NOT VALID`: protege inmediatamente las filas nuevas o modificadas sin borrar datos históricos incompatibles. Después de corregir datos antiguos, cada restricción puede validarse con `ALTER TABLE ... VALIDATE CONSTRAINT ...`.

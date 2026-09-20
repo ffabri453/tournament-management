@@ -23,6 +23,8 @@ CREATE TABLE IF NOT EXISTS tournaments (
 
     status VARCHAR(20) NOT NULL DEFAULT 'open',    -- Estado del torneo: open, in_progress o finished.
 
+    champion_team_id INTEGER DEFAULT NULL,         -- Equipo campeón. Se define al finalizar la final.
+
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                                       -- Fecha y hora en que se creó el torneo.
 
@@ -41,6 +43,13 @@ CREATE TABLE IF NOT EXISTS tournaments (
     CONSTRAINT chk_tournament_status
         CHECK (status IN ('open', 'in_progress', 'finished')),
                                                       -- Evita estados inválidos para el torneo.
+
+    CONSTRAINT chk_tournament_champion_consistency
+        CHECK (
+            (status = 'finished' AND champion_team_id IS NOT NULL)
+            OR (status IN ('open', 'in_progress') AND champion_team_id IS NULL)
+        ),
+                                                      -- El campeón sólo existe cuando el torneo está finalizado.
 
     CONSTRAINT chk_tournament_name
         CHECK (
@@ -111,6 +120,13 @@ ON teams (
     tournament_id,
     LOWER(BTRIM(name))
 );
+
+ALTER TABLE tournaments
+    ADD CONSTRAINT fk_tournament_champion
+        FOREIGN KEY (champion_team_id, id)
+        REFERENCES teams(id, tournament_id)
+        ON DELETE RESTRICT;
+                                                      -- El campeón debe pertenecer al mismo torneo y conservarse.
 
 
 -- =========================================================

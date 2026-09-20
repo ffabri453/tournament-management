@@ -240,6 +240,68 @@ export const validateMatchDeletable = (
   }
 };
 
+interface FinalCompletionTournament {
+  id: number;
+  status: TournamentStatus;
+  champion_team_id: number | null;
+}
+
+export const validateFinalCompletion = (
+  matchId: number,
+  finalMatch: MatchInput,
+  tournament: FinalCompletionTournament,
+  finalMatchIds: number[],
+  winnerBelongsToTournament: boolean
+): number => {
+  if (finalMatch.round !== 'final' || finalMatch.status !== 'finished') {
+    throw new DomainError(
+      'INVALID_FINAL_COMPLETION',
+      'Only a finished final match can complete a tournament'
+    );
+  }
+
+  if (finalMatch.tournament_id !== tournament.id) {
+    throw new DomainError(
+      'FINAL_TOURNAMENT_MISMATCH',
+      'The final match does not belong to the locked tournament'
+    );
+  }
+
+  if (tournament.status !== 'in_progress' || tournament.champion_team_id !== null) {
+    throw new DomainError(
+      'TOURNAMENT_COMPLETION_CONFLICT',
+      'Tournament is not available for final completion'
+    );
+  }
+
+  if (finalMatchIds.length !== 1 || finalMatchIds[0] !== matchId) {
+    throw new DomainError(
+      'INCONSISTENT_FINAL_MATCHES',
+      'Tournament must contain exactly one final match'
+    );
+  }
+
+  const winner = finalMatch.winner_team_id;
+  if (
+    winner === null ||
+    (winner !== finalMatch.home_team_id && winner !== finalMatch.away_team_id)
+  ) {
+    throw new DomainError(
+      'INVALID_FINAL_WINNER',
+      'Final winner must be one of the match participants'
+    );
+  }
+
+  if (!winnerBelongsToTournament) {
+    throw new DomainError(
+      'FINAL_WINNER_TOURNAMENT_MISMATCH',
+      'Final winner does not belong to the tournament'
+    );
+  }
+
+  return winner;
+};
+
 export const updateMatch = async (id: number, match: MatchInput): Promise<Match | null> => {
   const client = await pool.connect();
 
@@ -262,30 +324,61 @@ export const updateMatch = async (id: number, match: MatchInput): Promise<Match 
     const tournamentIds = [...new Set([current.tournament_id, match.tournament_id])].sort(
       (left, right) => left - right
     );
-    const tournamentResult = await client.query<{ id: number; status: TournamentStatus }>(
-      `SELECT id, status
+    const tournamentResult = await client.query<FinalCompletionTournament>(
+      `SELECT id, status, champion_team_id
        FROM tournaments
        WHERE id = ANY($1::integer[])
        ORDER BY id ASC
        FOR UPDATE`,
       [tournamentIds]
     );
-    const statuses = new Map(
-      tournamentResult.rows.map((tournament) => [tournament.id, tournament.status])
+    const tournaments = new Map(
+      tournamentResult.rows.map((tournament) => [tournament.id, tournament])
     );
-    const currentTournamentStatus = statuses.get(current.tournament_id);
-    const targetTournamentStatus = statuses.get(match.tournament_id);
+    const currentTournament = tournaments.get(current.tournament_id);
+    const targetTournament = tournaments.get(match.tournament_id);
 
-    if (!currentTournamentStatus || !targetTournamentStatus) {
+    if (!currentTournament || !targetTournament) {
       throw new DomainError('TOURNAMENT_NOT_FOUND', 'Tournament not found');
     }
 
     validateMatchEditable(
       current,
       match,
-      currentTournamentStatus,
-      targetTournamentStatus
+      currentTournament.status,
+      targetTournament.status
     );
+
+    const completesTournament = match.round === 'final' && match.status === 'finished';
+    let championTeamId: number | null = null;
+
+    if (completesTournament) {
+      const finalMatchesResult = await client.query<{ id: number }>(
+        `SELECT id
+         FROM matches
+         WHERE tournament_id = $1 AND round = 'final'
+         ORDER BY id ASC
+         FOR UPDATE`,
+        [match.tournament_id]
+      );
+      const winnerBelongsResult = await client.query<{ exists: boolean }>(
+        `SELECT EXISTS (
+           SELECT 1
+           FROM teams
+           WHERE id = $1 AND tournament_id = $2
+         ) AS exists`,
+        [match.winner_team_id, match.tournament_id]
+      );
+
+      // Verifica que la final y su ganador sean consistentes antes de cerrar el torneo.
+      championTeamId = validateFinalCompletion(
+        id,
+        match,
+        currentTournament,
+        finalMatchesResult.rows.map((finalMatch) => finalMatch.id),
+        winnerBelongsResult.rows[0]?.exists ?? false
+      );
+    }
 
     const result = await client.query<Match>(
       `UPDATE matches
@@ -319,6 +412,25 @@ export const updateMatch = async (id: number, match: MatchInput): Promise<Match 
         id
       ]
     );
+
+    if (championTeamId !== null) {
+      const completedTournament = await client.query<{ id: number }>(
+        `UPDATE tournaments
+         SET champion_team_id = $2, status = 'finished'
+         WHERE id = $1
+           AND status = 'in_progress'
+           AND champion_team_id IS NULL
+         RETURNING id`,
+        [match.tournament_id, championTeamId]
+      );
+
+      if (!completedTournament.rows[0]) {
+        throw new DomainError(
+          'TOURNAMENT_COMPLETION_CONFLICT',
+          'Tournament could not be completed'
+        );
+      }
+    }
 
     await client.query('COMMIT');
     return result.rows[0] ?? null;

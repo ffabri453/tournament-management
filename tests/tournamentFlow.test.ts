@@ -33,6 +33,7 @@ const createTournamentFixture = (
   modality: 'futbol_7',
   max_teams: maxTeams,
   status,
+  champion_team_id: null,
   created_at: new Date('2026-01-01T00:00:00Z')
 });
 
