@@ -58,6 +58,18 @@ export const INITIAL_ROUND_BY_CAPACITY: Record<TournamentCapacity, MatchRound> =
   32: 'round_of_32'
 };
 
+export const NEXT_ROUND_BY_ROUND: Record<MatchRound, MatchRound | null> = {
+  round_of_32: 'round_of_16',
+  round_of_16: 'quarter_final',
+  quarter_final: 'semi_final',
+  semi_final: 'final',
+  final: null
+};
+
+export const getNextRound = (round: MatchRound): MatchRound | null => {
+  return NEXT_ROUND_BY_ROUND[round];
+};
+
 export const isPlainObject = (value: unknown): value is Record<string, unknown> => {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 };

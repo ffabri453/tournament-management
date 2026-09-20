@@ -2,7 +2,9 @@ import pool from '../config/db';
 import {
   DomainError,
   INITIAL_ROUND_BY_CAPACITY,
+  MATCH_ROUNDS,
   PLAYER_LIMITS,
+  ROUNDS_BY_CAPACITY,
   RULES_BY_MODALITY,
   TOURNAMENT_CAPACITIES,
   TOURNAMENT_LOCATIONS,
@@ -12,6 +14,7 @@ import {
   TournamentLocation,
   TournamentModality,
   TournamentStatus,
+  getNextRound,
   isNonNumericName,
   isPositiveInteger
 } from '../domain/competitionRules';
@@ -47,6 +50,14 @@ export interface StartTournamentInput {
 
 export interface StartTournamentResult {
   tournament: Tournament;
+  matches: Match[];
+}
+
+export type AdvanceTournamentRoundInput = StartTournamentInput;
+
+export interface AdvanceTournamentRoundResult {
+  current_round: MatchRound;
+  next_round: MatchRound;
   matches: Match[];
 }
 
@@ -169,6 +180,185 @@ export const generateInitialMatches = (
       match_date: matchDate,
       location: tournament.location,
       round: initialRound,
+      home_goals: null,
+      away_goals: null,
+      home_penalties: null,
+      away_penalties: null,
+      winner_team_id: null,
+      status: 'scheduled'
+    });
+  }
+
+  return matches;
+};
+
+export interface RoundProgression {
+  currentRound: MatchRound;
+  nextRound: MatchRound;
+  roundMatches: Match[];
+  roundWinners: number[];
+}
+
+export const validateRoundProgression = (
+  tournament: Tournament,
+  tournamentMatches: Match[]
+): RoundProgression => {
+  if (tournament.status !== 'in_progress') {
+    throw new DomainError(
+      'TOURNAMENT_NOT_IN_PROGRESS',
+      `Tournament cannot advance from status ${tournament.status}`
+    );
+  }
+
+  if (tournamentMatches.length === 0) {
+    throw new DomainError(
+      'TOURNAMENT_MATCHES_NOT_FOUND',
+      'Tournament has no matches to advance'
+    );
+  }
+
+  const allowedRounds = ROUNDS_BY_CAPACITY[tournament.max_teams];
+  if (!allowedRounds) {
+    throw new DomainError(
+      'UNSUPPORTED_TOURNAMENT_CAPACITY',
+      `Tournament capacity must be one of: ${TOURNAMENT_CAPACITIES.join(', ')}`
+    );
+  }
+
+  const presentRounds = new Set<MatchRound>();
+  for (const match of tournamentMatches) {
+    if (
+      match.tournament_id !== tournament.id ||
+      !MATCH_ROUNDS.includes(match.round) ||
+      !allowedRounds.includes(match.round)
+    ) {
+      throw new DomainError(
+        'INCOHERENT_TOURNAMENT_BRACKET',
+        'Tournament bracket contains an invalid round or match'
+      );
+    }
+    presentRounds.add(match.round);
+  }
+
+  const mostAdvancedIndex = allowedRounds.reduce(
+    (currentIndex, round, index) => presentRounds.has(round) ? index : currentIndex,
+    -1
+  );
+
+  if (mostAdvancedIndex < 0) {
+    throw new DomainError(
+      'INCOHERENT_TOURNAMENT_BRACKET',
+      'Tournament bracket does not contain a valid round'
+    );
+  }
+
+  // Las rondas existentes deben formar una secuencia continua desde la ronda inicial.
+  for (let index = 0; index <= mostAdvancedIndex; index += 1) {
+    if (!presentRounds.has(allowedRounds[index]!)) {
+      throw new DomainError(
+        'INCOHERENT_TOURNAMENT_BRACKET',
+        'Tournament bracket has skipped rounds'
+      );
+    }
+  }
+
+  const currentRound = allowedRounds[mostAdvancedIndex]!;
+  const nextRound = getNextRound(currentRound);
+  if (!nextRound) {
+    throw new DomainError(
+      'TOURNAMENT_ALREADY_AT_FINAL',
+      'The tournament is already at the final round'
+    );
+  }
+
+  if (presentRounds.has(nextRound)) {
+    throw new DomainError(
+      'NEXT_ROUND_ALREADY_EXISTS',
+      `Tournament already has matches for ${nextRound}`
+    );
+  }
+
+  for (let index = 0; index <= mostAdvancedIndex; index += 1) {
+    const round = allowedRounds[index]!;
+    const expectedCount = tournament.max_teams / (2 ** (index + 1));
+    const actualCount = tournamentMatches.filter((match) => match.round === round).length;
+    if (actualCount !== expectedCount) {
+      throw new DomainError(
+        'ROUND_MATCH_COUNT_MISMATCH',
+        `Round ${round} requires ${expectedCount} matches and has ${actualCount}`
+      );
+    }
+  }
+
+  const roundMatches = tournamentMatches.filter((match) => match.round === currentRound);
+  const roundWinners: number[] = [];
+  const uniqueWinners = new Set<number>();
+
+  // Obtiene los ganadores respetando el orden de los partidos.
+  for (const match of roundMatches) {
+    if (match.status !== 'finished' || match.winner_team_id === null) {
+      throw new DomainError(
+        'CURRENT_ROUND_INCOMPLETE',
+        `Every match in ${currentRound} must be finished with a winner`
+      );
+    }
+
+    const winner = match.winner_team_id;
+    if (winner !== match.home_team_id && winner !== match.away_team_id) {
+      throw new DomainError(
+        'INVALID_MATCH_WINNER',
+        `Winner of match ${match.id} is not one of its participants`
+      );
+    }
+
+    if (uniqueWinners.has(winner)) {
+      throw new DomainError(
+        'DUPLICATE_ROUND_WINNER',
+        `Team ${winner} cannot win more than one match in the same round`
+      );
+    }
+
+    uniqueWinners.add(winner);
+    roundWinners.push(winner);
+  }
+
+  const expectedWinners = tournament.max_teams / (2 ** (mostAdvancedIndex + 1));
+  if (roundWinners.length !== expectedWinners || roundWinners.length % 2 !== 0) {
+    throw new DomainError(
+      'ROUND_WINNER_COUNT_MISMATCH',
+      `Round ${currentRound} requires ${expectedWinners} unique winners`
+    );
+  }
+
+  return { currentRound, nextRound, roundMatches, roundWinners };
+};
+
+export const generateNextRoundMatches = (
+  tournament: Tournament,
+  roundWinners: number[],
+  nextRound: MatchRound,
+  matchDate: Date
+): MatchInput[] => {
+  const matches: MatchInput[] = [];
+
+  for (let index = 0; index < roundWinners.length; index += 2) {
+    const homeTeamId = roundWinners[index];
+    const awayTeamId = roundWinners[index + 1];
+
+    if (!homeTeamId || !awayTeamId || homeTeamId === awayTeamId) {
+      throw new DomainError(
+        'INVALID_NEXT_ROUND_PAIRING',
+        'Every next-round match must contain two different winners'
+      );
+    }
+
+    matches.push({
+      tournament_id: tournament.id,
+      home_team_id: homeTeamId,
+      away_team_id: awayTeamId,
+      match_date: matchDate,
+      location: tournament.location,
+      round: nextRound,
       home_goals: null,
       away_goals: null,
       home_penalties: null,
@@ -418,6 +608,82 @@ export const startTournament = async (
   } catch (error) {
     if (transactionStarted) {
       // Si cualquier validación o inserción falla, no queda un cuadro parcial.
+      await client.query('ROLLBACK');
+    }
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+export const advanceTournamentRound = async (
+  id: number,
+  input: AdvanceTournamentRoundInput
+): Promise<AdvanceTournamentRoundResult> => {
+  const client = await pool.connect();
+  let transactionStarted = false;
+
+  try {
+    await client.query('BEGIN');
+    transactionStarted = true;
+
+    // Bloquea el torneo para evitar avances simultáneos.
+    const tournamentResult = await client.query<Tournament>(
+      `SELECT ${tournamentSelect}
+       FROM tournaments
+       WHERE id = $1
+       FOR UPDATE`,
+      [id]
+    );
+    const tournament = tournamentResult.rows[0];
+
+    if (!tournament) {
+      throw new DomainError('TOURNAMENT_NOT_FOUND', 'Tournament not found');
+    }
+
+    const matchesResult = await client.query<Match>(
+      `SELECT id, tournament_id, home_team_id, away_team_id, match_date, location,
+              round, home_goals, away_goals, home_penalties, away_penalties,
+              winner_team_id, status, created_at
+       FROM matches
+       WHERE tournament_id = $1
+       ORDER BY id ASC`,
+      [id]
+    );
+
+    const progression = validateRoundProgression(tournament, matchesResult.rows);
+    const nextRoundMatches = generateNextRoundMatches(
+      tournament,
+      progression.roundWinners,
+      progression.nextRound,
+      input.match_date
+    );
+    const expectedMatches = progression.roundWinners.length / 2;
+    const createdMatches: Match[] = [];
+
+    // Todas las inserciones pertenecen a la misma transacción.
+    for (const match of nextRoundMatches) {
+      createdMatches.push(await createMatch(match, client));
+    }
+
+    if (createdMatches.length !== expectedMatches) {
+      throw new DomainError(
+        'NEXT_ROUND_MATCH_COUNT_MISMATCH',
+        `Expected ${expectedMatches} matches but created ${createdMatches.length}`
+      );
+    }
+
+    await client.query('COMMIT');
+    transactionStarted = false;
+
+    return {
+      current_round: progression.currentRound,
+      next_round: progression.nextRound,
+      matches: createdMatches
+    };
+  } catch (error) {
+    if (transactionStarted) {
+      // Si falla una inserción, se revierte toda la ronda.
       await client.query('ROLLBACK');
     }
     throw error;

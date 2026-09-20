@@ -75,6 +75,7 @@ Sólo se pueden registrar o editar equipos mientras el torneo esté `open`, y nu
 
 - Torneos: `/tournaments` y `/tournaments/:id`.
 - Inicio del torneo: `POST /tournaments/:id/start` con `match_date` futuro.
+- Avance de ronda: `POST /tournaments/:id/next-round` con `match_date` futuro. Genera sólo la ronda siguiente cuando todos los partidos de la ronda actual están finalizados y tienen ganador.
 - Equipos: `/api/teams` y `/api/teams/:id`.
 - Partidos: `/matches` y `/matches/:id`.
 

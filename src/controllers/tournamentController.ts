@@ -15,6 +15,7 @@ import {
   CreateTournamentInput,
   StartTournamentInput,
   UpdateTournamentInput,
+  advanceTournamentRound,
   createTournament,
   deleteTournament,
   getAllTournaments,
@@ -211,6 +212,28 @@ const respondWithStartError = (error: unknown, res: Response): void => {
   res.status(status).json({ error: true, message: error.message });
 };
 
+const respondWithRoundAdvanceError = (error: unknown, res: Response): void => {
+  if (!(error instanceof DomainError)) {
+    res.status(500).json({ error: true, message: 'Error generating next tournament round' });
+    return;
+  }
+
+  if (error.code === 'TOURNAMENT_NOT_FOUND') {
+    res.status(404).json({ error: true, message: error.message });
+    return;
+  }
+
+  const conflictCodes = [
+    'TOURNAMENT_NOT_IN_PROGRESS',
+    'TOURNAMENT_MATCHES_NOT_FOUND',
+    'CURRENT_ROUND_INCOMPLETE',
+    'NEXT_ROUND_ALREADY_EXISTS',
+    'TOURNAMENT_ALREADY_AT_FINAL'
+  ];
+  const status = conflictCodes.includes(error.code) ? 409 : 400;
+  res.status(status).json({ error: true, message: error.message });
+};
+
 export const getTournaments = async (_req: Request, res: Response): Promise<void> => {
   try {
     res.status(200).json(await getAllTournaments());
@@ -283,6 +306,37 @@ export const startTournament = async (req: Request, res: Response): Promise<void
     });
   } catch (error) {
     respondWithStartError(error, res);
+  }
+};
+
+export const generateNextTournamentRound = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const id = parseId(req.params.id);
+  if (id === null) {
+    res.status(400).json({ error: true, message: 'Invalid tournament id' });
+    return;
+  }
+
+  const validation = validateStartTournamentBody(req.body);
+  if (!validation.data) {
+    res.status(400).json({
+      error: true,
+      message: 'Invalid next round data',
+      errors: validation.errors
+    });
+    return;
+  }
+
+  try {
+    const result = await advanceTournamentRound(id, validation.data);
+    res.status(201).json({
+      message: 'Next round generated successfully',
+      data: result
+    });
+  } catch (error) {
+    respondWithRoundAdvanceError(error, res);
   }
 };
 
