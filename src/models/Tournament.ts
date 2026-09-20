@@ -393,6 +393,13 @@ export const getTournamentById = async (id: number): Promise<Tournament | null> 
 };
 
 export const createTournament = async (tournament: CreateTournamentInput): Promise<Tournament> => {
+  if (tournament.status !== 'open') {
+    throw new DomainError(
+      'TOURNAMENT_INITIAL_STATUS_INVALID',
+      'A tournament must be created with open status'
+    );
+  }
+
   const result = await pool.query(
     `INSERT INTO tournaments (name, location, rules, format, modality, max_teams, status)
      VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -409,6 +416,49 @@ export const createTournament = async (tournament: CreateTournamentInput): Promi
   );
 
   return result.rows[0];
+};
+
+export const validateTournamentMutable = (
+  current: Tournament,
+  tournament: UpdateTournamentInput
+): void => {
+  if (tournament.status !== undefined) {
+    throw new DomainError(
+      'TOURNAMENT_STATUS_MANAGED_BY_FLOW',
+      'Tournament status can only be changed by the tournament flow'
+    );
+  }
+
+  if (current.status === 'open') return;
+
+  const lockedFields: Array<keyof UpdateTournamentInput> = [
+    'location',
+    'format',
+    'modality',
+    'max_teams'
+  ];
+  const changedFields = lockedFields.filter((field) =>
+    tournament[field] !== undefined && tournament[field] !== current[field]
+  );
+
+  if (changedFields.length > 0) {
+    throw new DomainError(
+      'TOURNAMENT_STRUCTURE_LOCKED',
+      `Tournament structure is locked after start: ${changedFields.join(', ')}`
+    );
+  }
+};
+
+export const validateTournamentDeletable = (
+  status: TournamentStatus,
+  hasFinishedMatches = false
+): void => {
+  if (status !== 'open' || hasFinishedMatches) {
+    throw new DomainError(
+      'TOURNAMENT_DELETE_LOCKED',
+      'A tournament with competitive history cannot be deleted'
+    );
+  }
 };
 
 export const updateTournament = async (
@@ -433,6 +483,9 @@ export const updateTournament = async (
       await client.query('ROLLBACK');
       return null;
     }
+
+    // Evita modificar la estructura del torneo una vez iniciado.
+    validateTournamentMutable(current, tournament);
 
     const targetModality = tournament.modality ?? current.modality;
     const targetCapacity = tournament.max_teams ?? current.max_teams;
@@ -693,12 +746,47 @@ export const advanceTournamentRound = async (
 };
 
 export const deleteTournament = async (id: number): Promise<Tournament | null> => {
-  const result = await pool.query(
-    `DELETE FROM tournaments
-     WHERE id = $1
-     RETURNING ${tournamentSelect}`,
-    [id]
-  );
+  const client = await pool.connect();
 
-  return result.rows[0] ?? null;
+  try {
+    await client.query('BEGIN');
+    const currentResult = await client.query<Tournament>(
+      `SELECT ${tournamentSelect}
+       FROM tournaments
+       WHERE id = $1
+       FOR UPDATE`,
+      [id]
+    );
+    const current = currentResult.rows[0];
+
+    if (!current) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+
+    const historyResult = await client.query<{ exists: boolean }>(
+      `SELECT EXISTS (
+         SELECT 1
+         FROM matches
+         WHERE tournament_id = $1 AND status = 'finished'
+       ) AS exists`,
+      [id]
+    );
+    validateTournamentDeletable(current.status, historyResult.rows[0]?.exists ?? false);
+
+    const result = await client.query<Tournament>(
+      `DELETE FROM tournaments
+       WHERE id = $1
+       RETURNING ${tournamentSelect}`,
+      [id]
+    );
+
+    await client.query('COMMIT');
+    return result.rows[0] ?? null;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 };

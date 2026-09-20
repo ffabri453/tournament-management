@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import {
+  DomainError,
   MATCH_ROUNDS,
   MATCH_STATUSES,
   ROUNDS_BY_CAPACITY,
@@ -11,7 +12,7 @@ import {
 } from '../domain/competitionRules';
 import {
   MatchInput,
-  createMatch,
+  createManualMatch,
   deleteMatch,
   getAllMatches,
   getMatchById,
@@ -238,13 +239,16 @@ const validateMatchRelationships = async (
   if (context.team_round_conflict) {
     errors.push('A team cannot play more than one match in the same round');
   }
-  if (context.tournament_status === 'finished') {
-    errors.push('matches cannot be created or edited in a finished tournament');
-  }
   return errors;
 };
 
 const respondWithMatchWriteError = (error: any, res: Response, fallback: string): void => {
+  if (error instanceof DomainError) {
+    const status = error.code === 'TOURNAMENT_NOT_FOUND' ? 404 : 409;
+    res.status(status).json({ error: true, message: error.message });
+    return;
+  }
+
   if (error?.code === '23505') {
     res.status(409).json({
       error: true,
@@ -308,7 +312,7 @@ const writeMatch = async (
     }
 
     const match = id === undefined
-      ? await createMatch(validation.data)
+      ? await createManualMatch(validation.data)
       : await updateMatch(id, validation.data);
 
     if (!match) {
@@ -354,7 +358,7 @@ export const removeMatch = async (req: Request, res: Response): Promise<void> =>
       return;
     }
     res.status(200).json({ message: 'Match deleted' });
-  } catch {
-    res.status(500).json({ error: true, message: 'Error deleting match' });
+  } catch (error) {
+    respondWithMatchWriteError(error, res, 'Error deleting match');
   }
 };

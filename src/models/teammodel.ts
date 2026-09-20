@@ -2,7 +2,8 @@ import pool from '../config/db';
 import {
   DomainError,
   PLAYER_LIMITS,
-  TournamentModality
+  TournamentModality,
+  TournamentStatus
 } from '../domain/competitionRules';
 
 export interface Team {
@@ -22,7 +23,7 @@ export interface TeamInput {
 interface RegistrationTournament {
   modality: TournamentModality;
   max_teams: number;
-  status: string;
+  status: TournamentStatus;
 }
 
 const teamSelect = 'id, tournament_id, name, players_count, created_at';
@@ -49,6 +50,37 @@ const validateRegistration = (
     throw new DomainError(
       'INVALID_PLAYERS_COUNT_FOR_MODALITY',
       `players_count must be between ${limits.min} and ${limits.max} for ${tournament.modality}`
+    );
+  }
+};
+
+export const validateTeamMutable = (
+  current: Team,
+  team: TeamInput,
+  tournamentStatus: TournamentStatus
+): void => {
+  if (tournamentStatus === 'open') return;
+
+  if (current.tournament_id !== team.tournament_id) {
+    throw new DomainError(
+      'TEAM_TOURNAMENT_LOCKED',
+      'A team cannot leave a tournament after it has started'
+    );
+  }
+
+  if (current.players_count !== team.players_count) {
+    throw new DomainError(
+      'TEAM_STRUCTURE_LOCKED',
+      'Only the team name can be changed after the tournament has started'
+    );
+  }
+};
+
+export const validateTeamDeletable = (tournamentStatus: TournamentStatus): void => {
+  if (tournamentStatus !== 'open') {
+    throw new DomainError(
+      'TEAM_DELETE_LOCKED',
+      'A team cannot be deleted after its tournament has started'
     );
   }
 };
@@ -139,6 +171,34 @@ export const updateTeam = async (id: number, team: TeamInput): Promise<Team | nu
       return null;
     }
 
+    const sourceTournamentResult = await client.query<RegistrationTournament>(
+      `SELECT modality, max_teams, status
+       FROM tournaments
+       WHERE id = $1
+       FOR UPDATE`,
+      [current.tournament_id]
+    );
+    const sourceTournament = sourceTournamentResult.rows[0];
+
+    if (!sourceTournament) {
+      throw new DomainError('TOURNAMENT_NOT_FOUND', 'The current tournament does not exist');
+    }
+
+    validateTeamMutable(current, team, sourceTournament.status);
+
+    if (sourceTournament.status !== 'open') {
+      const renamedResult = await client.query<Team>(
+        `UPDATE teams
+         SET name = $1
+         WHERE id = $2
+         RETURNING ${teamSelect}`,
+        [team.name, id]
+      );
+
+      await client.query('COMMIT');
+      return renamedResult.rows[0] ?? null;
+    }
+
     if (current.tournament_id !== team.tournament_id) {
       const matchResult = await client.query<{ count: string }>(
         `SELECT COUNT(*)::text AS count
@@ -154,14 +214,15 @@ export const updateTeam = async (id: number, team: TeamInput): Promise<Team | nu
       }
     }
 
-    const tournamentResult = await client.query<RegistrationTournament>(
-      `SELECT modality, max_teams, status
-       FROM tournaments
-       WHERE id = $1
-       FOR UPDATE`,
-      [team.tournament_id]
-    );
-    const tournament = tournamentResult.rows[0];
+    const tournament = current.tournament_id === team.tournament_id
+      ? sourceTournament
+      : (await client.query<RegistrationTournament>(
+        `SELECT modality, max_teams, status
+         FROM tournaments
+         WHERE id = $1
+         FOR UPDATE`,
+        [team.tournament_id]
+      )).rows[0];
 
     if (!tournament) {
       throw new DomainError('TOURNAMENT_NOT_FOUND', 'The tournament_id does not exist');
@@ -201,6 +262,34 @@ export const updateTeam = async (id: number, team: TeamInput): Promise<Team | nu
 };
 
 export const deleteTeam = async (id: number): Promise<boolean> => {
-  const result = await pool.query('DELETE FROM teams WHERE id = $1 RETURNING id', [id]);
-  return (result.rowCount ?? 0) > 0;
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+    const contextResult = await client.query<{ status: TournamentStatus }>(
+      `SELECT tournament.status
+       FROM teams team
+       JOIN tournaments tournament ON tournament.id = team.tournament_id
+       WHERE team.id = $1
+       FOR UPDATE OF tournament`,
+      [id]
+    );
+    const context = contextResult.rows[0];
+
+    if (!context) {
+      await client.query('ROLLBACK');
+      return false;
+    }
+
+    validateTeamDeletable(context.status);
+
+    const result = await client.query('DELETE FROM teams WHERE id = $1 RETURNING id', [id]);
+    await client.query('COMMIT');
+    return (result.rowCount ?? 0) > 0;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 };

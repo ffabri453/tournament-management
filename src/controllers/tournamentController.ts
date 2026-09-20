@@ -120,6 +120,8 @@ export const validateTournament = (
   if (body.status !== undefined) {
     if (!TOURNAMENT_STATUSES.includes(body.status as never)) {
       errors.push(`status must be one of: ${TOURNAMENT_STATUSES.join(', ')}`);
+    } else if (!partial && body.status !== 'open') {
+      errors.push('a tournament must be created with open status');
     } else {
       data.status = body.status as CreateTournamentInput['status'];
     }
@@ -385,7 +387,7 @@ export const removeTournament = async (req: Request, res: Response): Promise<voi
     }
 
     res.status(200).json({ message: 'Tournament deleted successfully' });
-  } catch {
-    res.status(500).json({ error: true, message: 'Error deleting tournament' });
+  } catch (error) {
+    respondWithWriteError(error, res, 'Error deleting tournament');
   }
 };

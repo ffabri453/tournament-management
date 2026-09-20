@@ -81,6 +81,8 @@ Sólo se pueden registrar o editar equipos mientras el torneo esté `open`, y nu
 
 Se conservaron las rutas existentes para no romper consumidores actuales.
 
+Una vez iniciado el torneo, el CRUD general no permite cambiar su estructura, agregar o eliminar participantes, crear partidos manuales, alterar la estructura de los cruces ni modificar o borrar partidos finalizados. Los resultados de partidos todavía no finalizados se cargan mediante el CRUD existente.
+
 ## Decisiones preparadas para una expansión
 
 El `CHECK` de localidades es adecuado mientras el alcance sea regional y la lista cambie muy poco. Si la aplicación crece, conviene reemplazarlo por una tabla `locations` administrable, con identificador estable, nombre, provincia, país y estado activo; los torneos deberían guardar `location_id`. Así se agregan localidades sin desplegar una migración por cada cambio.
