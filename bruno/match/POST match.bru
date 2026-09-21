@@ -1,0 +1,41 @@
+meta {
+  name: Create match
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/matches
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "tournament_id": {{tournamentId}},
+    "home_team_id": {{manualHomeTeamId}},
+    "away_team_id": {{manualAwayTeamId}},
+    "match_date": "{{futureDate}}",
+    "location": "Court 1",
+    "round": "semi_final",
+    "status": "scheduled"
+  }
+}
+
+script:post-response {
+  if (res.getStatus() === 201) {
+    const selected = res.getBody().data;
+    bru.setVar("pendingMatches", JSON.stringify([selected]));
+    if (selected) {
+      bru.setVar("matchId", selected.id);
+      bru.setVar("homeTeamId", selected.home_team_id);
+      bru.setVar("awayTeamId", selected.away_team_id);
+      bru.setVar("matchLocation", selected.location);
+      bru.setVar("matchRound", selected.round);
+    }
+  }
+}

@@ -1,0 +1,42 @@
+meta {
+  name: Create tournament
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/tournaments
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "Demo Cup {{runId}}",
+    "location": "Venado Tuerto",
+    "rules": "official_rules_football_5",
+    "format": "knockout",
+    "modality": "futbol_5",
+    "max_teams": 4,
+    "status": "open"
+  }
+}
+
+script:pre-request {
+  bru.setVar("runId", Date.now() + "-" + Math.floor(Math.random() * 100000));
+}
+
+script:post-response {
+  if (res.getStatus() === 201) {
+    bru.setVar("tournamentId", res.getBody().id);
+    bru.setVar("teamCount", 0);
+    bru.setVar("pendingMatches", "[]");
+    ["teamId", "manualHomeTeamId", "manualAwayTeamId", "matchId", "homeTeamId", "awayTeamId"].forEach(function (name) {
+      bru.setVar(name, 0);
+    });
+  }
+}

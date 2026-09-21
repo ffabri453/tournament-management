@@ -1,0 +1,11 @@
+meta {
+  name: Delete tournament
+  type: http
+  seq: 7
+}
+
+delete {
+  url: {{baseUrl}}/tournaments/{{tournamentId}}
+  body: none
+  auth: none
+}

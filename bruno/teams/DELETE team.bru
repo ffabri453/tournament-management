@@ -1,0 +1,11 @@
+meta {
+  name: Delete team
+  type: http
+  seq: 5
+}
+
+delete {
+  url: {{baseUrl}}/api/teams/{{teamId}}
+  body: none
+  auth: none
+}

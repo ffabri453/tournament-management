@@ -1,0 +1,36 @@
+meta {
+  name: Start tournament
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/tournaments/{{tournamentId}}/start
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "match_date": "{{futureDate}}"
+  }
+}
+
+script:post-response {
+  if (res.getStatus() === 201) {
+    const matches = res.getBody().data.matches;
+    bru.setVar("pendingMatches", JSON.stringify(matches));
+    const selected = matches[0];
+    if (selected) {
+      bru.setVar("matchId", selected.id);
+      bru.setVar("homeTeamId", selected.home_team_id);
+      bru.setVar("awayTeamId", selected.away_team_id);
+      bru.setVar("matchLocation", selected.location);
+      bru.setVar("matchRound", selected.round);
+    }
+  }
+}

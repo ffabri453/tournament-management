@@ -20,16 +20,25 @@ Si ya tenés una base, aplicá las migraciones pendientes antes de iniciar la AP
 
 ## Pruebas con Bruno
 
-Abrí la colección de la carpeta `bruno`, con el backend en `http://localhost:3000`.
+La coleccion `bruno` contiene 17 solicitudes en ingles, organizadas en `tournaments`, `teams` y `match`: los 15 endpoints CRUD, `Start tournament` y `Next round`.
 
-- `01 CRUD`: ejecutá la carpeta completa en orden. Crea sus propios torneos, equipos y partidos, verifica las operaciones y elimina sus datos al terminar. Incluye rechazos esperados `400`, `404` y `409`, que tienen tests para distinguirlos de fallos.
-- `02 Flujo completo`: ejecutá del 01 al 11 para crear un torneo de fútbol 5, registrar cuatro equipos, iniciar las semifinales, cargar resultados, generar la final y consultar el campeón. Los pasos 12 a 14 comprueban protecciones y esperan `409`.
+Para probar el flujo basico de cuatro equipos, enviar individualmente en este orden:
 
-Los scripts guardan los IDs en variables de ejecución y generan nombres únicos y fechas dinámicas. También podés enviar las solicitudes una por una respetando ese orden. Para repetir, comenzá nuevamente por la creación del torneo; no hace falta editar IDs. Cada ejecución del flujo completo deja un torneo `Copa Bruno ...` terminado como ejemplo consultable.
+1. `tournaments / Create tournament`.
+2. `teams / Create team`, cuatro veces. Cada envio exitoso guarda el ID y prepara el siguiente nombre.
+3. `tournaments / Start tournament`.
+4. `match / Update match`, dos veces, para finalizar las semifinales.
+5. `tournaments / Next round`.
+6. `match / Update match`, una vez, para finalizar la final.
+7. `tournaments / Get tournament by ID`, reemplazando el `1` de la URL por el ID del torneo creado, para consultar el estado `finished` y el campeon.
 
-En estas pruebas el PUT de resultado coloca la fecha un minuto en el pasado para simular un partido jugado, mientras que el inicio y las rondas se programan para mañana.
+Los GET individuales (`Get tournament by ID`, `Get team by ID` y `Get match by ID`) usan un ID editable directamente en la URL. Cambiar el `1` de ejemplo por el ID que se quiere consultar; no dependen del ultimo registro creado.
 
-El botón de ejecutar toda la colección recorre ambas carpetas. Desde Bruno CLI, dentro de `bruno`: `bru run --bail`. El runner permite indicar otro servidor con `--env-var baseUrl=http://localhost:3000`.
+Los scripts guardan los IDs y seleccionan el siguiente partido pendiente despues de un resultado exitoso. `Update match` usa un resultado de ejemplo 2-1 y una fecha un minuto en el pasado para simular un partido jugado; podes editar los goles y agregar penales si hay empate.
+
+`Create match` es solo para probar el CRUD manual en un torneo abierto separado; no debe ejecutarse antes de `Start tournament` en el recorrido automatico. Los DELETE son pruebas manuales opcionales y respetan las restricciones del historial. No ejecutar toda la coleccion como una suite: las carpetas agrupan recursos, no el orden del flujo.
+
+El servidor predeterminado es `http://localhost:3000`; se puede cambiar con la variable de entorno Bruno `baseUrl`. Para repetir el recorrido, comenzar de nuevo en `Create tournament`.
 
 ## Scripts
 

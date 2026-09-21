@@ -1,0 +1,49 @@
+meta {
+  name: Update match
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/matches/{{matchId}}
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "tournament_id": {{tournamentId}},
+    "home_team_id": {{homeTeamId}},
+    "away_team_id": {{awayTeamId}},
+    "match_date": "{{resultDate}}",
+    "location": "{{matchLocation}}",
+    "round": "{{matchRound}}",
+    "home_goals": 2,
+    "away_goals": 1,
+    "status": "finished"
+  }
+}
+
+script:post-response {
+  if (res.getStatus() === 200) {
+    const updated = res.getBody().data;
+    if (updated.status === "finished") {
+      const pending = JSON.parse(bru.getVar("pendingMatches") || "[]").filter(function (match) {
+        return match.id !== updated.id;
+      });
+      bru.setVar("pendingMatches", JSON.stringify(pending));
+      const selected = pending[0];
+    if (selected) {
+      bru.setVar("matchId", selected.id);
+      bru.setVar("homeTeamId", selected.home_team_id);
+      bru.setVar("awayTeamId", selected.away_team_id);
+      bru.setVar("matchLocation", selected.location);
+      bru.setVar("matchRound", selected.round);
+    }
+    }
+  }
+}
