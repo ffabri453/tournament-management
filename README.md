@@ -20,7 +20,7 @@ Si ya tenés una base, aplicá las migraciones pendientes antes de iniciar la AP
 
 ## Pruebas con Bruno
 
-La coleccion `bruno` contiene 17 solicitudes en ingles, organizadas en `tournaments`, `teams` y `match`: los 15 endpoints CRUD, `Start tournament` y `Next round`.
+La coleccion `bruno` contiene 18 solicitudes en ingles, organizadas en `tournaments`, `teams` y `match`: los 15 endpoints CRUD, `Start tournament`, `Next round` y `GET tournament bracket`.
 
 Para probar el flujo basico de cuatro equipos, enviar individualmente en este orden:
 
@@ -111,6 +111,12 @@ Se conservaron las rutas existentes para no romper consumidores actuales.
 Una vez iniciado el torneo, el CRUD general no permite cambiar su estructura, agregar o eliminar participantes, crear partidos manuales, alterar la estructura de los cruces ni modificar o borrar partidos finalizados. Los resultados de partidos todavía no finalizados se cargan mediante el CRUD existente.
 
 Al finalizar correctamente el partido `final`, su `winner_team_id` se guarda automáticamente como `champion_team_id` y el torneo pasa a `finished`. El campeón y el estado no pueden modificarse mediante el CRUD general.
+
+### Consulta del bracket
+
+`GET /tournaments/:id/bracket` devuelve `{ tournament, rounds }` sin modificar datos. `tournament` conserva sus campos actuales y agrega `champion: { id, name } | null`, obtenido de `champion_team_id`. Cada elemento de `rounds` contiene `{ round, matches }`: solo rondas existentes en orden competitivo, con partidos por `id ASC`. Cada partido conserva todos sus campos (incluidos goles, penales y `winner_team_id`) y agrega `home_team`, `away_team` y `winner_team` con `{ id, name }`; sin ganador, `winner_team` es `null`.
+
+Disponible en `open`, `in_progress` y `finished`; sin partidos devuelve `rounds: []`. Un ID invalido responde `400`, un torneo inexistente `404`. No genera rondas ni recalcula ganadores o campeon. En Bruno, usar `tournaments / GET tournament bracket` y reemplazar el `1` de la URL por el ID deseado.
 
 ## Decisiones preparadas para una expansión
 

@@ -21,6 +21,7 @@ import {
   deleteTournament,
   getAllTournaments,
   getTournamentById,
+  getTournamentBracket as getTournamentBracketModel,
   startTournament as startTournamentModel,
   updateTournament
 } from '../models/Tournament';
@@ -262,6 +263,26 @@ export const getTournament = async (req: Request, res: Response): Promise<void> 
     res.status(200).json(tournament);
   } catch {
     res.status(500).json({ error: true, message: 'Error getting tournament' });
+  }
+};
+
+export const getTournamentBracket = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const id = parseId(req.params.id);
+    if (id === null) {
+      res.status(400).json({ error: true, message: 'Invalid tournament id' });
+      return;
+    }
+
+    const bracket = await getTournamentBracketModel(id);
+    if (!bracket) {
+      res.status(404).json({ error: true, message: 'Tournament not found' });
+      return;
+    }
+
+    res.status(200).json(bracket);
+  } catch {
+    res.status(500).json({ error: true, message: 'Error getting tournament bracket' });
   }
 };
 

@@ -54,6 +54,19 @@ export interface StartTournamentResult {
   matches: Match[];
 }
 
+type BracketTeam = Pick<Team, 'id' | 'name'>;
+
+export interface BracketMatch extends Match {
+  home_team: BracketTeam | null;
+  away_team: BracketTeam | null;
+  winner_team: BracketTeam | null;
+}
+
+export interface TournamentBracket {
+  tournament: Tournament & { champion: BracketTeam | null };
+  rounds: { round: MatchRound; matches: BracketMatch[] }[];
+}
+
 export type AdvanceTournamentRoundInput = StartTournamentInput;
 
 export interface AdvanceTournamentRoundResult {
@@ -381,6 +394,48 @@ export const getAllTournaments = async (): Promise<Tournament[]> => {
   );
 
   return result.rows;
+};
+
+export const getTournamentBracket = async (id: number): Promise<TournamentBracket | null> => {
+  const tournamentResult = await pool.query<TournamentBracket['tournament']>(
+    `SELECT ${tournamentSelect},
+       (SELECT json_build_object('id', team.id, 'name', team.name)
+        FROM teams team
+        WHERE team.id = tournaments.champion_team_id) AS champion
+     FROM tournaments
+     WHERE id = $1`,
+    [id]
+  );
+  const tournament = tournamentResult.rows[0];
+  if (!tournament) return null;
+
+  const matchResult = await pool.query<BracketMatch>(
+    `SELECT match_row.*,
+       CASE WHEN home_team.id IS NOT NULL
+         THEN json_build_object('id', home_team.id, 'name', home_team.name)
+         ELSE NULL END AS home_team,
+       CASE WHEN away_team.id IS NOT NULL
+         THEN json_build_object('id', away_team.id, 'name', away_team.name)
+         ELSE NULL END AS away_team,
+       CASE WHEN winner_team.id IS NOT NULL
+         THEN json_build_object('id', winner_team.id, 'name', winner_team.name)
+         ELSE NULL END AS winner_team
+     FROM matches match_row
+     LEFT JOIN teams home_team ON home_team.id = match_row.home_team_id
+     LEFT JOIN teams away_team ON away_team.id = match_row.away_team_id
+     LEFT JOIN teams winner_team ON winner_team.id = match_row.winner_team_id
+     WHERE match_row.tournament_id = $1
+     ORDER BY match_row.id ASC`,
+    [id]
+  );
+
+  return {
+    tournament,
+    rounds: MATCH_ROUNDS.map((round) => ({
+      round,
+      matches: matchResult.rows.filter((match) => match.round === round)
+    })).filter(({ matches }) => matches.length > 0)
+  };
 };
 
 export const getTournamentById = async (id: number): Promise<Tournament | null> => {
