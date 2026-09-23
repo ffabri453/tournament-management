@@ -4,6 +4,7 @@ import pool from './src/config/db';
 import tournamentRoutes from './src/routes/tournamentRoutes';
 import matchRoutes from './src/routes/matchRoutes';
 import teamroutes from './src/routes/teamroutes';
+import authRoutes from './src/routes/authRoutes';
 
 const app = express();
 
@@ -12,6 +13,7 @@ app.use(express.json());
 app.use(tournamentRoutes);
 app.use(matchRoutes);
 app.use('/api/teams', teamroutes);
+app.use('/auth', authRoutes);
 
 const PORT = process.env.PORT || 3000;
 

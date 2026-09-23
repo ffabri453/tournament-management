@@ -1,0 +1,24 @@
+meta {
+  name: Register
+  type: http
+  seq: 1
+}
+
+post {
+  url: http://localhost:3000/auth/register
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "Fabrizio",
+    "email": "fabri@example.com",
+    "password": "ClaveSegura123",
+    "role": "organizer"
+  }
+}

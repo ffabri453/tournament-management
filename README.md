@@ -20,7 +20,7 @@ Si ya tenés una base, aplicá las migraciones pendientes antes de iniciar la AP
 
 ## Pruebas con Bruno
 
-La coleccion `bruno` contiene 18 solicitudes en ingles, organizadas en `tournaments`, `teams` y `match`: los 15 endpoints CRUD, `Start tournament`, `Next round` y `GET tournament bracket`.
+La coleccion `bruno` contiene 19 solicitudes en ingles, organizadas en `tournaments`, `teams`, `match` y `auth`: los 15 endpoints CRUD, `Start tournament`, `Next round`, `GET tournament bracket` y `Register`.
 
 Para probar el flujo basico de cuatro equipos, enviar individualmente en este orden:
 
@@ -122,17 +122,41 @@ Disponible en `open`, `in_progress` y `finished`; sin partidos devuelve `rounds:
 
 La tabla `users` contiene `id`, `name`, `email`, `password_hash`, `role` y `created_at`, sin relaciones con los torneos. El email es unico ignorando mayusculas y espacios exteriores; los roles permitidos son `admin` y `organizer`, con `organizer` por defecto. Nombre, email y hash no pueden estar vacios.
 
-`User.ts` recibe `password_hash` ya preparado y no calcula hashes. `createUser` y `findUserById` devuelven campos publicos; `findUserByEmail` es una consulta interna que tambien devuelve el hash. Esta etapa no agrega endpoints ni autenticacion. El modelo no verifica que el valor recibido sea un hash criptografico: nunca debe recibir una contrasena en texto plano.
+`User.ts` recibe `password_hash` ya preparado y no calcula hashes. `createUser` y `findUserById` devuelven campos publicos; `findUserByEmail` es una consulta interna que tambien devuelve el hash. El modelo no verifica que el valor recibido sea un hash criptografico: nunca debe recibir una contrasena en texto plano.
+
+### Registro
+
+`POST /auth/register` crea un usuario; no inicia sesion ni devuelve tokens. Requiere la migracion `006` en bases existentes. No se agrega otra migracion ni se modifican los torneos.
+
+```json
+{
+  "name": "Fabrizio",
+  "email": "fabri@example.com",
+  "password": "ClaveSegura123",
+  "role": "organizer"
+}
+```
+
+- `name`: obligatorio, texto no numerico, entre 1 y 100 caracteres despues de `trim`.
+- `email`: obligatorio, formato de email y hasta 254 caracteres; se guarda con `trim` y minusculas.
+- `password`: obligatorio, minimo 8 caracteres y maximo 72 bytes UTF-8 (los caracteres Unicode pueden ocupar varios bytes). No admite solo espacios ni caracteres nulos; no se recorta ni se normaliza. No exige simbolos, numeros o mayusculas.
+- `role`: opcional, solo `organizer`, que tambien es el valor predeterminado. El registro publico rechaza `admin`; ese rol sigue existiendo en la base para asignacion controlada futura.
+- No se aceptan campos adicionales como `id` o `password_hash`.
+
+El controlador usa bcrypt asincrono con costo 12 y sal aleatoria. Responde `201` con `{ message, data: { id, name, email, role, created_at } }`, sin contrasena ni hash. Datos invalidos: `400`; email duplicado: `409`, incluso ante registros simultaneos; error interno: `500` sin detalles sensibles.
+
+En Bruno, enviar `auth / Register` a `http://localhost:3000/auth/register`. El primer envio devuelve `201`; repetir el mismo email devuelve `409`. Para crear otro usuario, cambiar el email. La contrasena de ejemplo es ficticia. Todavia no hay login, JWT, sesiones ni proteccion de rutas.
 
 `npm test` incluye los tests unitarios del modelo sin requerir PostgreSQL. Para comprobar los constraints reales, usar una base desechable llamada `users_test`, nunca `torneos_db`:
 
 ```powershell
 $env:USER_TEST_DATABASE_URL = 'postgresql://USER:PASSWORD@127.0.0.1:PORT/users_test'
 node --test --require ts-node/register tests/userDatabase.integration.ts
+node --test --require ts-node/register tests/authRegister.integration.ts
 Remove-Item Env:USER_TEST_DATABASE_URL
 ```
 
-La suite de integracion prueba tanto la migracion `006` como el esquema inicial, crea sus propios esquemas temporales y los elimina al terminar. Los valores de hash de los tests son ficticios, no credenciales reales.
+La suite de usuarios prueba tanto la migracion `006` como el esquema inicial. La suite de registro prueba HTTP, bcrypt real, duplicados y concurrencia contra PostgreSQL. Ambas crean esquemas temporales y los eliminan al terminar. Los tests del modelo usan hashes ficticios; los del registro calculan hashes reales de contrasenas de prueba.
 
 ## Decisiones preparadas para una expansión
 
