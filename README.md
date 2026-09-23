@@ -20,7 +20,7 @@ Si ya tenés una base, aplicá las migraciones pendientes antes de iniciar la AP
 
 ## Pruebas con Bruno
 
-La coleccion `bruno` contiene 19 solicitudes en ingles, organizadas en `tournaments`, `teams`, `match` y `auth`: los 15 endpoints CRUD, `Start tournament`, `Next round`, `GET tournament bracket` y `Register`.
+La coleccion `bruno` contiene 20 solicitudes en ingles, organizadas en `tournaments`, `teams`, `match` y `auth`: los 15 endpoints CRUD, `Start tournament`, `Next round`, `GET tournament bracket`, `Register` y `Login`.
 
 Para probar el flujo basico de cuatro equipos, enviar individualmente en este orden:
 
@@ -145,7 +145,39 @@ La tabla `users` contiene `id`, `name`, `email`, `password_hash`, `role` y `crea
 
 El controlador usa bcrypt asincrono con costo 12 y sal aleatoria. Responde `201` con `{ message, data: { id, name, email, role, created_at } }`, sin contrasena ni hash. Datos invalidos: `400`; email duplicado: `409`, incluso ante registros simultaneos; error interno: `500` sin detalles sensibles.
 
-En Bruno, enviar `auth / Register` a `http://localhost:3000/auth/register`. El primer envio devuelve `201`; repetir el mismo email devuelve `409`. Para crear otro usuario, cambiar el email. La contrasena de ejemplo es ficticia. Todavia no hay login, JWT, sesiones ni proteccion de rutas.
+En Bruno, enviar `auth / Register` a `http://localhost:3000/auth/register`. El primer envio devuelve `201`; repetir el mismo email devuelve `409`. Para crear otro usuario, cambiar el email. La contrasena de ejemplo es ficticia.
+
+### Login
+
+`POST /auth/login` comprueba las credenciales de un usuario existente. En Bruno, enviar `auth / Login` despues de `Register`; ambas requests usan las mismas credenciales de ejemplo:
+
+```json
+{
+  "email": "fabri@example.com",
+  "password": "ClaveSegura123"
+}
+```
+
+Acepta solo `email` y `password`, ambos strings obligatorios. El email usa la misma validacion (hasta 254 caracteres) y normalizacion `trim` + minusculas que register. La contrasena no se recorta ni se normaliza: solo se exige que no este vacia, sin volver a imponer el minimo de 8 caracteres.
+
+El controlador busca con `findUserByEmail` y usa `await bcrypt.compare(password, user.password_hash)`. Si coincide, responde `200` con el formato existente `{ message, data }`:
+
+```json
+{
+  "message": "Login successful",
+  "data": {
+    "id": 1,
+    "name": "Fabrizio",
+    "email": "fabri@example.com",
+    "role": "organizer",
+    "created_at": "2026-01-01T00:00:00.000Z"
+  }
+}
+```
+
+Usuario inexistente o contrasena incorrecta: `401` con exactamente `{ "error": true, "message": "Invalid credentials" }`. Las contrasenas de mas de 72 bytes UTF-8 tambien devuelven `401` para evitar coincidencias por truncamiento de bcrypt. Para probar un fallo en Bruno, cambiar la contrasena de `Login` por `wrong`.
+
+Body o tipos invalidos: `400` con `Invalid login data` y `errors`. Errores internos: `500` con `{ "error": true, "message": "Error logging in" }`. No se devuelven contrasenas, hashes ni detalles internos. Todavia NO hay JWT, tokens, cookies, sesiones, middleware ni proteccion de rutas: el login solamente verifica las credenciales en esa solicitud. No se agrego mitigacion avanzada de diferencias de tiempo de respuesta.
 
 `npm test` incluye los tests unitarios del modelo sin requerir PostgreSQL. Para comprobar los constraints reales, usar una base desechable llamada `users_test`, nunca `torneos_db`:
 
@@ -153,10 +185,11 @@ En Bruno, enviar `auth / Register` a `http://localhost:3000/auth/register`. El p
 $env:USER_TEST_DATABASE_URL = 'postgresql://USER:PASSWORD@127.0.0.1:PORT/users_test'
 node --test --require ts-node/register tests/userDatabase.integration.ts
 node --test --require ts-node/register tests/authRegister.integration.ts
+node --test --require ts-node/register tests/authLogin.integration.ts
 Remove-Item Env:USER_TEST_DATABASE_URL
 ```
 
-La suite de usuarios prueba tanto la migracion `006` como el esquema inicial. La suite de registro prueba HTTP, bcrypt real, duplicados y concurrencia contra PostgreSQL. Ambas crean esquemas temporales y los eliminan al terminar. Los tests del modelo usan hashes ficticios; los del registro calculan hashes reales de contrasenas de prueba.
+La suite de usuarios prueba tanto la migracion `006` como el esquema inicial. La suite de registro prueba HTTP, bcrypt real, duplicados y concurrencia contra PostgreSQL. La suite de login registra un usuario, verifica su hash almacenado y comprueba credenciales correctas e incorrectas sin modificarlo. Las tres crean esquemas temporales y los eliminan al terminar. Los tests del modelo usan hashes ficticios; los de registro y login calculan hashes reales de contrasenas de prueba.
 
 ## Decisiones preparadas para una expansión
 

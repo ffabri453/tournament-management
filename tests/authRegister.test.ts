@@ -163,8 +163,8 @@ test('register does not insert a user if password hashing fails', async () => {
   assert.equal(query.mock.callCount(), 0);
 });
 
-test('auth router does not implement login or public users endpoints', async () => {
-  for (const pathname of ['/auth/login', '/auth/users']) {
+test('auth router does not implement logout or public users endpoints', async () => {
+  for (const pathname of ['/auth/logout', '/auth/users']) {
     const response = await fetch(`${baseUrl}${pathname}`, { method: 'POST' });
     assert.equal(response.status, 404);
   }
