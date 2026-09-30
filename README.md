@@ -2,12 +2,31 @@
 
 API REST en TypeScript, Express y PostgreSQL para administrar torneos regionales de fútbol con formato de eliminación directa.
 
+## Estructura del proyecto
+
+```text
+tournament-management/
+  backend/       # API, migraciones, tests, Bruno y configuracion de Docker
+  Front/         # Carpeta reservada para el frontend
+  README.md
+  LICENSE
+  .gitignore
+```
+
+El backend completo esta en `backend`. La carpeta `Front` se conserva sin cambios; mientras este vacia, Git no la incluye en los commits.
+
 ## Requisitos
 
 - Node.js
 - Docker con Docker Compose
 
 ## Inicio rápido
+
+Desde la raiz del repositorio, entrar primero a la carpeta del backend. Los comandos de este README se ejecutan desde alli:
+
+```powershell
+cd backend
+```
 
 1. Copiar `.env.example` como `.env` y completar las variables.
 2. Instalar dependencias con `npm install`.
@@ -16,11 +35,13 @@ API REST en TypeScript, Express y PostgreSQL para administrar torneos regionales
 
 El contenedor aplica `src/db/schema.sql` automáticamente sólo cuando PostgreSQL inicializa un volumen nuevo. No elimina ni modifica volúmenes existentes.
 
+Si ya usabas el proyecto antes de separar las carpetas, abrir una terminal nueva en `backend` y ejecutar Docker Compose desde esa ubicacion. Se conserva el mismo nombre de proyecto y volumen de PostgreSQL; no ejecutar `down -v` ni borrar el volumen. El cambio de carpetas no requiere volver a aplicar migraciones ya instaladas.
+
 Si ya tenés una base, aplicá las migraciones pendientes antes de iniciar la API. En particular, el flujo con campeón requiere `005_tournament_champion.sql`; encender Docker no actualiza un volumen existente.
 
 ## Pruebas con Bruno
 
-La coleccion `bruno` contiene 20 solicitudes en ingles, organizadas en `tournaments`, `teams`, `match` y `auth`: los 15 endpoints CRUD, `Start tournament`, `Next round`, `GET tournament bracket`, `Register` y `Login`.
+La coleccion `backend/bruno` contiene 20 solicitudes en ingles, organizadas en `tournaments`, `teams`, `match` y `auth`: los 15 endpoints CRUD, `Start tournament`, `Next round`, `GET tournament bracket`, `Register` y `Login`. Si Bruno tenia abierta la ubicacion anterior, volver a abrir la coleccion desde `backend/bruno`.
 
 Para probar el flujo basico de cuatro equipos, enviar individualmente en este orden:
 
@@ -199,7 +220,7 @@ No se guarda un capitán como texto del equipo. Si más adelante se administran 
 
 ## Migraciones para una base existente
 
-Las migraciones son transaccionales y no eliminan tablas ni filas. Ejecutarlas en orden desde la raíz del repositorio:
+Ejecutar solo las migraciones pendientes, en orden, desde `backend` (no desde la raiz del repositorio):
 
 ```powershell
 Get-Content -Raw .\src\db\migrations\001_tournament_name_location_and_team_columns.sql | docker compose -f .\docker-compose\docker-compose.yml exec -T postgres psql -U postgres -d torneos_db -v ON_ERROR_STOP=1
