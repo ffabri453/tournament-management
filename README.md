@@ -7,13 +7,21 @@ API REST en TypeScript, Express y PostgreSQL para administrar torneos regionales
 ```text
 tournament-management/
   backend/       # API, migraciones, tests, Bruno y configuracion de Docker
-  Front/         # Carpeta reservada para el frontend
+  frontend/      # Aplicacion Angular, servicios y componentes
   README.md
   LICENSE
   .gitignore
 ```
 
-El backend completo esta en `backend`. La carpeta `Front` se conserva sin cambios; mientras este vacia, Git no la incluye en los commits.
+El backend completo esta en `backend` y la aplicacion Angular esta en `frontend`.
+
+Para iniciar Angular, abrir otra terminal desde la raiz del repositorio:
+
+```powershell
+cd frontend
+npm install
+npm start
+```
 
 ## Requisitos
 
@@ -22,7 +30,7 @@ El backend completo esta en `backend`. La carpeta `Front` se conserva sin cambio
 
 ## Inicio rápido
 
-Desde la raiz del repositorio, entrar primero a la carpeta del backend. Los comandos de este README se ejecutan desde alli:
+Desde la raiz del repositorio, entrar primero a la carpeta del backend. Los comandos del backend en este README se ejecutan desde alli:
 
 ```powershell
 cd backend
