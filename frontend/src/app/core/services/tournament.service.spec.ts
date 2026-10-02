@@ -18,6 +18,23 @@ describe('TournamentService', () => {
 
   afterEach(() => http.verify());
 
+  it('deletes the correct id and receives the backend message', () => {
+    const received = vi.fn();
+    service.delete(7).subscribe(received);
+    const request = http.expectOne('/api/tournaments/7');
+    expect(request.request.method).toBe('DELETE');
+    expect(request.request.body).toBeNull();
+    request.flush({ message: 'Tournament deleted successfully' });
+    expect(received).toHaveBeenCalledWith({ message: 'Tournament deleted successfully' });
+  });
+
+  it('propagates deletion HTTP errors', () => {
+    const failed = vi.fn();
+    service.delete(7).subscribe({ error: failed });
+    http.expectOne('/api/tournaments/7').flush({ error: true, message: 'Tournament not found' }, { status: 404, statusText: 'Not Found' });
+    expect(failed).toHaveBeenCalledWith(expect.any(HttpErrorResponse));
+  });
+
   const tournament: Tournament = { id: 5, name: 'Copa', location: 'Firmat', modality: 'futbol_5', max_teams: 4, rules: 'official_rules_football_5', format: 'knockout', status: 'open', champion_team_id: null, created_at: '2026-10-02T12:00:00.000Z' };
 
   it('gets an individual tournament from the correct endpoint', () => {

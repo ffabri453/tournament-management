@@ -29,6 +29,118 @@ describe('TournamentList', () => {
 
   afterEach(() => http.verify());
 
+  describe('deletion', () => {
+    afterEach(() => vi.restoreAllMocks());
+    const second: Tournament = { ...tournament, id: 8, name: 'Otra copa' };
+    const button = (id = 7) => element.querySelector<HTMLButtonElement>(`button[aria-label="Eliminar ${id === 7 ? tournament.name : second.name}"]`);
+    const load = (values = [tournament]) => {
+      http.expectOne('/api/tournaments').flush(values);
+      fixture.detectChanges();
+    };
+
+    it('shows Eliminar and leaves the list unchanged when confirmation is cancelled', () => {
+      load();
+      const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+      expect(button()?.textContent).toContain('Eliminar');
+      button()?.click();
+      expect(confirm).toHaveBeenCalledWith(expect.stringContaining(tournament.name));
+      http.expectNone((request) => request.method === 'DELETE');
+      fixture.detectChanges();
+      expect(element.querySelectorAll('tbody tr')).toHaveLength(1);
+      expect(element.querySelector('[role="alert"]')).toBeNull();
+    });
+
+    it('confirms, prevents duplicate DELETE and refreshes the list on success', () => {
+      load([tournament, second]);
+      const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+      button()?.click();
+      button()?.click();
+      fixture.detectChanges();
+      expect(confirm).toHaveBeenCalledTimes(1);
+      expect(button()?.disabled).toBe(true);
+      expect(button()?.textContent).toContain('Eliminando');
+      expect(button(8)?.disabled).toBe(false);
+      const request = http.expectOne('/api/tournaments/7');
+      expect(request.request.method).toBe('DELETE');
+      request.flush({ message: 'Tournament deleted successfully' });
+      const refresh = http.expectOne('/api/tournaments');
+      expect(refresh.request.method).toBe('GET');
+      refresh.flush([second]);
+      fixture.detectChanges();
+      expect(element.textContent).not.toContain(tournament.name);
+      expect(element.textContent).toContain(second.name);
+    });
+
+    it('allows deleting different tournaments concurrently and refreshes after both complete', () => {
+      load([tournament, second]);
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+      button()?.click();
+      button(8)?.click();
+      http.expectOne('/api/tournaments/7').flush({ message: 'Tournament deleted successfully' });
+      const firstRefresh = http.expectOne('/api/tournaments');
+      http.expectOne('/api/tournaments/8').flush({ message: 'Tournament deleted successfully' });
+      firstRefresh.flush([second]);
+      http.expectOne('/api/tournaments').flush([]);
+      fixture.detectChanges();
+      expect(element.querySelector('table')).toBeNull();
+      expect(element.textContent).toContain('No hay torneos registrados.');
+    });
+
+    it.each(['in_progress', 'finished'] as const)('disables deletion for %s tournaments', (status) => {
+      load([{ ...tournament, status }]);
+      const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+      expect(button()?.disabled).toBe(true);
+      button()?.click();
+      expect(confirm).not.toHaveBeenCalled();
+      http.expectNone((request) => request.method === 'DELETE');
+    });
+
+    it.each([
+      [400, 'Invalid tournament id', 'datos no son válidos'],
+      [404, 'Tournament not found', 'ya no existe'],
+      [409, 'A tournament with competitive history cannot be deleted', 'partidos finalizados'],
+      [503, 'Service unavailable', 'No se pudo conectar'],
+      [500, 'raw database error', 'error inesperado'],
+    ])('handles HTTP %s, keeps the row and allows retry', (status, message, expected) => {
+      load();
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+      button()?.click();
+      http.expectOne('/api/tournaments/7').flush({ error: true, message }, { status, statusText: 'Error' });
+      fixture.detectChanges();
+      expect(element.querySelector('[role="alert"]')?.textContent).toContain(expected);
+      expect(element.textContent).not.toContain('raw database error');
+      expect(element.querySelector('tbody')?.textContent).toContain(tournament.name);
+      expect(button()?.disabled).toBe(false);
+      http.expectNone('/api/tournaments');
+      button()?.click();
+      http.expectOne('/api/tournaments/7').flush({ message: 'Tournament deleted successfully' });
+      http.expectOne('/api/tournaments').flush([]);
+      fixture.detectChanges();
+      expect(element.querySelector('[role="alert"]')).toBeNull();
+    });
+
+    it('handles a network failure without removing the tournament', () => {
+      load();
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+      button()?.click();
+      http.expectOne('/api/tournaments/7').error(new ProgressEvent('error'));
+      fixture.detectChanges();
+      expect(element.querySelector('[role="alert"]')?.textContent).toContain('No se pudo conectar');
+      expect(element.querySelector('tbody')?.textContent).toContain(tournament.name);
+      expect(button()?.disabled).toBe(false);
+    });
+
+    it('cancels a pending DELETE when the list is destroyed', () => {
+      load();
+      vi.spyOn(window, 'confirm').mockReturnValue(true);
+      button()?.click();
+      const request = http.expectOne('/api/tournaments/7');
+      fixture.destroy();
+      expect(request.cancelled).toBe(true);
+      http.expectNone('/api/tournaments');
+    });
+  });
+
   it('navigates Editar to the corresponding tournament with Angular Router', async () => {
     http.expectOne('/api/tournaments').flush([tournament]);
     fixture.detectChanges();

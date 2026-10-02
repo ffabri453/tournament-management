@@ -24,4 +24,8 @@ export class TournamentService {
   update(id: number, payload: UpdateTournamentRequest): Observable<Tournament> {
     return this.http.put<Tournament>(`/api/tournaments/${id}`, payload);
   }
+
+  delete(id: number): Observable<{ message: string }> {
+    return this.http.delete<{ message: string }>(`/api/tournaments/${id}`);
+  }
 }

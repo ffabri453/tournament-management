@@ -38,7 +38,16 @@
                 <td><span class="status" [attr.data-status]="tournament.status">{{ statusLabels[tournament.status] }}</span></td>
                 <td>{{ modalityLabels[tournament.modality] }}</td>
                 <td>{{ tournament.max_teams }} equipos</td>
-                <td><a [routerLink]="['/tournaments', tournament.id, 'edit']" [attr.aria-label]="'Editar ' + tournament.name">Editar</a></td>
+                <td>
+                  <a [routerLink]="['/tournaments', tournament.id, 'edit']" [attr.aria-label]="'Editar ' + tournament.name">Editar</a>
+                  <button type="button" (click)="deleteTournament(tournament)"
+                    [disabled]="deletingIds().has(tournament.id) || tournament.status !== 'open'"
+                    [attr.aria-label]="'Eliminar ' + tournament.name">
+                    {{ deletingIds().has(tournament.id) ? 'Eliminando…' : 'Eliminar' }}
+                  </button>
+                  @if (tournament.status !== 'open') { <small>Sólo se pueden eliminar torneos abiertos sin partidos finalizados.</small> }
+                  @if (deleteErrors().get(tournament.id); as deleteError) { <p role="alert">{{ deleteError }}</p> }
+                </td>
               </tr>
             }
           </tbody>
