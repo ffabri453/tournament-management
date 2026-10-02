@@ -1,0 +1,21 @@
+meta {
+  name: Update tournament
+  type: http
+  seq: 4
+}
+
+put {
+  url: http://localhost:3000/tournaments/1
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "Updated Cup {{tournamentId}}"
+  }
+}

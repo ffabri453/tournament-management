@@ -1,0 +1,38 @@
+meta {
+  name: Create team
+  type: http
+  seq: 1
+}
+
+post {
+  url: http://localhost:3000/api/teams
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "tournament_id": {{tournamentId}},
+    "name": "Team {{nextTeamNumber}}",
+    "players_count": 7
+  }
+}
+
+script:pre-request {
+  bru.setVar("nextTeamNumber", Number(bru.getVar("teamCount") || 0) + 1);
+}
+
+script:post-response {
+  if (res.getStatus() === 201) {
+    const team = res.getBody().data;
+    const number = Number(bru.getVar("nextTeamNumber"));
+    bru.setVar("teamId", team.id);
+    bru.setVar("teamCount", number);
+    if (number === 1) bru.setVar("manualHomeTeamId", team.id);
+    if (number === 2) bru.setVar("manualAwayTeamId", team.id);
+  }
+}

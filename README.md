@@ -2,6 +2,27 @@
 
 API REST en TypeScript, Express y PostgreSQL para administrar torneos regionales de fútbol con formato de eliminación directa.
 
+## Estructura del proyecto
+
+```text
+tournament-management/
+  backend/       # API, migraciones, tests, Bruno y configuracion de Docker
+  frontend/      # Aplicacion Angular, servicios y componentes
+  README.md
+  LICENSE
+  .gitignore
+```
+
+El backend completo esta en `backend` y la aplicacion Angular esta en `frontend`.
+
+Para iniciar Angular, abrir otra terminal desde la raiz del repositorio:
+
+```powershell
+cd frontend
+npm install
+npm start
+```
+
 ## Requisitos
 
 - Node.js
@@ -9,12 +30,44 @@ API REST en TypeScript, Express y PostgreSQL para administrar torneos regionales
 
 ## Inicio rápido
 
+Desde la raiz del repositorio, entrar primero a la carpeta del backend. Los comandos del backend en este README se ejecutan desde alli:
+
+```powershell
+cd backend
+```
+
 1. Copiar `.env.example` como `.env` y completar las variables.
 2. Instalar dependencias con `npm install`.
 3. Iniciar PostgreSQL con `docker compose -f docker-compose/docker-compose.yml up -d`.
 4. Iniciar la API con `npm run dev`.
 
 El contenedor aplica `src/db/schema.sql` automáticamente sólo cuando PostgreSQL inicializa un volumen nuevo. No elimina ni modifica volúmenes existentes.
+
+Si ya usabas el proyecto antes de separar las carpetas, abrir una terminal nueva en `backend` y ejecutar Docker Compose desde esa ubicacion. Se conserva el mismo nombre de proyecto y volumen de PostgreSQL; no ejecutar `down -v` ni borrar el volumen. El cambio de carpetas no requiere volver a aplicar migraciones ya instaladas.
+
+Si ya tenés una base, aplicá las migraciones pendientes antes de iniciar la API. En particular, el flujo con campeón requiere `005_tournament_champion.sql`; encender Docker no actualiza un volumen existente.
+
+## Pruebas con Bruno
+
+La coleccion `backend/bruno` contiene 20 solicitudes en ingles, organizadas en `tournaments`, `teams`, `match` y `auth`: los 15 endpoints CRUD, `Start tournament`, `Next round`, `GET tournament bracket`, `Register` y `Login`. Si Bruno tenia abierta la ubicacion anterior, volver a abrir la coleccion desde `backend/bruno`.
+
+Para probar el flujo basico de cuatro equipos, enviar individualmente en este orden:
+
+1. `tournaments / Create tournament`.
+2. `teams / Create team`, cuatro veces. Cada envio exitoso guarda el ID y prepara el siguiente nombre.
+3. `tournaments / Start tournament`.
+4. `match / Update match`, dos veces, para finalizar las semifinales.
+5. `tournaments / Next round`.
+6. `match / Update match`, una vez, para finalizar la final.
+7. `tournaments / Get tournament by ID`, reemplazando el `1` de la URL por el ID del torneo creado, para consultar el estado `finished` y el campeon.
+
+Los GET individuales (`Get tournament by ID`, `Get team by ID` y `Get match by ID`) usan un ID editable directamente en la URL. Cambiar el `1` de ejemplo por el ID que se quiere consultar; no dependen del ultimo registro creado.
+
+Los scripts guardan los IDs y seleccionan el siguiente partido pendiente despues de un resultado exitoso. `Update match` usa un resultado de ejemplo 2-1 y una fecha un minuto en el pasado para simular un partido jugado; podes editar los goles y agregar penales si hay empate.
+
+`Create match` es solo para probar el CRUD manual en un torneo abierto separado; no debe ejecutarse antes de `Start tournament` en el recorrido automatico. Los DELETE son pruebas manuales opcionales y respetan las restricciones del historial. No ejecutar toda la coleccion como una suite: las carpetas agrupan recursos, no el orden del flujo.
+
+El servidor predeterminado es `http://localhost:3000`; se puede cambiar con la variable de entorno Bruno `baseUrl`. Para repetir el recorrido, comenzar de nuevo en `Create tournament`.
 
 ## Scripts
 
@@ -33,6 +86,7 @@ El contenedor aplica `src/db/schema.sql` automáticamente sólo cuando PostgreSQ
 - Modalidades: `futbol_5`, `futbol_7`, `futbol_11`.
 - Capacidad máxima: `4`, `8`, `16` o `32` equipos.
 - Estados: `open`, `in_progress`, `finished`.
+- `champion_team_id` permanece `null` hasta que termina la final y se completa automáticamente.
 - El nombre no puede ser vacío ni exclusivamente numérico.
 - El mismo nombre no puede repetirse en una localidad, ignorando mayúsculas y espacios exteriores.
 
@@ -56,7 +110,7 @@ Los equipos no tienen ciudad ni capitán. El nombre debe ser texto no numérico 
 | `futbol_7` | 7 | 14 |
 | `futbol_11` | 11 | 22 |
 
-Sólo se pueden registrar o editar equipos mientras el torneo esté `open`, y nunca se puede superar `max_teams`.
+Sólo se pueden registrar equipos o cambiar su estructura mientras el torneo esté `open`, y nunca se puede superar `max_teams`. Después del inicio, únicamente se permite cambiar su nombre.
 
 ### Partidos
 
@@ -67,6 +121,8 @@ Sólo se pueden registrar o editar equipos mientras el torneo esté `open`, y nu
 - Ambos equipos deben existir, ser distintos y pertenecer al torneo.
 - Los goles son enteros no negativos.
 - En un partido `finished`, el ganador se calcula automáticamente.
+- El POST no permite crear una final ya terminada: debe finalizarse por PUT dentro del flujo del torneo para guardar el campeón de forma atómica.
+- Los nombres de torneos/equipos y la ubicación del partido admiten hasta 100 caracteres, sin contar espacios exteriores.
 - Si los goles son distintos, `home_penalties` y `away_penalties` deben ser `null`.
 - Si los goles terminan empatados, ambos penales son obligatorios, deben ser enteros no negativos y no pueden volver a empatar.
 - El equipo con más penales se guarda como `winner_team_id` y avanza a la siguiente ronda.
@@ -74,10 +130,95 @@ Sólo se pueden registrar o editar equipos mientras el torneo esté `open`, y nu
 ## Rutas actuales
 
 - Torneos: `/tournaments` y `/tournaments/:id`.
+- Inicio del torneo: `POST /tournaments/:id/start` con `match_date` futuro.
+- Avance de ronda: `POST /tournaments/:id/next-round` con `match_date` futuro. Genera sólo la ronda siguiente cuando todos los partidos de la ronda actual están finalizados y tienen ganador.
 - Equipos: `/api/teams` y `/api/teams/:id`.
 - Partidos: `/matches` y `/matches/:id`.
 
 Se conservaron las rutas existentes para no romper consumidores actuales.
+
+Una vez iniciado el torneo, el CRUD general no permite cambiar su estructura, agregar o eliminar participantes, crear partidos manuales, alterar la estructura de los cruces ni modificar o borrar partidos finalizados. Los resultados de partidos todavía no finalizados se cargan mediante el CRUD existente.
+
+Al finalizar correctamente el partido `final`, su `winner_team_id` se guarda automáticamente como `champion_team_id` y el torneo pasa a `finished`. El campeón y el estado no pueden modificarse mediante el CRUD general.
+
+### Consulta del bracket
+
+`GET /tournaments/:id/bracket` devuelve `{ tournament, rounds }` sin modificar datos. `tournament` conserva sus campos actuales y agrega `champion: { id, name } | null`, obtenido de `champion_team_id`. Cada elemento de `rounds` contiene `{ round, matches }`: solo rondas existentes en orden competitivo, con partidos por `id ASC`. Cada partido conserva todos sus campos (incluidos goles, penales y `winner_team_id`) y agrega `home_team`, `away_team` y `winner_team` con `{ id, name }`; sin ganador, `winner_team` es `null`.
+
+Disponible en `open`, `in_progress` y `finished`; sin partidos devuelve `rounds: []`. Un ID invalido responde `400`, un torneo inexistente `404`. No genera rondas ni recalcula ganadores o campeon. En Bruno, usar `tournaments / GET tournament bracket` y reemplazar el `1` de la URL por el ID deseado.
+
+## Usuarios: base de datos y modelo
+
+La tabla `users` contiene `id`, `name`, `email`, `password_hash`, `role` y `created_at`, sin relaciones con los torneos. El email es unico ignorando mayusculas y espacios exteriores; los roles permitidos son `admin` y `organizer`, con `organizer` por defecto. Nombre, email y hash no pueden estar vacios.
+
+`User.ts` recibe `password_hash` ya preparado y no calcula hashes. `createUser` y `findUserById` devuelven campos publicos; `findUserByEmail` es una consulta interna que tambien devuelve el hash. El modelo no verifica que el valor recibido sea un hash criptografico: nunca debe recibir una contrasena en texto plano.
+
+### Registro
+
+`POST /auth/register` crea un usuario; no inicia sesion ni devuelve tokens. Requiere la migracion `006` en bases existentes. No se agrega otra migracion ni se modifican los torneos.
+
+```json
+{
+  "name": "Fabrizio",
+  "email": "fabri@example.com",
+  "password": "ClaveSegura123",
+  "role": "organizer"
+}
+```
+
+- `name`: obligatorio, texto no numerico, entre 1 y 100 caracteres despues de `trim`.
+- `email`: obligatorio, formato de email y hasta 254 caracteres; se guarda con `trim` y minusculas.
+- `password`: obligatorio, minimo 8 caracteres y maximo 72 bytes UTF-8 (los caracteres Unicode pueden ocupar varios bytes). No admite solo espacios ni caracteres nulos; no se recorta ni se normaliza. No exige simbolos, numeros o mayusculas.
+- `role`: opcional, solo `organizer`, que tambien es el valor predeterminado. El registro publico rechaza `admin`; ese rol sigue existiendo en la base para asignacion controlada futura.
+- No se aceptan campos adicionales como `id` o `password_hash`.
+
+El controlador usa bcrypt asincrono con costo 12 y sal aleatoria. Responde `201` con `{ message, data: { id, name, email, role, created_at } }`, sin contrasena ni hash. Datos invalidos: `400`; email duplicado: `409`, incluso ante registros simultaneos; error interno: `500` sin detalles sensibles.
+
+En Bruno, enviar `auth / Register` a `http://localhost:3000/auth/register`. El primer envio devuelve `201`; repetir el mismo email devuelve `409`. Para crear otro usuario, cambiar el email. La contrasena de ejemplo es ficticia.
+
+### Login
+
+`POST /auth/login` comprueba las credenciales de un usuario existente. En Bruno, enviar `auth / Login` despues de `Register`; ambas requests usan las mismas credenciales de ejemplo:
+
+```json
+{
+  "email": "fabri@example.com",
+  "password": "ClaveSegura123"
+}
+```
+
+Acepta solo `email` y `password`, ambos strings obligatorios. El email usa la misma validacion (hasta 254 caracteres) y normalizacion `trim` + minusculas que register. La contrasena no se recorta ni se normaliza: solo se exige que no este vacia, sin volver a imponer el minimo de 8 caracteres.
+
+El controlador busca con `findUserByEmail` y usa `await bcrypt.compare(password, user.password_hash)`. Si coincide, responde `200` con el formato existente `{ message, data }`:
+
+```json
+{
+  "message": "Login successful",
+  "data": {
+    "id": 1,
+    "name": "Fabrizio",
+    "email": "fabri@example.com",
+    "role": "organizer",
+    "created_at": "2026-01-01T00:00:00.000Z"
+  }
+}
+```
+
+Usuario inexistente o contrasena incorrecta: `401` con exactamente `{ "error": true, "message": "Invalid credentials" }`. Las contrasenas de mas de 72 bytes UTF-8 tambien devuelven `401` para evitar coincidencias por truncamiento de bcrypt. Para probar un fallo en Bruno, cambiar la contrasena de `Login` por `wrong`.
+
+Body o tipos invalidos: `400` con `Invalid login data` y `errors`. Errores internos: `500` con `{ "error": true, "message": "Error logging in" }`. No se devuelven contrasenas, hashes ni detalles internos. Todavia NO hay JWT, tokens, cookies, sesiones, middleware ni proteccion de rutas: el login solamente verifica las credenciales en esa solicitud. No se agrego mitigacion avanzada de diferencias de tiempo de respuesta.
+
+`npm test` incluye los tests unitarios del modelo sin requerir PostgreSQL. Para comprobar los constraints reales, usar una base desechable llamada `users_test`, nunca `torneos_db`:
+
+```powershell
+$env:USER_TEST_DATABASE_URL = 'postgresql://USER:PASSWORD@127.0.0.1:PORT/users_test'
+node --test --require ts-node/register tests/userDatabase.integration.ts
+node --test --require ts-node/register tests/authRegister.integration.ts
+node --test --require ts-node/register tests/authLogin.integration.ts
+Remove-Item Env:USER_TEST_DATABASE_URL
+```
+
+La suite de usuarios prueba tanto la migracion `006` como el esquema inicial. La suite de registro prueba HTTP, bcrypt real, duplicados y concurrencia contra PostgreSQL. La suite de login registra un usuario, verifica su hash almacenado y comprueba credenciales correctas e incorrectas sin modificarlo. Las tres crean esquemas temporales y los eliminan al terminar. Los tests del modelo usan hashes ficticios; los de registro y login calculan hashes reales de contrasenas de prueba.
 
 ## Decisiones preparadas para una expansión
 
@@ -87,13 +228,15 @@ No se guarda un capitán como texto del equipo. Si más adelante se administran 
 
 ## Migraciones para una base existente
 
-Las migraciones son transaccionales y no eliminan tablas ni filas. Ejecutarlas en orden desde la raíz del repositorio:
+Ejecutar solo las migraciones pendientes, en orden, desde `backend` (no desde la raiz del repositorio):
 
 ```powershell
 Get-Content -Raw .\src\db\migrations\001_tournament_name_location_and_team_columns.sql | docker compose -f .\docker-compose\docker-compose.yml exec -T postgres psql -U postgres -d torneos_db -v ON_ERROR_STOP=1
 Get-Content -Raw .\src\db\migrations\002_domain_validation.sql | docker compose -f .\docker-compose\docker-compose.yml exec -T postgres psql -U postgres -d torneos_db -v ON_ERROR_STOP=1
 Get-Content -Raw .\src\db\migrations\003_penalty_shootouts.sql | docker compose -f .\docker-compose\docker-compose.yml exec -T postgres psql -U postgres -d torneos_db -v ON_ERROR_STOP=1
 Get-Content -Raw .\src\db\migrations\004_rename_official_rules.sql | docker compose -f .\docker-compose\docker-compose.yml exec -T postgres psql -U postgres -d torneos_db -v ON_ERROR_STOP=1
+Get-Content -Raw .\src\db\migrations\005_tournament_champion.sql | docker compose -f .\docker-compose\docker-compose.yml exec -T postgres psql -U postgres -d torneos_db -v ON_ERROR_STOP=1
+Get-Content -Raw .\src\db\migrations\006_create_users.sql | docker compose -f .\docker-compose\docker-compose.yml exec -T postgres psql -U postgres -d torneos_db -v ON_ERROR_STOP=1
 ```
 
 La migración `002` instala los nuevos `CHECK` como `NOT VALID`: protege inmediatamente las filas nuevas o modificadas sin borrar datos históricos incompatibles. Después de corregir datos antiguos, cada restricción puede validarse con `ALTER TABLE ... VALIDATE CONSTRAINT ...`.

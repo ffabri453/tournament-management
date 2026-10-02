@@ -1,0 +1,47 @@
+<main>
+  <header>
+    <h1>Torneos</h1>
+    @if (!isLoading() && !errorMessage()) {
+      <span class="total">{{ tournaments().length }} en total</span>
+    }
+    <button class="new-tournament" type="button" routerLink="/tournaments/new">Nuevo torneo</button>
+  </header>
+
+  <section aria-label="Listado de torneos" [attr.aria-busy]="isLoading()">
+    @if (isLoading()) {
+      <p class="message" role="status">Cargando torneos...</p>
+    } @else if (errorMessage()) {
+      <div class="message error">
+        <p role="alert">{{ errorMessage() }}</p>
+        <button type="button" (click)="loadTournaments()">Reintentar</button>
+      </div>
+    } @else if (tournaments().length === 0) {
+      <p class="message" role="status">No hay torneos registrados.</p>
+    } @else {
+      <div class="table-scroll" role="region" aria-label="Tabla de torneos" tabindex="0">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Nombre</th>
+              <th scope="col">Localidad</th>
+              <th scope="col">Estado</th>
+              <th scope="col">Modalidad</th>
+              <th scope="col">Capacidad m&aacute;xima</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (tournament of tournaments(); track tournament.id) {
+              <tr>
+                <th scope="row">{{ tournament.name }}</th>
+                <td>{{ tournament.location }}</td>
+                <td><span class="status" [attr.data-status]="tournament.status">{{ statusLabels[tournament.status] }}</span></td>
+                <td>{{ modalityLabels[tournament.modality] }}</td>
+                <td>{{ tournament.max_teams }} equipos</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+</main>

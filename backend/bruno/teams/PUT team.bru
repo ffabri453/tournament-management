@@ -1,0 +1,23 @@
+meta {
+  name: Update team
+  type: http
+  seq: 4
+}
+
+put {
+  url: http://localhost:3000/api/teams/1
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "tournament_id": {{tournamentId}},
+    "name": "Updated Team {{teamId}}",
+    "players_count": 7
+  }
+}

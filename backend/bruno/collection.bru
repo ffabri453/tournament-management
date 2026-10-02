@@ -1,0 +1,11 @@
+meta {
+  name: Sports Tournament Management
+  type: collection
+  version: 1
+}
+
+script:pre-request {
+  bru.setVar("baseUrl", bru.getEnvVar("baseUrl") || "http://localhost:3000");
+  bru.setVar("futureDate", new Date(Date.now() + 86400000).toISOString());
+  bru.setVar("resultDate", new Date(Date.now() - 60000).toISOString());
+}

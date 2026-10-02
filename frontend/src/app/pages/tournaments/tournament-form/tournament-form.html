@@ -1,0 +1,63 @@
+<section aria-labelledby="tournament-form-title">
+  <h1 id="tournament-form-title">Crear torneo</h1>
+
+  <form [formGroup]="tournamentForm" (ngSubmit)="submit()" novalidate>
+    <div>
+      <label for="tournament-name">Nombre</label>
+      <input id="tournament-name" type="text" formControlName="name" autocomplete="off" />
+      @if (tournamentForm.controls.name.touched && tournamentForm.controls.name.hasError('required')) {
+        <p role="alert">El nombre es obligatorio.</p>
+      }
+    </div>
+
+    <div>
+      <label for="tournament-location">Localidad</label>
+      <select id="tournament-location" formControlName="location">
+        <option value="" disabled>Selecciona una localidad</option>
+        @for (location of locations; track location) {
+          <option [value]="location">{{ location }}</option>
+        }
+      </select>
+      @if (tournamentForm.controls.location.touched && tournamentForm.controls.location.hasError('required')) {
+        <p role="alert">La localidad es obligatoria.</p>
+      }
+    </div>
+
+    <div>
+      <label for="tournament-modality">Modalidad</label>
+      <select id="tournament-modality" formControlName="modality">
+        <option value="" disabled>Selecciona una modalidad</option>
+        @for (modality of modalities; track modality) {
+          <option [value]="modality">{{ modality }}</option>
+        }
+      </select>
+      @if (tournamentForm.controls.modality.touched && tournamentForm.controls.modality.hasError('required')) {
+        <p role="alert">La modalidad es obligatoria.</p>
+      }
+    </div>
+
+    <div>
+      <label for="tournament-max-teams">Cantidad máxima de equipos</label>
+      <select id="tournament-max-teams" formControlName="max_teams">
+        <option [ngValue]="null" disabled>Selecciona una cantidad</option>
+        @for (maxTeams of maxTeamsOptions; track maxTeams) {
+          <option [ngValue]="maxTeams">{{ maxTeams }}</option>
+        }
+      </select>
+      @if (tournamentForm.controls.max_teams.touched && tournamentForm.controls.max_teams.hasError('required')) {
+        <p role="alert">La cantidad máxima de equipos es obligatoria.</p>
+      }
+    </div>
+
+    @if (errorMessage()) {
+      <p role="alert">{{ errorMessage() }}</p>
+    }
+
+    <div>
+      <button type="submit" [disabled]="tournamentForm.invalid || isLoading()">
+        {{ isLoading() ? 'Creando...' : 'Crear torneo' }}
+      </button>
+      <button type="button" (click)="cancel()">Cancelar</button>
+    </div>
+  </form>
+</section>
