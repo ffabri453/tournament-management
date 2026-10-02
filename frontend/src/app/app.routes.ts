@@ -5,5 +5,6 @@ import { TournamentForm } from './pages/tournaments/tournament-form/tournament-f
 export const routes: Routes = [
   { path: '', redirectTo: 'tournaments', pathMatch: 'full' },
   { path: 'tournaments/new', component: TournamentForm },
+  { path: 'tournaments/:id/edit', component: TournamentForm },
   { path: 'tournaments', component: TournamentList },
 ];

@@ -27,6 +27,7 @@
               <th scope="col">Estado</th>
               <th scope="col">Modalidad</th>
               <th scope="col">Capacidad m&aacute;xima</th>
+              <th scope="col">Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -37,6 +38,7 @@
                 <td><span class="status" [attr.data-status]="tournament.status">{{ statusLabels[tournament.status] }}</span></td>
                 <td>{{ modalityLabels[tournament.modality] }}</td>
                 <td>{{ tournament.max_teams }} equipos</td>
+                <td><a [routerLink]="['/tournaments', tournament.id, 'edit']" [attr.aria-label]="'Editar ' + tournament.name">Editar</a></td>
               </tr>
             }
           </tbody>

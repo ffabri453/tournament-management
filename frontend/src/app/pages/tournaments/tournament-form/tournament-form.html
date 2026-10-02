@@ -1,5 +1,9 @@
 <main>
-  <h1>Crear torneo</h1>
+  <h1>{{ isEditing() ? 'Editar torneo' : 'Crear torneo' }}</h1>
+  @if (isLoading()) {
+    <p role="status">Cargando torneo…</p>
+  }
+  @if (!isLoading() && !loadFailed()) {
   <form [formGroup]="form" (ngSubmit)="submit()" [attr.aria-busy]="isSaving()">
     <fieldset [disabled]="isSaving()">
       <label for="name">Nombre</label>
@@ -27,10 +31,14 @@
       </select>
       @if (form.controls.max_teams.touched && form.controls.max_teams.invalid) { <p class="error">Seleccioná una capacidad válida.</p> }
       <p>Formato: eliminación directa. El reglamento se asigna según la modalidad.</p>
-      <button type="submit" [disabled]="isSaving()">{{ isSaving() ? 'Creando…' : 'Crear' }}</button>
+      @if (structureLocked()) { <p>El torneo ya fue iniciado. Sólo se puede modificar el nombre.</p> }
+      <button type="submit" [disabled]="isSaving()">{{ isSaving() ? (isEditing() ? 'Guardando…' : 'Creando…') : (isEditing() ? 'Guardar cambios' : 'Crear') }}</button>
     </fieldset>
     <a routerLink="/tournaments">Cancelar</a>
     @if (isSaving()) { <p role="status">Guardando torneo…</p> }
-    @if (errorMessage()) { <p role="alert" class="error">{{ errorMessage() }}</p> }
   </form>
+  } @else {
+    <a routerLink="/tournaments">Volver a torneos</a>
+  }
+  @if (errorMessage()) { <p role="alert" class="error">{{ errorMessage() }}</p> }
 </main>

@@ -1,8 +1,9 @@
-import { Component, DestroyRef, inject, signal } from '@angular/core';
+import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormControl, FormGroup, ReactiveFormsModule, ValidatorFn, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { catchError, EMPTY, switchMap } from 'rxjs';
 import { TournamentService } from '../../../core/services/tournament.service';
 import { Tournament } from '../../../models/tournament';
 
@@ -30,10 +31,16 @@ const rulesByModality: Record<Tournament['modality'], string> = {
   templateUrl: './tournament-form.html',
   styleUrl: './tournament-form.css',
 })
-export class TournamentForm {
+export class TournamentForm implements OnInit {
   private readonly tournamentService = inject(TournamentService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly route = inject(ActivatedRoute);
+  private tournamentId: number | null = null;
+  readonly isEditing = signal(false);
+  readonly isLoading = signal(false);
+  readonly loadFailed = signal(false);
+  readonly structureLocked = signal(false);
   readonly locations: readonly Tournament['location'][] = ['Firmat', 'Venado Tuerto', 'Rosario', 'Elortondo'];
   readonly modalities: readonly Tournament['modality'][] = ['futbol_5', 'futbol_7', 'futbol_11'];
   readonly capacities: readonly Tournament['max_teams'][] = [4, 8, 16, 32];
@@ -46,18 +53,68 @@ export class TournamentForm {
     max_teams: new FormControl<Tournament['max_teams'] | null>(null, { validators: [oneOf(this.capacities)] }),
   });
 
+  ngOnInit(): void {
+    this.route.paramMap.pipe(
+      switchMap((params) => {
+        const rawId = params.get('id');
+        this.isEditing.set(rawId !== null);
+        this.tournamentId = null;
+        this.isLoading.set(false);
+        this.loadFailed.set(false);
+        this.structureLocked.set(false);
+        this.errorMessage.set('');
+        this.form.enable();
+        this.form.reset();
+        if (rawId === null) return EMPTY;
+        const id = Number(rawId);
+        if (!/^\d+$/.test(rawId) || !Number.isInteger(id) || id <= 0 || id > 2147483647) {
+          this.loadFailed.set(true);
+          this.errorMessage.set('El identificador del torneo no es válido.');
+          return EMPTY;
+        }
+        this.isLoading.set(true);
+        return this.tournamentService.getById(id).pipe(
+          catchError((error: unknown) => {
+            this.isLoading.set(false);
+            this.loadFailed.set(true);
+            this.errorMessage.set(this.getErrorMessage(error, true));
+            return EMPTY;
+          }),
+        );
+      }),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe((tournament) => {
+      this.tournamentId = tournament.id;
+      this.form.setValue({ name: tournament.name, location: tournament.location,
+        modality: tournament.modality, max_teams: tournament.max_teams });
+      this.structureLocked.set(tournament.status !== 'open');
+      if (this.structureLocked()) {
+        this.form.controls.location.disable();
+        this.form.controls.modality.disable();
+        this.form.controls.max_teams.disable();
+      }
+      this.isLoading.set(false);
+    });
+  }
+
   submit(): void {
-    if (this.isSaving()) return;
+    if (this.isSaving() || this.isLoading() || this.loadFailed() ||
+        (this.isEditing() && this.tournamentId === null)) return;
     this.form.markAllAsTouched();
     if (this.form.invalid) return;
     const { name, location, modality, max_teams } = this.form.getRawValue();
     if (!location || !modality || !max_teams) return;
     this.isSaving.set(true);
     this.errorMessage.set('');
-    this.tournamentService.create({
+    const request = this.isEditing() && this.tournamentId !== null
+      ? this.tournamentService.update(this.tournamentId, this.structureLocked()
+          ? { name: name.trim() }
+          : { name: name.trim(), location, modality, max_teams, format: 'knockout' })
+      : this.tournamentService.create({
       name: name.trim(), location, modality, max_teams,
       rules: rulesByModality[modality], format: 'knockout',
-    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      });
+    request.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => { void this.router.navigate(['/tournaments']); },
       error: (error: unknown) => {
         this.isSaving.set(false);
@@ -66,8 +123,9 @@ export class TournamentForm {
     });
   }
 
-  private getErrorMessage(error: unknown): string {
+  private getErrorMessage(error: unknown, loading = false): string {
     if (error instanceof HttpErrorResponse) {
+      if (this.isEditing() && error.status === 404) return 'No se encontró el torneo. Volvé al listado de torneos.';
       if ([0, 502, 503, 504].includes(error.status)) {
         return 'No se pudo conectar con el servidor. Intentá nuevamente más tarde.';
       }
@@ -77,7 +135,13 @@ export class TournamentForm {
           'message' in body && body.message === 'A tournament with the same name already exists in that location') {
         return 'Ya existe un torneo con ese nombre en la localidad elegida.';
       }
+      if (this.isEditing() && error.status === 409) {
+        return 'No se pueden guardar esos cambios por el estado del torneo o sus equipos registrados. Revisá la capacidad y la modalidad.';
+      }
     }
+    if (this.isEditing()) return loading
+      ? 'No se pudo cargar el torneo. Volvé al listado e intentá nuevamente.'
+      : 'Ocurrió un error inesperado al actualizar el torneo. Intentá nuevamente.';
     return 'Ocurrió un error inesperado al crear el torneo. Intentá nuevamente.';
   }
 }

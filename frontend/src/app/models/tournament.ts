@@ -15,3 +15,5 @@ export interface Tournament {
 export type CreateTournamentRequest = Pick<
   Tournament, 'name' | 'location' | 'modality' | 'max_teams' | 'rules' | 'format'
 >;
+
+export type UpdateTournamentRequest = Partial<Omit<CreateTournamentRequest, 'rules'>>;
