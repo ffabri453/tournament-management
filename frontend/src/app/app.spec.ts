@@ -30,4 +30,18 @@ describe('App routing', () => {
       http.verify();
     });
   }
+
+  it('renders TournamentForm at /tournaments/new', async () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    const router = TestBed.inject(Router);
+
+    await router.navigateByUrl('/tournaments/new');
+    fixture.detectChanges();
+
+    expect(router.url).toBe('/tournaments/new');
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelector('h1')?.textContent).toBe('Crear torneo');
+    expect(element.querySelector('form')).not.toBeNull();
+  });
 });
