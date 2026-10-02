@@ -68,4 +68,8 @@ export class TournamentForm {
       },
     });
   }
+
+  cancel(): void {
+    void this.router.navigate(['/tournaments']);
+  }
 }
