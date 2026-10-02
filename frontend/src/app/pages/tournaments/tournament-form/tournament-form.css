@@ -1,0 +1,5 @@
+main { max-width: 36rem; margin: 2rem auto; padding: 1rem; }
+fieldset { border: 0; padding: 0; display: grid; gap: .75rem; margin-bottom: 1rem; }
+input, select, button { font: inherit; padding: .6rem; }
+small { color: #555; }
+.error { color: #a51d1d; }

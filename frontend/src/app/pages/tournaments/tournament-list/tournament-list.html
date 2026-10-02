@@ -1,6 +1,7 @@
 <main>
   <header>
     <h1>Torneos</h1>
+    <a routerLink="/tournaments/new">Crear torneo</a>
     @if (!isLoading() && !errorMessage()) {
       <span class="total">{{ tournaments().length }} en total</span>
     }

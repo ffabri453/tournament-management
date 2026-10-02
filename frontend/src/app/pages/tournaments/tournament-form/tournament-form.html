@@ -1,1 +1,36 @@
-<p>tournament-form works!</p>
+<main>
+  <h1>Crear torneo</h1>
+  <form [formGroup]="form" (ngSubmit)="submit()" [attr.aria-busy]="isSaving()">
+    <fieldset [disabled]="isSaving()">
+      <label for="name">Nombre</label>
+      <input id="name" formControlName="name" aria-describedby="name-help" />
+      <small id="name-help">Hasta 100 caracteres. No puede contener solamente un número.</small>
+      @if (form.controls.name.touched && form.controls.name.invalid) {
+        <p class="error">Ingresá un nombre válido, de 1 a 100 caracteres y no exclusivamente numérico.</p>
+      }
+      <label for="location">Localidad</label>
+      <select id="location" formControlName="location">
+        <option value="">Seleccioná una localidad</option>
+        @for (location of locations; track location) { <option [value]="location">{{ location }}</option> }
+      </select>
+      @if (form.controls.location.touched && form.controls.location.invalid) { <p class="error">Seleccioná una localidad válida.</p> }
+      <label for="modality">Modalidad</label>
+      <select id="modality" formControlName="modality">
+        <option value="">Seleccioná una modalidad</option>
+        @for (modality of modalities; track modality) { <option [value]="modality">Fútbol {{ modality.replace('futbol_', '') }}</option> }
+      </select>
+      @if (form.controls.modality.touched && form.controls.modality.invalid) { <p class="error">Seleccioná una modalidad válida.</p> }
+      <label for="capacity">Cantidad máxima de equipos</label>
+      <select id="capacity" formControlName="max_teams">
+        <option [ngValue]="null">Seleccioná una capacidad</option>
+        @for (capacity of capacities; track capacity) { <option [ngValue]="capacity">{{ capacity }}</option> }
+      </select>
+      @if (form.controls.max_teams.touched && form.controls.max_teams.invalid) { <p class="error">Seleccioná una capacidad válida.</p> }
+      <p>Formato: eliminación directa. El reglamento se asigna según la modalidad.</p>
+      <button type="submit" [disabled]="isSaving()">{{ isSaving() ? 'Creando…' : 'Crear' }}</button>
+    </fieldset>
+    <a routerLink="/tournaments">Cancelar</a>
+    @if (isSaving()) { <p role="status">Guardando torneo…</p> }
+    @if (errorMessage()) { <p role="alert" class="error">{{ errorMessage() }}</p> }
+  </form>
+</main>

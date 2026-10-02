@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Tournament } from '../../../models/tournament';
 import { TournamentList } from './tournament-list';
+import { provideRouter, Router } from '@angular/router';
 
 describe('TournamentList', () => {
   let fixture: ComponentFixture<TournamentList>;
@@ -18,7 +19,7 @@ describe('TournamentList', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [TournamentList],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
     }).compileComponents();
     http = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(TournamentList);
@@ -27,6 +28,18 @@ describe('TournamentList', () => {
   });
 
   afterEach(() => http.verify());
+
+  it('links Crear torneo to the creation route using Angular Router', async () => {
+    http.expectOne('/api/tournaments').flush([]);
+    fixture.detectChanges();
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+    const link = element.querySelector<HTMLAnchorElement>('a');
+    expect(link?.textContent).toContain('Crear torneo');
+    expect(link?.getAttribute('href')).toBe('/tournaments/new');
+    link?.click();
+    await fixture.whenStable();
+    expect(navigate.mock.calls[0]?.[0].toString()).toBe('/tournaments/new');
+  });
 
   it('shows loading until the initial request completes', () => {
     expect(element.textContent).toContain('Cargando torneos...');

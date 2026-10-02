@@ -2,12 +2,13 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
+import { RouterLink } from '@angular/router';
 import { TournamentService } from '../../../core/services/tournament.service';
 import { Tournament } from '../../../models/tournament';
 
 @Component({
   selector: 'app-tournament-list',
-  imports: [],
+  imports: [RouterLink],
   templateUrl: './tournament-list.html',
   styleUrl: './tournament-list.css',
 })
