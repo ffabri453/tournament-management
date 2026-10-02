@@ -11,3 +11,8 @@ export interface Tournament {
   // Las fechas de PostgreSQL llegan como texto en la respuesta JSON.
   created_at: string;
 }
+
+export type CreateTournamentInput = Pick<
+  Tournament,
+  'name' | 'location' | 'modality' | 'max_teams'
+>;
