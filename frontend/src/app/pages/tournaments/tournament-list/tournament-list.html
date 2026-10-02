@@ -4,6 +4,7 @@
     @if (!isLoading() && !errorMessage()) {
       <span class="total">{{ tournaments().length }} en total</span>
     }
+    <button class="new-tournament" type="button" routerLink="/tournaments/new">Nuevo torneo</button>
   </header>
 
   <section aria-label="Listado de torneos" [attr.aria-busy]="isLoading()">

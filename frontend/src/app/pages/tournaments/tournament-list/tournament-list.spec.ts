@@ -1,6 +1,8 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter, Router } from '@angular/router';
+import { routes } from '../../../app.routes';
 import { Tournament } from '../../../models/tournament';
 import { TournamentList } from './tournament-list';
 
@@ -18,7 +20,7 @@ describe('TournamentList', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [TournamentList],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideRouter(routes), provideHttpClient(), provideHttpClientTesting()],
     }).compileComponents();
     http = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(TournamentList);
@@ -52,11 +54,23 @@ describe('TournamentList', () => {
     expect(element.querySelector('table')).toBeNull();
   });
 
+  it('renders the new tournament button and navigates to the creation form', async () => {
+    http.expectOne('/api/tournaments').flush([]);
+    fixture.detectChanges();
+    const button = element.querySelector('.new-tournament') as HTMLButtonElement;
+
+    expect(button.textContent).toContain('Nuevo torneo');
+    button.click();
+    await fixture.whenStable();
+
+    expect(TestBed.inject(Router).url).toBe('/tournaments/new');
+  });
+
   it('shows a server error and allows retrying successfully', () => {
     http.expectOne('/api/tournaments').flush({}, { status: 500, statusText: 'Server error' });
     fixture.detectChanges();
     expect(element.querySelector('[role="alert"]')?.textContent).toContain('No se pudieron cargar');
-    element.querySelector('button')?.click();
+    element.querySelector<HTMLButtonElement>('.error button')?.click();
     fixture.detectChanges();
     expect(element.querySelector('[role="alert"]')).toBeNull();
     expect(element.textContent).toContain('Cargando torneos...');
