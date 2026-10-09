@@ -156,6 +156,7 @@ describe('TournamentDetail', () => {
   it.each([
     ['Volver a torneos', '/tournaments'],
     ['Editar torneo', '/tournaments/7/edit'],
+    ['Ver equipos', '/tournaments/7/teams'],
   ])('navigates using %s', async (label, target) => {
     load();
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);

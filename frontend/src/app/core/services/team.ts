@@ -1,6 +1,29 @@
-import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { inject, Injectable } from '@angular/core';
+import { map, Observable } from 'rxjs';
+import { CreateTeamRequest, Team } from '../../models/team';
+
+interface TeamResponse<T> {
+  message: string;
+  data: T;
+}
 
 @Injectable({
   providedIn: 'root',
 })
-export class Team {}
+export class TeamService {
+  private readonly http = inject(HttpClient);
+
+  getByTournamentId(tournamentId: number): Observable<Team[]> {
+    // La API actual devuelve todos los equipos; el filtro se aplica en el cliente.
+    return this.http.get<TeamResponse<Team[]>>('/api/teams').pipe(
+      map(response => response.data.filter(team => team.tournament_id === tournamentId)),
+    );
+  }
+
+  create(payload: CreateTeamRequest): Observable<Team> {
+    return this.http.post<TeamResponse<Team>>('/api/teams', payload).pipe(
+      map(response => response.data),
+    );
+  }
+}

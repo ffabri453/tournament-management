@@ -1,0 +1,14 @@
+:host { display: block; color: #202725; font-family: Arial, Helvetica, sans-serif; letter-spacing: 0; }
+main { max-width: 1080px; margin: 32px auto; padding: 0 16px; }
+nav { margin-bottom: 24px; }
+h1 { font-size: 28px; overflow-wrap: anywhere; }
+header { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; }
+a { color: #2167ba; }
+table { width: 100%; table-layout: fixed; border-collapse: collapse; text-align: left; margin-top: 24px; }
+th, td { padding: 16px 12px; border-bottom: 1px solid #dce2de; overflow-wrap: anywhere; }
+th:last-child, td:last-child { width: 85px; }
+thead { background: #f2f5f3; }
+.error { color: #a12b32; }
+button { padding: 10px 16px; border: 1px solid #276644; border-radius: 4px; background: #276644; color: white; font: inherit; cursor: pointer; }
+a:focus-visible, button:focus-visible { outline: 2px solid #2167ba; outline-offset: 3px; }
+@media (max-width: 600px) { h1 { font-size: 24px; } main { padding: 0 8px; } }

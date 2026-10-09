@@ -1,1 +1,42 @@
-<p>team-list works!</p>
+<main>
+  <nav aria-label="Navegaci&oacute;n de equipos">
+    @if (tournament(); as current) {
+      <a [routerLink]="['/tournaments', current.id]">Volver al torneo</a>
+    } @else {
+      <a routerLink="/tournaments">Volver a torneos</a>
+    }
+  </nav>
+  <h1>Equipos{{ tournament() ? ' de ' + tournament()!.name : '' }}</h1>
+  <section aria-label="Equipos del torneo" [attr.aria-busy]="isLoading()">
+    @if (isLoading()) {
+      <p role="status">Cargando equipos...</p>
+    } @else if (errorMessage()) {
+      <p role="alert" class="error">{{ errorMessage() }}</p>
+      @if (canRetry()) { <button type="button" (click)="retry()">Reintentar</button> }
+    } @else if (tournament(); as current) {
+      <header>
+        <p>{{ teams().length }} de {{ current.max_teams }} equipos</p>
+        @if (canAdd()) {
+          <a [routerLink]="['/tournaments', current.id, 'teams', 'new']">Agregar equipo</a>
+        }
+      </header>
+      @if (current.status !== 'open') {
+        <p>El torneo ya fue iniciado o finalizado. No se pueden agregar equipos.</p>
+      } @else if (!canAdd()) {
+        <p>El torneo alcanz&oacute; su capacidad m&aacute;xima de equipos.</p>
+      }
+      @if (teams().length === 0) {
+        <p role="status">Todav&iacute;a no hay equipos registrados en este torneo.</p>
+      } @else {
+        <table>
+          <thead><tr><th scope="col">Nombre</th><th scope="col">Jugadores</th></tr></thead>
+          <tbody>
+            @for (team of teams(); track team.id) {
+              <tr><th scope="row">{{ team.name }}</th><td>{{ team.players_count }}</td></tr>
+            }
+          </tbody>
+        </table>
+      }
+    }
+  </section>
+</main>

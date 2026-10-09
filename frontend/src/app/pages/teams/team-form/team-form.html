@@ -1,0 +1,40 @@
+<main>
+  <nav aria-label="Navegaci&oacute;n de equipos">
+    @if (tournament(); as current) {
+      <a [routerLink]="['/tournaments', current.id, 'teams']">Volver a equipos</a>
+      <a [routerLink]="['/tournaments', current.id]">Volver al torneo</a>
+    } @else { <a routerLink="/tournaments">Volver a torneos</a> }
+  </nav>
+  <h1>Agregar equipo</h1>
+  @if (isLoading()) {
+    <p role="status">Cargando torneo y equipos...</p>
+  } @else if (loadError()) {
+    <p role="alert" class="error">{{ loadError() }}</p>
+    @if (canRetry()) { <button type="button" (click)="retry()">Reintentar</button> }
+  } @else if (tournament(); as current) {
+    <h2>{{ current.name }}</h2>
+    @if (restriction()) {
+      <p role="alert" class="error">{{ restriction() }}</p>
+    } @else {
+      <form [formGroup]="form" (ngSubmit)="submit()" [attr.aria-busy]="isSaving()">
+        <fieldset [disabled]="isSaving()">
+          <label for="team-name">Nombre del equipo</label>
+          <input id="team-name" formControlName="name" [attr.aria-invalid]="form.controls.name.touched && form.controls.name.invalid" aria-describedby="team-name-error" />
+          @if (form.controls.name.touched && form.controls.name.invalid) {
+            <p id="team-name-error" class="error">Ingres&aacute; un nombre de 1 a 100 caracteres, no exclusivamente num&eacute;rico.</p>
+          }
+          <label for="players-count">Cantidad de jugadores</label>
+          <input id="players-count" type="number" step="1" [min]="limits()!.min" [max]="limits()!.max" formControlName="players_count" aria-describedby="players-range players-error" [attr.aria-invalid]="form.controls.players_count.touched && form.controls.players_count.invalid" />
+          <small id="players-range">F&uacute;tbol {{ current.modality.replace('futbol_', '') }}: de {{ limits()!.min }} a {{ limits()!.max }} jugadores.</small>
+          @if (form.controls.players_count.touched && form.controls.players_count.invalid) {
+            <p id="players-error" class="error">Ingres&aacute; un n&uacute;mero entero entre {{ limits()!.min }} y {{ limits()!.max }}.</p>
+          }
+          <button type="submit" [disabled]="isSaving()">{{ isSaving() ? 'Guardando...' : 'Guardar equipo' }}</button>
+        </fieldset>
+        <a [routerLink]="['/tournaments', current.id, 'teams']">Cancelar</a>
+        @if (isSaving()) { <p role="status">Guardando equipo...</p> }
+        @if (saveError()) { <p role="alert" class="error">{{ saveError() }}</p> }
+      </form>
+    }
+  }
+</main>

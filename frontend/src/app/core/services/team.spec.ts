@@ -1,16 +1,74 @@
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { Team } from '../../models/team';
+import { TeamService } from './team';
 
-import { Team } from './team';
-
-describe('Team', () => {
-  let service: Team;
+describe('TeamService', () => {
+  let service: TeamService;
+  let http: HttpTestingController;
+  const team: Team = { id: 1, tournament_id: 7, name: 'Equipo Alfa', players_count: 7, created_at: '2026-10-09T12:00:00.000Z' };
 
   beforeEach(() => {
-    TestBed.configureTestingModule({});
-    service = TestBed.inject(Team);
+    TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
+    service = TestBed.inject(TeamService);
+    http = TestBed.inject(HttpTestingController);
+  });
+  afterEach(() => http.verify());
+
+  it('should be created', () => expect(service).toBeTruthy());
+
+  it('uses the real endpoint and returns only teams belonging to the requested tournament', () => {
+    const received = vi.fn();
+    service.getByTournamentId(7).subscribe(received);
+    const request = http.expectOne('/api/teams');
+    expect(request.request.method).toBe('GET');
+    expect(request.request.params.keys()).toEqual([]);
+    const data = [team, { ...team, id: 2, tournament_id: 70 }, { ...team, id: 3, tournament_id: 7 }];
+    request.flush({ message: 'Teams retrieved successfully', data });
+    expect(received).toHaveBeenCalledExactlyOnceWith([data[0], data[2]]);
+    expect(data).toHaveLength(3);
   });
 
-  it('should be created', () => {
-    expect(service).toBeTruthy();
+  it('returns an empty list when all teams belong to another tournament', () => {
+    const received = vi.fn();
+    service.getByTournamentId(8).subscribe(received);
+    http.expectOne('/api/teams').flush({ message: 'OK', data: [team] });
+    expect(received).toHaveBeenCalledExactlyOnceWith([]);
+  });
+
+  it('does not reuse a stale list across tournaments or refreshes', () => {
+    const received = vi.fn();
+    service.getByTournamentId(7).subscribe();
+    http.expectOne('/api/teams').flush({ data: [team] });
+    service.getByTournamentId(8).subscribe(received);
+    const other = { ...team, id: 2, tournament_id: 8 };
+    http.expectOne('/api/teams').flush({ data: [team, other] });
+    expect(received).toHaveBeenCalledExactlyOnceWith([other]);
+  });
+
+  it('posts the exact creation body and unwraps data', () => {
+    const payload = { tournament_id: 7, name: 'Equipo Alfa', players_count: 7 };
+    const received = vi.fn();
+    service.create(payload).subscribe(received);
+    const request = http.expectOne('/api/teams');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual(payload);
+    request.flush({ message: 'Team created successfully', data: team }, { status: 201, statusText: 'Created' });
+    expect(received).toHaveBeenCalledExactlyOnceWith(team);
+  });
+
+  it.each([400, 404, 409, 500])('propagates creation error %s to the component', status => {
+    const failed = vi.fn();
+    service.create({ tournament_id: 7, name: 'Equipo Alfa', players_count: 7 }).subscribe({ error: failed });
+    http.expectOne('/api/teams').flush({ message: 'Error' }, { status, statusText: 'Error' });
+    expect(failed.mock.calls[0][0].status).toBe(status);
+  });
+
+  it('propagates a listing failure instead of presenting an empty list', () => {
+    const failed = vi.fn();
+    service.getByTournamentId(7).subscribe({ error: failed });
+    http.expectOne('/api/teams').error(new ProgressEvent('error'));
+    expect(failed.mock.calls[0][0].status).toBe(0);
   });
 });
