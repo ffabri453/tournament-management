@@ -4,11 +4,19 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { routes } from './app.routes';
+import { Login } from './pages/login/login';
 import { TournamentForm } from './pages/tournaments/tournament-form/tournament-form';
 import { TournamentList } from './pages/tournaments/tournament-list/tournament-list';
 import { TournamentDetail } from './pages/tournaments/tournament-detail/tournament-detail';
 
 describe('Tournament creation routing', () => {
+  it('loads the real login form at /login', async () => {
+    TestBed.configureTestingModule({ providers: [provideRouter(routes), provideHttpClient(), provideHttpClientTesting()] });
+    const harness = await RouterTestingHarness.create();
+    await harness.navigateByUrl('/login', Login);
+    expect(harness.routeNativeElement?.querySelector('h1')?.textContent).toBe('Iniciar sesión');
+    TestBed.inject(HttpTestingController).verify();
+  });
   it('shows the detail and permits navigation to edit and back without writes', async () => {
     TestBed.configureTestingModule({ providers: [provideRouter(routes), provideHttpClient(), provideHttpClientTesting()] });
     const http = TestBed.inject(HttpTestingController);
