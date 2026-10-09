@@ -31,6 +31,24 @@
           <div><dt>Campe&oacute;n</dt><dd>Equipo #{{ current.champion_team_id }}</dd></div>
         }
       </dl>
+      @if (current.status === 'open') {
+        <form class="start-form" [formGroup]="startForm" (ngSubmit)="startTournament()" [attr.aria-busy]="isStarting()">
+          <h2>Iniciar torneo</h2>
+          <p>Se requieren exactamente {{ current.max_teams }} equipos v&aacute;lidos y ning&uacute;n partido previo.</p>
+          <fieldset [disabled]="isStarting() || needsRefresh()">
+            <label for="match-date">Fecha y hora de la primera ronda (Argentina)</label>
+            <input id="match-date" type="datetime-local" step="60" formControlName="match_date" aria-describedby="match-date-error" [attr.aria-invalid]="matchDate.touched && matchDate.invalid" />
+            @if (matchDate.touched && matchDate.invalid) {
+              <p id="match-date-error" class="error">Seleccion&aacute; una fecha y hora futuras v&aacute;lidas.</p>
+            }
+            <button type="submit" [disabled]="isStarting() || needsRefresh()">{{ isStarting() ? 'Iniciando...' : 'Iniciar torneo' }}</button>
+          </fieldset>
+          @if (isStarting()) { <p role="status">Iniciando torneo...</p> }
+        </form>
+      }
+      @if (startError()) { <p role="alert" class="error">{{ startError() }}</p> }
+      @if (needsRefresh()) { <button type="button" (click)="refreshTournament()">Actualizar torneo</button> }
+      @if (startSuccess()) { <p role="status">{{ startSuccess() }}</p> }
     }
   </section>
 </main>

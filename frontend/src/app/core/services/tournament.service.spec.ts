@@ -37,6 +37,36 @@ describe('TournamentService', () => {
 
   const tournament: Tournament = { id: 5, name: 'Copa', location: 'Firmat', modality: 'futbol_5', max_teams: 4, rules: 'official_rules_football_5', format: 'knockout', status: 'open', champion_team_id: null, created_at: '2026-10-02T12:00:00.000Z' };
 
+  it('starts the correct tournament with POST and returns the nested updated tournament', () => {
+    const received = vi.fn();
+    const payload = { match_date: '2030-01-02 12:00' };
+    service.start(5, payload).subscribe(received);
+    const request = http.expectOne('/api/tournaments/5/start');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual(payload);
+    const updated = { ...tournament, status: 'in_progress' };
+    request.flush({ message: 'Tournament started successfully', data: { tournament: updated, matches: [] } }, { status: 201, statusText: 'Created' });
+    expect(received).toHaveBeenCalledExactlyOnceWith(updated);
+    http.expectNone('/api/tournaments/5');
+  });
+
+  it.each([400, 404, 409, 500])('propagates start HTTP error %s without retrying POST', status => {
+    const failed = vi.fn();
+    service.start(5, { match_date: '2030-01-02 12:00' }).subscribe({ error: failed });
+    http.expectOne('/api/tournaments/5/start').flush({ message: 'Error' }, { status, statusText: 'Error' });
+    expect(failed).toHaveBeenCalledWith(expect.any(HttpErrorResponse));
+    expect(failed.mock.calls[0][0].status).toBe(status);
+    http.expectNone('/api/tournaments/5/start');
+  });
+
+  it('propagates a lost start response without retrying', () => {
+    const failed = vi.fn();
+    service.start(5, { match_date: '2030-01-02 12:00' }).subscribe({ error: failed });
+    http.expectOne('/api/tournaments/5/start').error(new ProgressEvent('error'));
+    expect(failed.mock.calls[0][0].status).toBe(0);
+    http.expectNone('/api/tournaments/5/start');
+  });
+
   it('gets an individual tournament from the correct endpoint', () => {
     let received: Tournament | undefined;
     service.getById(5).subscribe((value) => { received = value; });

@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { Observable } from 'rxjs';
-import { CreateTournamentRequest, Tournament, UpdateTournamentRequest } from '../../models/tournament';
+import { map, Observable } from 'rxjs';
+import { CreateTournamentRequest, StartTournamentRequest, StartTournamentResponse, Tournament, UpdateTournamentRequest } from '../../models/tournament';
 
 @Injectable({
   providedIn: 'root',
@@ -27,5 +27,11 @@ export class TournamentService {
 
   delete(id: number): Observable<{ message: string }> {
     return this.http.delete<{ message: string }>(`/api/tournaments/${id}`);
+  }
+
+  start(id: number, payload: StartTournamentRequest): Observable<Tournament> {
+    return this.http.post<StartTournamentResponse>(`/api/tournaments/${id}/start`, payload).pipe(
+      map(response => response.data.tournament),
+    );
   }
 }
