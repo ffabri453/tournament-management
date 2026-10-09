@@ -39,6 +39,7 @@
                 <td>{{ modalityLabels[tournament.modality] }}</td>
                 <td>{{ tournament.max_teams }} equipos</td>
                 <td>
+                  <a class="detail-link" [routerLink]="['/tournaments', tournament.id]" [attr.aria-label]="'Ver detalle de ' + tournament.name">Ver detalle</a>
                   <a [routerLink]="['/tournaments', tournament.id, 'edit']" [attr.aria-label]="'Editar ' + tournament.name">Editar</a>
                   <button type="button" (click)="deleteTournament(tournament)"
                     [disabled]="deletingIds().has(tournament.id) || tournament.status !== 'open'"

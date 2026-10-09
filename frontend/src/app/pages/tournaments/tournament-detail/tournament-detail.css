@@ -1,0 +1,26 @@
+:host {
+  display: block;
+  color: #202725;
+  font-family: Arial, Helvetica, sans-serif;
+  letter-spacing: 0;
+}
+
+main { max-width: 1080px; margin: 32px auto; padding: 0 16px; }
+nav { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 24px; }
+a { color: #2167ba; }
+h1 { margin: 0 0 24px; font-size: 28px; overflow-wrap: anywhere; }
+dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 32px; margin: 0; }
+dl > div { padding: 16px 0; border-top: 1px solid #dce2de; }
+dt { color: #5b6460; font-size: 14px; margin-bottom: 8px; }
+dd { margin: 0; line-height: 1.5; overflow-wrap: anywhere; }
+.message { padding: 24px 0; border-top: 1px solid #dce2de; }
+.error { color: #a12b32; }
+button { padding: 10px 16px; border: 1px solid #276644; border-radius: 4px; background: #276644; color: white; font: inherit; cursor: pointer; }
+button:hover { background: #1f5136; }
+a:focus-visible, button:focus-visible { outline: 2px solid #2167ba; outline-offset: 3px; }
+
+@media (max-width: 600px) {
+  main { margin-top: 24px; padding: 0 8px; }
+  h1 { font-size: 24px; }
+  dl { grid-template-columns: minmax(0, 1fr); }
+}

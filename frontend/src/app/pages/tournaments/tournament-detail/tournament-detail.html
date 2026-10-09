@@ -1,0 +1,35 @@
+<main>
+  <nav aria-label="Navegaci&oacute;n del torneo">
+    <a routerLink="/tournaments">Volver a torneos</a>
+    @if (tournament(); as current) {
+      <a [routerLink]="['/tournaments', current.id, 'edit']">Editar torneo</a>
+    }
+  </nav>
+
+  <section aria-label="Detalle del torneo" [attr.aria-busy]="isLoading()">
+    @if (isLoading()) {
+      <h1>Detalle del torneo</h1>
+      <p class="message" role="status">Cargando torneo...</p>
+    } @else if (errorMessage()) {
+      <h1>Detalle del torneo</h1>
+      <p class="message error" role="alert">{{ errorMessage() }}</p>
+      @if (canRetry()) {
+        <button type="button" (click)="retry()">Reintentar</button>
+      }
+    } @else if (tournament(); as current) {
+      <h1>{{ current.name }}</h1>
+      <dl>
+        <div><dt>Localidad</dt><dd>{{ current.location }}</dd></div>
+        <div><dt>Modalidad</dt><dd>{{ modalityLabels[current.modality] }}</dd></div>
+        <div><dt>Estado</dt><dd>{{ statusLabels[current.status] }}</dd></div>
+        <div><dt>Capacidad m&aacute;xima</dt><dd>{{ current.max_teams }} equipos</dd></div>
+        <div><dt>Formato</dt><dd>Eliminaci&oacute;n directa</dd></div>
+        <div><dt>Reglamento</dt><dd>{{ ruleLabels[current.rules] ?? current.rules }}</dd></div>
+        <div><dt>Fecha de creaci&oacute;n</dt><dd>{{ current.created_at | date:'dd/MM/yyyy HH:mm' }}</dd></div>
+        @if (current.champion_team_id !== null) {
+          <div><dt>Campe&oacute;n</dt><dd>Equipo #{{ current.champion_team_id }}</dd></div>
+        }
+      </dl>
+    }
+  </section>
+</main>

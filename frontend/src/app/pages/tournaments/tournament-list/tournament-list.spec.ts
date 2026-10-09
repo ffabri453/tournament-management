@@ -145,7 +145,7 @@ describe('TournamentList', () => {
     http.expectOne('/api/tournaments').flush([tournament]);
     fixture.detectChanges();
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
-    const link = element.querySelector<HTMLAnchorElement>('tbody a');
+    const link = element.querySelector<HTMLAnchorElement>('tbody a[aria-label^="Editar "]');
     expect(link?.textContent).toBe('Editar');
     expect(link?.getAttribute('href')).toBe('/tournaments/7/edit');
     link?.click();
@@ -163,6 +163,18 @@ describe('TournamentList', () => {
     link?.click();
     await fixture.whenStable();
     expect(navigate.mock.calls[0]?.[0].toString()).toBe('/tournaments/new');
+  });
+
+  it('links Ver detalle to the correct tournament with Angular Router', async () => {
+    http.expectOne('/api/tournaments').flush([tournament]);
+    fixture.detectChanges();
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+    const link = element.querySelector<HTMLAnchorElement>('tbody a[aria-label^="Ver detalle de "]');
+    expect(link?.textContent).toBe('Ver detalle');
+    expect(link?.getAttribute('href')).toBe('/tournaments/7');
+    link?.click();
+    await fixture.whenStable();
+    expect(navigate.mock.calls[0]?.[0].toString()).toBe('/tournaments/7');
   });
 
   it('shows loading until the initial request completes', () => {

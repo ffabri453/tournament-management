@@ -6,8 +6,40 @@ import { RouterTestingHarness } from '@angular/router/testing';
 import { routes } from './app.routes';
 import { TournamentForm } from './pages/tournaments/tournament-form/tournament-form';
 import { TournamentList } from './pages/tournaments/tournament-list/tournament-list';
+import { TournamentDetail } from './pages/tournaments/tournament-detail/tournament-detail';
 
 describe('Tournament creation routing', () => {
+  it('shows the detail and permits navigation to edit and back without writes', async () => {
+    TestBed.configureTestingModule({ providers: [provideRouter(routes), provideHttpClient(), provideHttpClientTesting()] });
+    const http = TestBed.inject(HttpTestingController);
+    const harness = await RouterTestingHarness.create();
+    const tournament = { id: 5, name: 'Copa de detalle', location: 'Firmat', modality: 'futbol_5', max_teams: 4, rules: 'official_rules_football_5', format: 'knockout', status: 'open', champion_team_id: null, created_at: '2026-10-02T12:00:00.000Z' };
+    await harness.navigateByUrl('/tournaments/5', TournamentDetail);
+    http.expectOne('/api/tournaments/5').flush(tournament);
+    harness.detectChanges();
+    expect(harness.routeNativeElement?.querySelector('h1')?.textContent).toBe(tournament.name);
+    const edit = harness.routeNativeElement?.querySelector<HTMLAnchorElement>('a[href="/tournaments/5/edit"]');
+    expect(edit).toBeTruthy();
+    edit?.click();
+    await harness.fixture.whenStable();
+    harness.detectChanges();
+    http.expectOne('/api/tournaments/5').flush(tournament);
+    harness.detectChanges();
+    expect(harness.routeNativeElement?.querySelector('h1')?.textContent).toBe('Editar torneo');
+    expect(harness.routeNativeElement?.querySelector('form')).not.toBeNull();
+    await harness.navigateByUrl('/tournaments/5', TournamentDetail);
+    http.expectOne('/api/tournaments/5').flush(tournament);
+    harness.detectChanges();
+    harness.routeNativeElement?.querySelector<HTMLAnchorElement>('a[href="/tournaments"]')?.click();
+    await harness.fixture.whenStable();
+    harness.detectChanges();
+    http.expectOne('/api/tournaments').flush([tournament]);
+    harness.detectChanges();
+    expect(TestBed.inject(Router).url).toBe('/tournaments');
+    expect(harness.routeNativeElement?.textContent).toContain('Ver detalle');
+    http.verify();
+  });
+
   it('shows a safe 404 at /tournaments/999999/edit without an editable form', async () => {
     TestBed.configureTestingModule({ providers: [provideRouter(routes), provideHttpClient(), provideHttpClientTesting()] });
     const http = TestBed.inject(HttpTestingController);
