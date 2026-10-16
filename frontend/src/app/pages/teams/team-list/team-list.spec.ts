@@ -153,4 +153,111 @@ describe('TeamList', () => {
     fixture.destroy();
     expect(request.cancelled).toBe(true);
   });
+
+  it('links to editing by team ID even when all tournament places are occupied', () => {
+    load(tournament, Array.from({ length: 4 }, (_, i) => ({ ...team, id: i + 1 })));
+    expect(element.querySelector('a[href="/tournaments/7/teams/1/edit"]')?.textContent).toBe('Editar');
+    expect(element.querySelector('a[href$="/new"]')).toBeNull();
+  });
+
+  it('does not send DELETE if confirmation is cancelled', () => {
+    load();
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    element.querySelector<HTMLButtonElement>('button.delete')?.click();
+    expect(confirm).toHaveBeenCalledOnce();
+    expect(confirm.mock.calls[0][0]).toContain(team.name);
+    http.expectNone(() => true);
+    expect(element.textContent).toContain(team.name);
+  });
+
+  it('deletes once, waits for success and reloads both tournament and teams', () => {
+    load(tournament, Array.from({ length: 4 }, (_, i) => ({ ...team, id: i + 1 })));
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const button = element.querySelector<HTMLButtonElement>('button.delete');
+    button?.click();
+    button?.click();
+    fixture.detectChanges();
+    expect(Array.from(element.querySelectorAll<HTMLButtonElement>('button.delete')).every(button => button.disabled)).toBe(true);
+    expect(element.textContent).toContain('Eliminando...');
+    expect(element.querySelectorAll('tbody tr')).toHaveLength(4);
+    const request = http.expectOne('/api/teams/1');
+    expect(request.request.method).toBe('DELETE');
+    request.flush({ message: 'Team deleted successfully' });
+    http.expectOne('/api/tournaments/7').flush(tournament);
+    http.expectOne('/api/teams').flush({ data: [{ ...team, id: 2 }] });
+    fixture.detectChanges();
+    expect(element.querySelectorAll('tbody tr')).toHaveLength(1);
+    expect(element.textContent).toContain('1 de 4 equipos');
+    expect(element.querySelector('a[href$="/new"]')).not.toBeNull();
+    expect(element.querySelector<HTMLButtonElement>('button.delete')?.disabled).toBe(false);
+  });
+
+  it.each(['in_progress', 'finished'] as const)('allows editing but disables deleting when %s', status => {
+    load({ ...tournament, status });
+    const confirm = vi.spyOn(window, 'confirm');
+    expect(element.querySelector('a[href="/tournaments/7/teams/1/edit"]')).not.toBeNull();
+    const button = element.querySelector<HTMLButtonElement>('button.delete');
+    expect(button?.disabled).toBe(true);
+    button?.click();
+    expect(confirm).not.toHaveBeenCalled();
+    http.expectNone(() => true);
+  });
+
+  it.each([0, 400, 404, 409, 500, 503])('keeps the team on DELETE error %s and offers a real refresh', status => {
+    load();
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    element.querySelector<HTMLButtonElement>('button.delete')?.click();
+    const request = http.expectOne('/api/teams/1');
+    if (status === 0) request.error(new ProgressEvent('error'));
+    else request.flush({ message: 'raw database error' }, { status, statusText: 'Error' });
+    fixture.detectChanges();
+    expect(element.querySelectorAll('tbody tr')).toHaveLength(1);
+    expect(element.querySelector('[role="alert"]')).not.toBeNull();
+    expect(element.textContent).not.toContain('raw database');
+    const refresh = Array.from(element.querySelectorAll('button')).find(button => button.textContent === 'Actualizar equipos');
+    refresh?.click();
+    http.expectOne('/api/tournaments/7').flush(tournament);
+    http.expectOne('/api/teams').flush({ data: [] });
+    fixture.detectChanges();
+    expect(element.querySelector('table')).toBeNull();
+    expect(element.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  it('explains a concurrently started tournament and disables deleting after refreshing', () => {
+    load();
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    element.querySelector<HTMLButtonElement>('button.delete')?.click();
+    http.expectOne('/api/teams/1').flush({ message: 'A team cannot be deleted after its tournament has started' }, { status: 409, statusText: 'Conflict' });
+    fixture.detectChanges();
+    expect(element.querySelector('[role="alert"]')?.textContent).toContain('No se pueden eliminar equipos');
+    Array.from(element.querySelectorAll('button')).find(button => button.textContent === 'Actualizar equipos')?.click();
+    http.expectOne('/api/tournaments/7').flush({ ...tournament, status: 'in_progress' });
+    http.expectOne('/api/teams').flush({ data: [team] });
+    fixture.detectChanges();
+    expect(element.querySelector<HTMLButtonElement>('button.delete')?.disabled).toBe(true);
+  });
+
+  it('cancels a pending deletion on route change without refreshing the old tournament', () => {
+    load();
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    element.querySelector<HTMLButtonElement>('button.delete')?.click();
+    const request = http.expectOne('/api/teams/1');
+    params.next(convertToParamMap({ id: '8' }));
+    expect(request.cancelled).toBe(true);
+    http.expectOne('/api/tournaments/8').flush({ ...tournament, id: 8 });
+    http.expectOne('/api/teams').flush({ data: [{ ...team, id: 2, tournament_id: 8, name: 'Equipo Beta' }] });
+    fixture.detectChanges();
+    expect(element.textContent).not.toContain('Eliminando');
+    expect(element.textContent).toContain('Equipo Beta');
+    http.expectNone('/api/tournaments/7');
+  });
+
+  it('cancels a pending deletion on destruction', () => {
+    load();
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    element.querySelector<HTMLButtonElement>('button.delete')?.click();
+    const request = http.expectOne('/api/teams/1');
+    fixture.destroy();
+    expect(request.cancelled).toBe(true);
+  });
 });

@@ -6,9 +6,20 @@ header { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; }
 a { color: #2167ba; }
 table { width: 100%; table-layout: fixed; border-collapse: collapse; text-align: left; margin-top: 24px; }
 th, td { padding: 16px 12px; border-bottom: 1px solid #dce2de; overflow-wrap: anywhere; }
-th:last-child, td:last-child { width: 85px; }
+th:nth-child(2), td:nth-child(2) { width: 85px; }
+th:last-child, td:last-child { width: 180px; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; min-height: 42px; }
 thead { background: #f2f5f3; }
 .error { color: #a12b32; }
 button { padding: 10px 16px; border: 1px solid #276644; border-radius: 4px; background: #276644; color: white; font: inherit; cursor: pointer; }
+button.delete { background: white; color: #a12b32; border-color: #a12b32; min-width: 100px; }
+button:disabled { cursor: not-allowed; opacity: .6; }
 a:focus-visible, button:focus-visible { outline: 2px solid #2167ba; outline-offset: 3px; }
-@media (max-width: 600px) { h1 { font-size: 24px; } main { padding: 0 8px; } }
+@media (max-width: 600px) {
+  h1 { font-size: 24px; }
+  main { padding: 0 8px; }
+  th, td { padding: 12px 6px; }
+  thead th { font-size: 14px; }
+  th:nth-child(2), td:nth-child(2) { width: 85px; }
+  th:last-child, td:last-child { width: 106px; }
+}

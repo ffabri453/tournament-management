@@ -7,6 +7,7 @@ import { catchError, combineLatest, EMPTY, finalize, map, startWith, Subject, Su
 import { TeamService } from '../../../core/services/team';
 import { TournamentService } from '../../../core/services/tournament.service';
 import { Tournament } from '../../../models/tournament';
+import { Team } from '../../../models/team';
 
 const playerLimits: Record<Tournament['modality'], { min: number; max: number }> = {
   futbol_5: { min: 5, max: 10 },
@@ -41,6 +42,9 @@ export class TeamForm implements OnInit {
   private saveSubscription?: Subscription;
 
   readonly tournament = signal<Tournament | null>(null);
+  readonly isEditing = signal(false);
+  private readonly selectedTeam = signal<Team | null>(null);
+  readonly structureLocked = computed(() => this.isEditing() && this.tournament()?.status !== 'open');
   readonly isLoading = signal(false);
   readonly isSaving = signal(false);
   readonly loadError = signal('');
@@ -56,6 +60,7 @@ export class TeamForm implements OnInit {
     if (this.serverRestriction()) return this.serverRestriction();
     const tournament = this.tournament();
     if (!tournament) return '';
+    if (this.isEditing()) return '';
     if (tournament.status !== 'open') return 'El torneo ya fue iniciado o finalizado. No se pueden agregar equipos.';
     if (this.teamCount() >= tournament.max_teams) return 'El torneo alcanz\u00f3 su capacidad m\u00e1xima de equipos.';
     return '';
@@ -71,11 +76,15 @@ export class TeamForm implements OnInit {
         this.saveSubscription?.unsubscribe();
         this.isSaving.set(false);
         this.tournament.set(null);
+        this.selectedTeam.set(null);
+        const rawTeamId = params.get('teamId');
+        this.isEditing.set(rawTeamId !== null);
         this.teamCount.set(0);
         this.loadError.set('');
         this.saveError.set('');
         this.serverRestriction.set('');
         this.canRetry.set(false);
+        this.form.enable();
         this.form.reset();
         const rawId = params.get('id');
         const id = Number(rawId);
@@ -83,15 +92,27 @@ export class TeamForm implements OnInit {
           this.loadError.set('El identificador del torneo no es v\u00e1lido.');
           return EMPTY;
         }
+        const teamId = Number(rawTeamId);
+        if (rawTeamId !== null && (!/^\d+$/.test(rawTeamId) || !Number.isInteger(teamId) || teamId <= 0 || teamId > 2147483647)) {
+          this.loadError.set('El identificador del equipo no es v\u00e1lido.');
+          return EMPTY;
+        }
         this.isLoading.set(true);
         return this.tournamentService.getById(id).pipe(
-          switchMap(tournament => this.teamService.getByTournamentId(id).pipe(
-            map(teams => ({ tournament, count: teams.length })),
-          )),
+          switchMap(tournament => {
+            if (rawTeamId !== null) {
+              return this.teamService.getById(teamId).pipe(
+                map(team => ({ tournament, count: 0, team: team as Team | null })),
+              );
+            }
+            return this.teamService.getByTournamentId(id).pipe(
+              map(teams => ({ tournament, count: teams.length, team: null as Team | null })),
+            );
+          }),
           catchError((error: unknown) => {
             const status = error instanceof HttpErrorResponse ? error.status : null;
             this.canRetry.set(status !== 400 && status !== 404);
-            this.loadError.set(status === 404 ? 'No se encontr\u00f3 el torneo.' :
+            this.loadError.set(status === 404 ? (this.isEditing() ? 'No se encontr\u00f3 el torneo o el equipo.' : 'No se encontr\u00f3 el torneo.') :
               status === 400 ? 'El identificador del torneo no es v\u00e1lido.' :
               status !== null && [0, 502, 503, 504].includes(status)
                 ? 'No se pudo conectar con el servidor. Intent\u00e1 nuevamente.'
@@ -102,14 +123,21 @@ export class TeamForm implements OnInit {
         );
       }),
       takeUntilDestroyed(this.destroyRef),
-    ).subscribe(({ tournament, count }) => {
+    ).subscribe(({ tournament, count, team }) => {
+      if (team && team.tournament_id !== tournament.id) {
+        this.loadError.set('El equipo no pertenece a este torneo. Volv\u00e9 al listado de equipos.');
+        return;
+      }
       this.tournament.set(tournament);
+      this.selectedTeam.set(team);
       this.teamCount.set(count);
       const limits = playerLimits[tournament.modality];
       this.form.controls.players_count.setValidators([
         Validators.required, wholeNumber, Validators.min(limits.min), Validators.max(limits.max),
       ]);
       this.form.controls.players_count.updateValueAndValidity();
+      if (team) this.form.setValue({ name: team.name, players_count: team.players_count });
+      if (this.structureLocked()) this.form.controls.players_count.disable();
     });
   }
 
@@ -119,14 +147,20 @@ export class TeamForm implements OnInit {
 
   submit(): void {
     const tournament = this.tournament();
-    if (!tournament || this.isLoading() || this.isSaving() || this.loadError() || this.restriction()) return;
+    const team = this.selectedTeam();
+    if (!tournament || this.isLoading() || this.isSaving() || this.loadError() || this.restriction() || (this.isEditing() && !team)) return;
     this.form.markAllAsTouched();
     if (this.form.invalid) return;
     const { name, players_count } = this.form.getRawValue();
     if (players_count === null) return;
     this.isSaving.set(true);
     this.saveError.set('');
-    this.saveSubscription = this.teamService.create({ tournament_id: tournament.id, name: name.trim(), players_count }).pipe(
+    const payload = {
+      tournament_id: tournament.id, name: name.trim(),
+      players_count: this.structureLocked() && team ? team.players_count : players_count,
+    };
+    const request = team ? this.teamService.update(team.id, payload) : this.teamService.create(payload);
+    this.saveSubscription = request.pipe(
       takeUntilDestroyed(this.destroyRef),
     ).subscribe({
       next: () => { void this.router.navigate(['/tournaments', tournament.id, 'teams']); },
@@ -143,12 +177,26 @@ export class TeamForm implements OnInit {
       const message = typeof body === 'object' && body !== null && 'message' in body && typeof body.message === 'string'
         ? body.message : '';
       if (error.status === 404) {
-        this.serverRestriction.set('El torneo ya no existe. Volv\u00e9 al listado de torneos.');
+        this.serverRestriction.set(this.isEditing()
+          ? 'El torneo o el equipo ya no existe. Volv\u00e9 al listado de equipos.'
+          : 'El torneo ya no existe. Volv\u00e9 al listado de torneos.');
         return;
       }
       if (error.status === 409) {
         if (message === 'A team with the same name already exists in that tournament') {
           this.saveError.set('Ya existe un equipo con ese nombre en este torneo.');
+          return;
+        }
+        if (this.isEditing() && [
+          'Only the team name can be changed after the tournament has started',
+          'A team cannot leave a tournament after it has started',
+          'Teams can only be registered or edited while the tournament is open',
+        ].includes(message)) {
+          this.serverRestriction.set('El estado del torneo cambi\u00f3. Volv\u00e9 al listado y abr\u00ed el equipo de nuevo; una vez iniciado solo se puede editar el nombre.');
+          return;
+        }
+        if (message === 'The team cannot be changed because it is referenced by a match') {
+          this.saveError.set('El equipo est\u00e1 asociado a partidos y no admite ese cambio.');
           return;
         }
         if (/^The tournament already has its maximum of \d+ teams$/.test(message)) {

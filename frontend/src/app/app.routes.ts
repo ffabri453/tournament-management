@@ -12,6 +12,7 @@ export const routes: Routes = [
   { path: 'tournaments/new', component: TournamentForm },
   { path: 'tournaments/:id/edit', component: TournamentForm },
   { path: 'tournaments/:id/teams/new', component: TeamForm },
+  { path: 'tournaments/:id/teams/:teamId/edit', component: TeamForm },
   { path: 'tournaments/:id/teams', component: TeamList },
   { path: 'tournaments/:id', component: TournamentDetail },
   { path: 'tournaments', component: TournamentList },

@@ -2,7 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { catchError, combineLatest, EMPTY, finalize, map, startWith, Subject, switchMap } from 'rxjs';
+import { catchError, combineLatest, EMPTY, finalize, map, startWith, Subject, Subscription, switchMap } from 'rxjs';
 import { TeamService } from '../../../core/services/team';
 import { TournamentService } from '../../../core/services/tournament.service';
 import { Team } from '../../../models/team';
@@ -20,12 +20,15 @@ export class TeamList implements OnInit {
   private readonly tournamentService = inject(TournamentService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly reload = new Subject<void>();
+  private deleteSubscription?: Subscription;
 
   protected readonly tournament = signal<Tournament | null>(null);
   protected readonly teams = signal<Team[]>([]);
   protected readonly isLoading = signal(false);
   protected readonly errorMessage = signal('');
   protected readonly canRetry = signal(false);
+  protected readonly deletingId = signal<number | null>(null);
+  protected readonly deleteError = signal('');
   protected readonly canAdd = computed(() => {
     const tournament = this.tournament();
     return tournament !== null && tournament.status === 'open' && this.teams().length < tournament.max_teams;
@@ -34,6 +37,8 @@ export class TeamList implements OnInit {
   ngOnInit(): void {
     combineLatest([this.route.paramMap, this.reload.pipe(startWith(undefined))]).pipe(
       switchMap(([params]) => {
+        this.deleteSubscription?.unsubscribe();
+        this.deleteError.set('');
         this.tournament.set(null);
         this.teams.set([]);
         this.errorMessage.set('');
@@ -71,5 +76,41 @@ export class TeamList implements OnInit {
 
   protected retry(): void {
     if (this.canRetry() && !this.isLoading()) this.reload.next();
+  }
+
+  protected refreshTeams(): void {
+    if (!this.isLoading() && this.deletingId() === null) this.reload.next();
+  }
+
+  protected deleteTeam(team: Team): void {
+    const tournament = this.tournament();
+    if (!tournament || tournament.status !== 'open' || this.isLoading() || this.deletingId() !== null ||
+        team.tournament_id !== tournament.id || !this.teams().some(current => current.id === team.id)) return;
+    if (!window.confirm(`\u00bfEliminar "${team.name}" de "${tournament.name}"? Esta acci\u00f3n no se puede deshacer.`)) return;
+    this.deletingId.set(team.id);
+    this.deleteError.set('');
+    this.deleteSubscription = this.teamService.delete(team.id).pipe(
+      takeUntilDestroyed(this.destroyRef),
+      finalize(() => this.deletingId.set(null)),
+    ).subscribe({
+      next: () => this.reload.next(),
+      error: (error: unknown) => this.deleteError.set(this.getDeleteError(error)),
+    });
+  }
+
+  private getDeleteError(error: unknown): string {
+    if (error instanceof HttpErrorResponse) {
+      if (error.status === 404) return 'El equipo ya no existe. Actualiz\u00e1 el listado.';
+      if (error.status === 400) return 'El identificador del equipo no es v\u00e1lido. Actualiz\u00e1 el listado.';
+      if (error.status === 409) {
+        const body: unknown = error.error;
+        const message = typeof body === 'object' && body !== null && 'message' in body ? body.message : '';
+        return message === 'A team cannot be deleted after its tournament has started'
+          ? 'El torneo ya fue iniciado o finalizado. No se pueden eliminar equipos. Actualiz\u00e1 el listado.'
+          : 'No se puede eliminar el equipo: est\u00e1 asociado a partidos o el estado del torneo no lo permite. Actualiz\u00e1 el listado.';
+      }
+    }
+    // La respuesta puede perderse despues de que el servidor elimine el equipo.
+    return 'No se pudo confirmar la eliminaci\u00f3n. Actualiz\u00e1 el listado antes de intentar nuevamente.';
   }
 }

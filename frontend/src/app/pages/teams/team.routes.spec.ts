@@ -47,6 +47,30 @@ describe('Tournament team routing', () => {
     loadContext([team]);
     expect(TestBed.inject(Router).url).toBe('/tournaments/7/teams');
     expect(harness.routeNativeElement?.textContent).toContain('Equipo Alfa');
+    await click('/tournaments/7/teams/1/edit');
+    http.expectOne('/api/tournaments/7').flush(tournament);
+    http.expectOne('/api/teams/1').flush({ data: team });
+    harness.detectChanges();
+    const edit = harness.routeDebugElement?.componentInstance as TeamForm;
+    expect(edit.isEditing()).toBe(true);
+    edit.form.controls.name.setValue('Equipo editado');
+    edit.submit();
+    const update = http.expectOne('/api/teams/1');
+    expect(update.request.method).toBe('PUT');
+    update.flush({ data: { ...team, name: 'Equipo editado' } });
+    await harness.fixture.whenStable();
+    harness.detectChanges();
+    loadContext([{ ...team, name: 'Equipo editado' }]);
+    expect(harness.routeNativeElement?.textContent).toContain('Equipo editado');
+    const confirmation = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    try {
+      harness.routeNativeElement?.querySelector<HTMLButtonElement>('button.delete')?.click();
+      const deletion = http.expectOne('/api/teams/1');
+      expect(deletion.request.method).toBe('DELETE');
+      deletion.flush({ message: 'Team deleted successfully' });
+      loadContext([]);
+      expect(harness.routeNativeElement?.textContent).toContain('no hay equipos registrados');
+    } finally { confirmation.mockRestore(); }
     await click('/tournaments/7');
     http.expectOne('/api/tournaments/7').flush(tournament);
     harness.detectChanges();

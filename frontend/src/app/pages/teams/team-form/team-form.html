@@ -5,7 +5,7 @@
       <a [routerLink]="['/tournaments', current.id]">Volver al torneo</a>
     } @else { <a routerLink="/tournaments">Volver a torneos</a> }
   </nav>
-  <h1>Agregar equipo</h1>
+  <h1>{{ isEditing() ? 'Editar equipo' : 'Agregar equipo' }}</h1>
   @if (isLoading()) {
     <p role="status">Cargando torneo y equipos...</p>
   } @else if (loadError()) {
@@ -26,6 +26,9 @@
           <label for="players-count">Cantidad de jugadores</label>
           <input id="players-count" type="number" step="1" [min]="limits()!.min" [max]="limits()!.max" formControlName="players_count" aria-describedby="players-range players-error" [attr.aria-invalid]="form.controls.players_count.touched && form.controls.players_count.invalid" />
           <small id="players-range">F&uacute;tbol {{ current.modality.replace('futbol_', '') }}: de {{ limits()!.min }} a {{ limits()!.max }} jugadores.</small>
+          @if (structureLocked()) {
+            <p>El torneo ya fue iniciado o finalizado. Solo se puede cambiar el nombre del equipo.</p>
+          }
           @if (form.controls.players_count.touched && form.controls.players_count.invalid) {
             <p id="players-error" class="error">Ingres&aacute; un n&uacute;mero entero entre {{ limits()!.min }} y {{ limits()!.max }}.</p>
           }

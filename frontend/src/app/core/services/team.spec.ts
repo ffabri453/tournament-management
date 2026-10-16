@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { Observable } from 'rxjs';
 import { Team } from '../../models/team';
 import { TeamService } from './team';
 
@@ -70,5 +71,45 @@ describe('TeamService', () => {
     service.getByTournamentId(7).subscribe({ error: failed });
     http.expectOne('/api/teams').error(new ProgressEvent('error'));
     expect(failed.mock.calls[0][0].status).toBe(0);
+  });
+
+  it('fetches one team by ID and unwraps the response', () => {
+    const received = vi.fn();
+    service.getById(1).subscribe(received);
+    const request = http.expectOne('/api/teams/1');
+    expect(request.request.method).toBe('GET');
+    request.flush({ message: 'OK', data: team });
+    expect(received).toHaveBeenCalledExactlyOnceWith(team);
+  });
+
+  it('sends all required fields with PUT and returns the updated team', () => {
+    const received = vi.fn();
+    const payload = { tournament_id: 7, name: 'Equipo Beta', players_count: 8 };
+    service.update(1, payload).subscribe(received);
+    const request = http.expectOne('/api/teams/1');
+    expect(request.request.method).toBe('PUT');
+    expect(request.request.body).toEqual(payload);
+    request.flush({ message: 'OK', data: { ...team, ...payload } });
+    expect(received).toHaveBeenCalledExactlyOnceWith({ ...team, ...payload });
+  });
+
+  it('deletes by ID without a body and preserves the confirmation response', () => {
+    const received = vi.fn();
+    service.delete(1).subscribe(received);
+    const request = http.expectOne('/api/teams/1');
+    expect(request.request.method).toBe('DELETE');
+    expect(request.request.body).toBeNull();
+    request.flush({ message: 'Team deleted successfully' });
+    expect(received).toHaveBeenCalledExactlyOnceWith({ message: 'Team deleted successfully' });
+  });
+
+  it.each([400, 404, 409, 500])('propagates update and delete failures %s', status => {
+    const requests: Observable<unknown>[] = [service.update(1, team), service.delete(1)];
+    for (const request$ of requests) {
+      const failed = vi.fn();
+      request$.subscribe({ error: failed });
+      http.expectOne('/api/teams/1').flush({ message: 'Error' }, { status, statusText: 'Error' });
+      expect(failed.mock.calls[0][0].status).toBe(status);
+    }
   });
 });

@@ -7,3 +7,5 @@ export interface Team {
 }
 
 export type CreateTeamRequest = Pick<Team, 'tournament_id' | 'name' | 'players_count'>;
+
+export type UpdateTeamRequest = CreateTeamRequest;
