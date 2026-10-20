@@ -8,8 +8,17 @@ import { Login } from './pages/login/login';
 import { TournamentForm } from './pages/tournaments/tournament-form/tournament-form';
 import { TournamentList } from './pages/tournaments/tournament-list/tournament-list';
 import { TournamentDetail } from './pages/tournaments/tournament-detail/tournament-detail';
+import { MatchList } from './pages/matches/match-list/match-list';
 
 describe('Tournament creation routing', () => {
+  it('registers the tournament match-list route', () => {
+    expect(routes).toContainEqual({ path: 'tournaments/:id/matches', component: MatchList });
+  });
+
+  it('registers the tournament bracket route', () => {
+    expect(routes).toContainEqual({ path: 'tournaments/:id/bracket', component: MatchList });
+  });
+
   it('loads the real login form at /login', async () => {
     TestBed.configureTestingModule({ providers: [provideRouter(routes), provideHttpClient(), provideHttpClientTesting()] });
     const harness = await RouterTestingHarness.create();

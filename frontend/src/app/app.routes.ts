@@ -5,6 +5,7 @@ import { TournamentForm } from './pages/tournaments/tournament-form/tournament-f
 import { TournamentDetail } from './pages/tournaments/tournament-detail/tournament-detail';
 import { TeamList } from './pages/teams/team-list/team-list';
 import { TeamForm } from './pages/teams/team-form/team-form';
+import { MatchList } from './pages/matches/match-list/match-list';
 
 export const routes: Routes = [
   { path: 'login', component: Login },
@@ -14,6 +15,8 @@ export const routes: Routes = [
   { path: 'tournaments/:id/teams/new', component: TeamForm },
   { path: 'tournaments/:id/teams/:teamId/edit', component: TeamForm },
   { path: 'tournaments/:id/teams', component: TeamList },
+  { path: 'tournaments/:id/matches', component: MatchList },
+  { path: 'tournaments/:id/bracket', component: MatchList },
   { path: 'tournaments/:id', component: TournamentDetail },
   { path: 'tournaments', component: TournamentList },
 ];

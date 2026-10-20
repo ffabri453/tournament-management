@@ -1,3 +1,5 @@
+import { Match, MatchRound } from './match';
+
 export interface Tournament {
   id: number;
   name: string;
@@ -26,21 +28,35 @@ export interface StartTournamentResponse {
   message: string;
   data: {
     tournament: Tournament;
-    matches: {
-      id: number;
-      tournament_id: number;
-      home_team_id: number;
-      away_team_id: number;
-      match_date: string;
-      location: string;
-      round: 'round_of_32' | 'round_of_16' | 'quarter_final' | 'semi_final' | 'final';
-      home_goals: number | null;
-      away_goals: number | null;
-      home_penalties: number | null;
-      away_penalties: number | null;
-      winner_team_id: number | null;
-      status: 'scheduled' | 'live' | 'finished' | 'suspended';
-      created_at: string;
-    }[];
+    matches: Match[];
   };
+}
+
+export type GenerateNextRoundRequest = StartTournamentRequest;
+
+export interface GenerateNextRoundResult {
+  current_round: MatchRound;
+  next_round: MatchRound;
+  matches: Match[];
+}
+
+export interface GenerateNextRoundResponse {
+  message: string;
+  data: GenerateNextRoundResult;
+}
+
+export interface BracketTeam {
+  id: number;
+  name: string;
+}
+
+export interface BracketMatch extends Match {
+  home_team: BracketTeam | null;
+  away_team: BracketTeam | null;
+  winner_team: BracketTeam | null;
+}
+
+export interface TournamentBracket {
+  tournament: Tournament & { champion: BracketTeam | null };
+  rounds: { round: MatchRound; matches: BracketMatch[] }[];
 }

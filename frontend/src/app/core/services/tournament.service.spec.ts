@@ -76,6 +76,47 @@ describe('TournamentService', () => {
     expect(received).toEqual(tournament);
   });
 
+  it('gets the bracket contract directly from the existing endpoint', () => {
+    const received = vi.fn();
+    const bracket = {
+      tournament: { ...tournament, champion: null },
+      rounds: [{ round: 'semi_final' as const, matches: [] }],
+    };
+    service.getBracket(5).subscribe(received);
+    const request = http.expectOne('/api/tournaments/5/bracket');
+    expect(request.request.method).toBe('GET');
+    request.flush(bracket);
+    expect(received).toHaveBeenCalledExactlyOnceWith(bracket);
+  });
+
+  it('propagates bracket HTTP errors', () => {
+    const failed = vi.fn();
+    service.getBracket(5).subscribe({ error: failed });
+    http.expectOne('/api/tournaments/5/bracket').flush({}, { status: 500, statusText: 'Server Error' });
+    expect(failed).toHaveBeenCalledWith(expect.any(HttpErrorResponse));
+  });
+
+  it('generates the next round with POST and returns the nested backend result', () => {
+    const received = vi.fn();
+    const payload = { match_date: '2030-01-08 18:30' };
+    const result = { current_round: 'quarter_final' as const, next_round: 'semi_final' as const, matches: [] };
+    service.generateNextRound(5, payload).subscribe(received);
+    const request = http.expectOne('/api/tournaments/5/next-round');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual(payload);
+    request.flush({ message: 'Next round generated successfully', data: result }, { status: 201, statusText: 'Created' });
+    expect(received).toHaveBeenCalledExactlyOnceWith(result);
+  });
+
+  it.each([400, 404, 409, 500])('propagates next-round HTTP error %s without retrying POST', status => {
+    const failed = vi.fn();
+    service.generateNextRound(5, { match_date: '2030-01-08 18:30' }).subscribe({ error: failed });
+    http.expectOne('/api/tournaments/5/next-round').flush({ message: 'Error' }, { status, statusText: 'Error' });
+    expect(failed).toHaveBeenCalledWith(expect.any(HttpErrorResponse));
+    expect(failed.mock.calls[0][0].status).toBe(status);
+    http.expectNone('/api/tournaments/5/next-round');
+  });
+
   it('updates with PUT and returns the tournament directly', () => {
     let received: Tournament | undefined;
     service.update(5, { name: 'Copa actualizada' }).subscribe((value) => { received = value; });
