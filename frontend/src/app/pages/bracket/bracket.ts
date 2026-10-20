@@ -54,6 +54,10 @@ export class Bracket {
     this.matchSelected.emit(matchId);
   }
 
+  protected teamLogoUrl(teamId: number): string {
+    return `/api/teams/${teamId}/logo`;
+  }
+
   private buildColumns(bracket: TournamentBracket): BracketRoundColumn[] {
     const rounds = roundsByCapacity[bracket.tournament.max_teams];
     const matchesByRound = new Map(bracket.rounds.map(item => [item.round, item.matches]));

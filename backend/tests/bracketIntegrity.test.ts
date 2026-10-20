@@ -49,6 +49,7 @@ const teamFixture: Team = {
   tournament_id: 1,
   name: 'Team One',
   players_count: 10,
+  has_logo: false,
   created_at: new Date('2026-01-01T00:00:00Z')
 };
 

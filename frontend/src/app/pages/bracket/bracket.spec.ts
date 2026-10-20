@@ -38,9 +38,9 @@ describe('Bracket', () => {
       winner_team_id: finished ? homeId : null,
       status: finished ? 'finished' : 'scheduled',
       created_at: '2026-10-19T12:00:00.000Z',
-      home_team: { id: homeId, name: `Club Deportivo Regional del Norte ${homeId}` },
-      away_team: { id: awayId, name: `Asociación Atlética del Sur ${awayId}` },
-      winner_team: finished ? { id: homeId, name: `Club Deportivo Regional del Norte ${homeId}` } : null,
+      home_team: { id: homeId, name: `Club Deportivo Regional del Norte ${homeId}`, has_logo: false },
+      away_team: { id: awayId, name: `Asociación Atlética del Sur ${awayId}`, has_logo: false },
+      winner_team: finished ? { id: homeId, name: `Club Deportivo Regional del Norte ${homeId}`, has_logo: false } : null,
     };
   };
 
@@ -92,6 +92,18 @@ describe('Bracket', () => {
     expect(element.querySelector('.team.loser .team-name')?.textContent).toBe('Asociación Atlética del Sur 2');
   });
 
+  it('shows real team logos and keeps the placeholder for teams without one', () => {
+    const logoMatch = match(1, 'semi_final');
+    logoMatch.home_team = { ...logoMatch.home_team!, has_logo: true };
+    render(response(4, [{ round: 'semi_final', matches: [logoMatch] }]));
+    const firstCard = element.querySelector('button.match-card');
+    const logo = firstCard?.querySelector<HTMLImageElement>('.team-crest');
+    expect(logo?.getAttribute('src')).toBe('/api/teams/1/logo');
+    expect(logo?.getAttribute('alt')).toBe('');
+    expect(firstCard?.querySelectorAll('.crest-slot')).toHaveLength(1);
+    expect(firstCard?.textContent).toContain('Club Deportivo Regional del Norte 1');
+  });
+
   it('shows the real match ID and scheduled date in the compact header', () => {
     const scheduled = match(27, 'semi_final');
     render(response(4, [{ round: 'semi_final', matches: [scheduled] }]));
@@ -124,7 +136,7 @@ describe('Bracket', () => {
   it('shows the champion name returned by the backend', () => {
     const bracket = response(4, [{ round: 'final', matches: [match(3, 'final', true)] }]);
     bracket.tournament = { ...bracket.tournament, status: 'finished', champion_team_id: 5,
-      champion: { id: 5, name: 'Club Social y Deportivo Campeón Nacional' } };
+      champion: { id: 5, name: 'Club Social y Deportivo Campeón Nacional', has_logo: false } };
     render(bracket);
     expect(element.querySelector('.champion')?.textContent).toContain('Club Social y Deportivo Campeón Nacional');
   });

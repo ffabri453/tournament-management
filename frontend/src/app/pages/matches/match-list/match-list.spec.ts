@@ -40,8 +40,8 @@ describe('MatchList unified screen', () => {
     winner_team_id: null,
     status: 'live',
     created_at: tournament.created_at,
-    home_team: { id: 10, name: 'Club Deportivo Los Halcones del Norte' },
-    away_team: { id: 11, name: 'Asociación Deportiva del Sur' },
+    home_team: { id: 10, name: 'Club Deportivo Los Halcones del Norte', has_logo: false },
+    away_team: { id: 11, name: 'Asociación Deportiva del Sur', has_logo: false },
     winner_team: null,
   };
 
@@ -53,8 +53,8 @@ describe('MatchList unified screen', () => {
     home_goals: null,
     away_goals: null,
     status: 'scheduled',
-    home_team: { id: 12, name: 'Club Atlético Central de la Región' },
-    away_team: { id: 13, name: 'Sociedad Deportiva Unión del Oeste' },
+    home_team: { id: 12, name: 'Club Atlético Central de la Región', has_logo: false },
+    away_team: { id: 13, name: 'Sociedad Deportiva Unión del Oeste', has_logo: false },
   };
 
   const bracket = (matches: BracketMatch[] = [match, otherMatch]): TournamentBracket => ({
@@ -351,7 +351,7 @@ describe('MatchList unified screen', () => {
       winner_team_id: finalMatch.home_team_id, winner_team: finalMatch.home_team };
     http.expectOne('/api/tournaments/7/bracket').flush({
       tournament: { ...tournament, status: 'finished', champion_team_id: finalMatch.home_team_id,
-        champion: { id: finalMatch.home_team_id, name: championName } },
+        champion: { id: finalMatch.home_team_id, name: championName, has_logo: false } },
       rounds: [{ round: 'final', matches: [completedMatch] }],
     });
     fixture.detectChanges();

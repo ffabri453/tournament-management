@@ -8,7 +8,7 @@ import { TeamService } from './team';
 describe('TeamService', () => {
   let service: TeamService;
   let http: HttpTestingController;
-  const team: Team = { id: 1, tournament_id: 7, name: 'Equipo Alfa', players_count: 7, created_at: '2026-10-09T12:00:00.000Z' };
+  const team: Team = { id: 1, tournament_id: 7, name: 'Equipo Alfa', players_count: 7, has_logo: false, created_at: '2026-10-09T12:00:00.000Z' };
 
   beforeEach(() => {
     TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
@@ -91,6 +91,30 @@ describe('TeamService', () => {
     expect(request.request.body).toEqual(payload);
     request.flush({ message: 'OK', data: { ...team, ...payload } });
     expect(received).toHaveBeenCalledExactlyOnceWith({ ...team, ...payload });
+  });
+
+  it('uploads a logo as its original binary MIME type', () => {
+    const file = new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], 'escudo.png', { type: 'image/png' });
+    const received = vi.fn();
+    service.uploadLogo(1, file).subscribe(received);
+    const request = http.expectOne('/api/teams/1/logo');
+    expect(request.request.method).toBe('PUT');
+    expect(request.request.body).toBe(file);
+    expect(request.request.headers.get('Content-Type')).toBe('image/png');
+    const response = { message: 'Team logo updated successfully', data: { team_id: 1, has_logo: true } };
+    request.flush(response);
+    expect(received).toHaveBeenCalledExactlyOnceWith(response);
+  });
+
+  it('deletes a logo and exposes its stable URL', () => {
+    const received = vi.fn();
+    service.deleteLogo(1).subscribe(received);
+    const request = http.expectOne('/api/teams/1/logo');
+    expect(request.request.method).toBe('DELETE');
+    expect(request.request.body).toBeNull();
+    request.flush({ message: 'Team logo removed successfully', data: { team_id: 1, has_logo: false } });
+    expect(received).toHaveBeenCalledOnce();
+    expect(service.logoUrl(1)).toBe('/api/teams/1/logo');
   });
 
   it('deletes by ID without a body and preserves the confirmation response', () => {

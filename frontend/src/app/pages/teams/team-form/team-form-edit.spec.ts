@@ -14,7 +14,7 @@ describe('TeamForm editing', () => {
   let element: HTMLElement;
   let params: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
   const tournament: Tournament = { id: 7, name: 'Copa Regional', location: 'Firmat', modality: 'futbol_7', max_teams: 4, rules: 'official_rules_football_7', format: 'knockout', status: 'open', champion_team_id: null, created_at: '2026-10-16T12:00:00.000Z' };
-  const team: Team = { id: 12, tournament_id: 7, name: 'Equipo Alfa', players_count: 7, created_at: tournament.created_at };
+  const team: Team = { id: 12, tournament_id: 7, name: 'Equipo Alfa', players_count: 7, has_logo: false, created_at: tournament.created_at };
   const load = (current = tournament, currentTeam = team) => {
     fixture.detectChanges();
     http.expectOne('/api/tournaments/7').flush(current);
@@ -57,6 +57,75 @@ describe('TeamForm editing', () => {
     expect(navigate).toHaveBeenCalledExactlyOnceWith(['/tournaments', 7, 'teams']);
     component.submit();
     http.expectNone(() => true);
+  });
+
+  it('previews and uploads a supported logo after preserving the team data', async () => {
+    load();
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    const file = new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], 'escudo.png', { type: 'image/png' });
+    component.selectLogo({ target: { files: [file], value: '' } } as unknown as Event);
+    expect(component.logoFile()).toBe(file);
+    component.logoPreview.set('data:image/png;base64,iVBORw0KGgo=');
+    fixture.detectChanges();
+    expect(element.querySelector<HTMLImageElement>('.logo-preview img')?.src).toContain('data:image/png;base64');
+    component.submit();
+    const teamRequest = http.expectOne('/api/teams/12');
+    expect(teamRequest.request.body).toEqual({ tournament_id: 7, name: team.name, players_count: 7 });
+    teamRequest.flush({ data: team });
+    const logoRequest = http.expectOne('/api/teams/12/logo');
+    expect(logoRequest.request.method).toBe('PUT');
+    expect(logoRequest.request.body).toBe(file);
+    logoRequest.flush({ message: 'OK', data: { team_id: 12, has_logo: true } });
+    expect(navigate).toHaveBeenCalledExactlyOnceWith(['/tournaments', 7, 'teams']);
+  });
+
+  it.each(['in_progress', 'finished'] as const)('can remove a logo from a %s tournament', status => {
+    load({ ...tournament, status }, { ...team, has_logo: true });
+    vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    const input = element.querySelector<HTMLInputElement>('#team-logo')!;
+    expect(element.querySelector<HTMLImageElement>('.logo-preview img')?.getAttribute('src')).toBe('/api/teams/12/logo');
+    component.removeLogo(input);
+    fixture.detectChanges();
+    expect(element.textContent).toContain('se quitará al guardar');
+    component.submit();
+    const teamRequest = http.expectOne('/api/teams/12');
+    expect(teamRequest.request.body).toEqual({ tournament_id: 7, name: team.name, players_count: 7 });
+    teamRequest.flush({ data: { ...team, has_logo: true } });
+    const logoRequest = http.expectOne('/api/teams/12/logo');
+    expect(logoRequest.request.method).toBe('DELETE');
+    logoRequest.flush({ message: 'OK', data: { team_id: 12, has_logo: false } });
+  });
+
+  it('rejects unsupported and oversized files before saving', () => {
+    load();
+    vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    const input = { files: [new File(['text'], 'escudo.txt', { type: 'text/plain' })], value: 'selected' };
+    component.selectLogo({ target: input } as unknown as Event);
+    expect(component.logoError()).toContain('PNG, JPG o WebP');
+    expect(input.value).toBe('');
+    const oversized = { files: [new File([new Uint8Array(1024 * 1024 + 1)], 'big.png', { type: 'image/png' })], value: 'selected' };
+    component.selectLogo({ target: oversized } as unknown as Event);
+    expect(component.logoError()).toContain('1 MB');
+    component.submit();
+    http.expectNone('/api/teams/12');
+    http.expectNone('/api/teams/12/logo');
+  });
+
+  it('shows the backend format rejection without navigating', () => {
+    load();
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate');
+    const file = new File(['not really an image'], 'fake.png', { type: 'image/png' });
+    component.selectLogo({ target: { files: [file], value: '' } } as unknown as Event);
+    component.submit();
+    http.expectOne('/api/teams/12').flush({ data: team });
+    http.expectOne('/api/teams/12/logo').flush(
+      { message: 'Team logo must be a valid PNG, JPEG or WebP image' },
+      { status: 415, statusText: 'Unsupported Media Type' },
+    );
+    fixture.detectChanges();
+    expect(component.logoError()).toContain('no es una imagen PNG, JPG o WebP válida');
+    expect(component.isSaving()).toBe(false);
+    expect(navigate).not.toHaveBeenCalled();
   });
 
   it('does not save before the team arrives', () => {

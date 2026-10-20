@@ -36,7 +36,7 @@ const createMatchFixture = (id: number, round: MatchRound, tournamentId = 1): Ma
 
 const getTeamSummary = (id: number | null) => {
   const team = teams.find((item) => item.id === id);
-  return team ? { id: team.id, name: team.name } : null;
+  return team ? { id: team.id, name: team.name, has_logo: team.has_logo } : null;
 };
 
 const app = express();
@@ -104,7 +104,7 @@ beforeEach(() => {
     created_at: fixtureDate
   }];
   teams = [1, 2, 3, 4].map((id) => ({
-    id, tournament_id: 1, name: `Team ${id}`, players_count: 7, created_at: fixtureDate
+    id, tournament_id: 1, name: `Team ${id}`, players_count: 7, has_logo: id === 2, created_at: fixtureDate
   }));
   matches = [];
   commands = [];
@@ -173,9 +173,9 @@ test('finished tournament returns its final and stored champion', async () => {
   const bracket = await getBracket();
   assert.equal(bracket.tournament.status, 'finished');
   assert.equal(bracket.tournament.champion_team_id, 2);
-  assert.deepEqual(bracket.tournament.champion, { id: 2, name: 'Team 2' });
+  assert.deepEqual(bracket.tournament.champion, { id: 2, name: 'Team 2', has_logo: true });
   assert.equal(bracket.rounds[0]!.round, 'final');
-  assert.deepEqual(bracket.rounds[0]!.matches[0]!.winner_team, { id: 2, name: 'Team 2' });
+  assert.deepEqual(bracket.rounds[0]!.matches[0]!.winner_team, { id: 2, name: 'Team 2', has_logo: true });
 });
 
 test('bracket excludes matches belonging to other tournaments', async () => {
@@ -195,8 +195,8 @@ test('each round keeps stable ascending match IDs across repeated reads', async 
 test('pending match returns team summaries and null winner without inventing a result', async () => {
   matches = [createMatchFixture(1, 'semi_final')];
   const match = (await getBracket()).rounds[0]!.matches[0]!;
-  assert.deepEqual(match.home_team, { id: 1, name: 'Team 1' });
-  assert.deepEqual(match.away_team, { id: 2, name: 'Team 2' });
+  assert.deepEqual(match.home_team, { id: 1, name: 'Team 1', has_logo: false });
+  assert.deepEqual(match.away_team, { id: 2, name: 'Team 2', has_logo: true });
   assert.equal(match.winner_team_id, null);
   assert.equal(match.winner_team, null);
   assert.equal(match.home_goals, null);
@@ -212,14 +212,14 @@ test('bracket preserves goals, penalties and stored winner without recalculation
   assert.equal(match.home_penalties, 5);
   assert.equal(match.away_penalties, 4);
   assert.equal(match.winner_team_id, 2);
-  assert.deepEqual(match.winner_team, { id: 2, name: 'Team 2' });
+  assert.deepEqual(match.winner_team, { id: 2, name: 'Team 2', has_logo: true });
 });
 
 test('champion comes only from champion_team_id, never from the final result', async () => {
   matches = [{ ...createMatchFixture(1, 'final'), winner_team_id: 1 }];
   assert.equal((await getBracket()).tournament.champion, null);
   tournaments[0]!.champion_team_id = 3;
-  assert.deepEqual((await getBracket()).tournament.champion, { id: 3, name: 'Team 3' });
+  assert.deepEqual((await getBracket()).tournament.champion, { id: 3, name: 'Team 3', has_logo: false });
 });
 
 test('bracket only reads records and performs two queries regardless of match count', async () => {

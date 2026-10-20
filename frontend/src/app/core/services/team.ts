@@ -8,6 +8,11 @@ interface TeamResponse<T> {
   data: T;
 }
 
+export interface TeamLogoMutation {
+  message: string;
+  data: { team_id: number; has_logo: boolean };
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -37,6 +42,20 @@ export class TeamService {
     return this.http.put<TeamResponse<Team>>(`/api/teams/${id}`, payload).pipe(
       map(response => response.data),
     );
+  }
+
+  uploadLogo(id: number, file: File): Observable<TeamLogoMutation> {
+    return this.http.put<TeamLogoMutation>(`/api/teams/${id}/logo`, file, {
+      headers: { 'Content-Type': file.type },
+    });
+  }
+
+  deleteLogo(id: number): Observable<TeamLogoMutation> {
+    return this.http.delete<TeamLogoMutation>(`/api/teams/${id}/logo`);
+  }
+
+  logoUrl(id: number): string {
+    return `/api/teams/${id}/logo`;
   }
 
   delete(id: number): Observable<{ message: string }> {

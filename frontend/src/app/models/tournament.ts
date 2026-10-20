@@ -48,6 +48,7 @@ export interface GenerateNextRoundResponse {
 export interface BracketTeam {
   id: number;
   name: string;
+  has_logo: boolean;
 }
 
 export interface BracketMatch extends Match {

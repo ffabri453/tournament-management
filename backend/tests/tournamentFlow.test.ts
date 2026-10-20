@@ -43,6 +43,7 @@ const createTeamFixtures = (count: number, tournamentId = 1): Team[] => {
     tournament_id: tournamentId,
     name: `Team ${index + 1}`,
     players_count: 10,
+    has_logo: false,
     created_at: new Date('2026-01-01T00:00:00Z')
   }));
 };

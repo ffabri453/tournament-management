@@ -11,6 +11,7 @@ export interface Team {
   tournament_id: number;
   name: string;
   players_count: number;
+  has_logo: boolean;
   created_at: Date;
 }
 
@@ -20,13 +21,21 @@ export interface TeamInput {
   players_count: number;
 }
 
+export type TeamLogoMimeType = 'image/png' | 'image/jpeg' | 'image/webp';
+
+export interface TeamLogo {
+  data: Buffer;
+  mime_type: TeamLogoMimeType;
+}
+
 interface RegistrationTournament {
   modality: TournamentModality;
   max_teams: number;
   status: TournamentStatus;
 }
 
-const teamSelect = 'id, tournament_id, name, players_count, created_at';
+const teamSelect = `id, tournament_id, name, players_count,
+  (logo_data IS NOT NULL) AS has_logo, created_at`;
 
 const validateRegistration = (
   tournament: RegistrationTournament,
@@ -292,4 +301,37 @@ export const deleteTeam = async (id: number): Promise<boolean> => {
   } finally {
     client.release();
   }
+};
+
+export const getTeamLogo = async (id: number): Promise<TeamLogo | null> => {
+  const result = await pool.query<{ logo_data: Buffer; logo_mime_type: TeamLogoMimeType }>(
+    `SELECT logo_data, logo_mime_type
+     FROM teams
+     WHERE id = $1 AND logo_data IS NOT NULL`,
+    [id]
+  );
+  const row = result.rows[0];
+  return row ? { data: row.logo_data, mime_type: row.logo_mime_type } : null;
+};
+
+export const saveTeamLogo = async (id: number, logo: TeamLogo): Promise<boolean> => {
+  const result = await pool.query(
+    `UPDATE teams
+     SET logo_data = $1, logo_mime_type = $2
+     WHERE id = $3
+     RETURNING id`,
+    [logo.data, logo.mime_type, id]
+  );
+  return (result.rowCount ?? 0) > 0;
+};
+
+export const removeTeamLogo = async (id: number): Promise<boolean> => {
+  const result = await pool.query(
+    `UPDATE teams
+     SET logo_data = NULL, logo_mime_type = NULL
+     WHERE id = $1
+     RETURNING id`,
+    [id]
+  );
+  return (result.rowCount ?? 0) > 0;
 };

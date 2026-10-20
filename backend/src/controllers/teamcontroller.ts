@@ -8,18 +8,57 @@ import {
 } from '../domain/competitionRules';
 import {
   TeamInput,
+  TeamLogoMimeType,
   createTeam,
   deleteTeam,
   getAllTeams,
+  getTeamLogo,
   getTeamById,
+  removeTeamLogo,
+  saveTeamLogo,
   updateTeam
 } from '../models/teammodel';
 
 const teamFields = ['tournament_id', 'name', 'players_count'];
+export const TEAM_LOGO_MAX_BYTES = 1024 * 1024;
+export const TEAM_LOGO_MIME_TYPES: readonly TeamLogoMimeType[] = [
+  'image/png', 'image/jpeg', 'image/webp'
+];
 
 const parseId = (value: string): number | null => {
   const id = Number(value);
   return isPositiveInteger(id) ? id : null;
+};
+
+export const detectTeamLogoMimeType = (data: Buffer): TeamLogoMimeType | null => {
+  if (data.length >= 8 && data.subarray(0, 8).equals(Buffer.from([
+    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a
+  ]))) return 'image/png';
+  if (data.length >= 3 && data[0] === 0xff && data[1] === 0xd8 && data[2] === 0xff) {
+    return 'image/jpeg';
+  }
+  if (data.length >= 12 && data.subarray(0, 4).toString('ascii') === 'RIFF' &&
+      data.subarray(8, 12).toString('ascii') === 'WEBP') return 'image/webp';
+  return null;
+};
+
+export const validateTeamLogo = (
+  body: unknown,
+  declaredMimeType: string | undefined
+): { data?: Buffer; mimeType?: TeamLogoMimeType; status?: number; message?: string } => {
+  if (!Buffer.isBuffer(body) || body.length === 0) {
+    return { status: 400, message: 'Team logo file is required' };
+  }
+  if (body.length > TEAM_LOGO_MAX_BYTES) {
+    return { status: 413, message: 'Team logo must not exceed 1 MB' };
+  }
+  const detectedMimeType = detectTeamLogoMimeType(body);
+  const normalizedMimeType = declaredMimeType?.split(';', 1)[0]?.trim().toLowerCase();
+  if (!detectedMimeType || !TEAM_LOGO_MIME_TYPES.includes(normalizedMimeType as TeamLogoMimeType) ||
+      detectedMimeType !== normalizedMimeType) {
+    return { status: 415, message: 'Team logo must be a valid PNG, JPEG or WebP image' };
+  }
+  return { data: body, mimeType: detectedMimeType };
 };
 
 export const validateTeamBody = (
@@ -199,5 +238,84 @@ export const deleteTeamById = async (
     res.status(200).json({ message: 'Team deleted successfully' });
   } catch (error) {
     respondWithTeamError(error, res, 'Error deleting team');
+  }
+};
+
+export const getTeamLogoById = async (
+  req: Request<{ id: string }>,
+  res: Response
+): Promise<void> => {
+  const id = parseId(req.params.id);
+  if (id === null) {
+    res.status(400).json({ error: true, message: 'Invalid team id' });
+    return;
+  }
+  try {
+    const logo = await getTeamLogo(id);
+    if (!logo) {
+      res.status(404).json({ error: true, message: 'Team logo not found' });
+      return;
+    }
+    res.set('Content-Type', logo.mime_type);
+    res.set('Cache-Control', 'private, max-age=300');
+    res.status(200).send(logo.data);
+  } catch {
+    res.status(500).json({ error: true, message: 'Error getting team logo' });
+  }
+};
+
+export const updateTeamLogo = async (
+  req: Request<{ id: string }, unknown, Buffer>,
+  res: Response
+): Promise<void> => {
+  const id = parseId(req.params.id);
+  if (id === null) {
+    res.status(400).json({ error: true, message: 'Invalid team id' });
+    return;
+  }
+  const validation = validateTeamLogo(req.body, req.get('Content-Type'));
+  if (!validation.data || !validation.mimeType) {
+    res.status(validation.status ?? 400).json({ error: true, message: validation.message });
+    return;
+  }
+  try {
+    const saved = await saveTeamLogo(id, {
+      data: validation.data,
+      mime_type: validation.mimeType
+    });
+    if (!saved) {
+      res.status(404).json({ error: true, message: 'Team not found' });
+      return;
+    }
+    res.status(200).json({
+      message: 'Team logo updated successfully',
+      data: { team_id: id, has_logo: true }
+    });
+  } catch {
+    res.status(500).json({ error: true, message: 'Error updating team logo' });
+  }
+};
+
+export const deleteTeamLogo = async (
+  req: Request<{ id: string }>,
+  res: Response
+): Promise<void> => {
+  const id = parseId(req.params.id);
+  if (id === null) {
+    res.status(400).json({ error: true, message: 'Invalid team id' });
+    return;
+  }
+  try {
+    const removed = await removeTeamLogo(id);
+    if (!removed) {
+      res.status(404).json({ error: true, message: 'Team not found' });
+      return;
+    }
+    res.status(200).json({
+      message: 'Team logo removed successfully',
+      data: { team_id: id, has_logo: false }
+    });
+  } catch {
+    res.status(500).json({ error: true, message: 'Error removing team logo' });
   }
 };

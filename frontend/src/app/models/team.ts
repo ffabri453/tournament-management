@@ -3,6 +3,7 @@ export interface Team {
   tournament_id: number;
   name: string;
   players_count: number;
+  has_logo: boolean;
   created_at: string;
 }
 
