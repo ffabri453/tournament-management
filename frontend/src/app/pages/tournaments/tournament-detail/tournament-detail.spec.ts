@@ -17,6 +17,10 @@ describe('TournamentDetail', () => {
     max_teams: 8, rules: 'official_rules_football_7', format: 'knockout',
     status: 'open', champion_team_id: null, created_at: '2026-10-02T12:00:00.000Z',
   };
+  const championTeam = {
+    id: 42, tournament_id: 7, name: 'Club Atl\u00e9tico Campe\u00f3n Regional', players_count: 14,
+    created_at: '2026-10-02T13:00:00.000Z',
+  };
   const load = (value = tournament) => {
     fixture.detectChanges();
     http.expectOne('/api/tournaments/7').flush(value);
@@ -63,12 +67,44 @@ describe('TournamentDetail', () => {
     expect(element.textContent).not.toContain('official_rules_football_7');
   });
 
-  it('shows the champion ID only when supplied by the API', () => {
+  it('loads and shows the complete champion name for a finished tournament', () => {
     load({ ...tournament, status: 'finished', champion_team_id: 42 });
     expect(element.textContent).toContain('Finalizado');
     expect(element.textContent).toContain('Campe\u00f3n');
-    expect(element.textContent).toContain('Equipo #42');
+    expect(element.textContent).toContain('Consultando nombre');
+    expect(element.textContent).not.toContain('Equipo #42');
+    const request = http.expectOne('/api/teams/42');
+    expect(request.request.method).toBe('GET');
+    request.flush({ message: 'Team retrieved successfully', data: championTeam });
+    fixture.detectChanges();
+    expect(element.textContent).toContain(championTeam.name);
+    expect(element.textContent).not.toContain('Consultando nombre');
+  });
+
+  it('does not request or show a champion unless the tournament is finished', () => {
+    load({ ...tournament, status: 'in_progress', champion_team_id: 42 });
+    expect(element.textContent).not.toContain('Campe\u00f3n');
+    expect(element.textContent).not.toContain(championTeam.name);
     http.expectNone('/api/teams/42');
+  });
+
+  it.each([404, 500])('keeps the tournament detail and explains champion lookup error %s', status => {
+    load({ ...tournament, status: 'finished', champion_team_id: 42 });
+    http.expectOne('/api/teams/42').flush({ message: 'raw team error' }, { status, statusText: 'Error' });
+    fixture.detectChanges();
+    expect(element.querySelector('h1')?.textContent).toBe(tournament.name);
+    expect(element.textContent).toContain('Finalizado');
+    expect(element.querySelector('dd [role="alert"]')?.textContent).toContain('nombre del equipo campe\u00f3n');
+    expect(element.textContent).not.toContain('raw team error');
+    expect(element.textContent).not.toContain('Equipo #42');
+  });
+
+  it('does not display a team that belongs to another tournament as champion', () => {
+    load({ ...tournament, status: 'finished', champion_team_id: 42 });
+    http.expectOne('/api/teams/42').flush({ data: { ...championTeam, tournament_id: 8 } });
+    fixture.detectChanges();
+    expect(element.textContent).not.toContain(championTeam.name);
+    expect(element.querySelector('dd [role="alert"]')?.textContent).toContain('nombre del equipo campe\u00f3n');
   });
 
   it('preserves an unknown rule identifier instead of inventing a label', () => {
