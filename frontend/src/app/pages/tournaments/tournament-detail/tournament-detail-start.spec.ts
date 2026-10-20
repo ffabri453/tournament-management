@@ -142,7 +142,14 @@ describe('TournamentDetail start action', () => {
     start().flush({ data: { tournament: { ...tournament, status: 'finished', champion_team_id: 42 }, matches: [] } });
     fixture.detectChanges();
     expect(element.textContent).toContain('Finalizado');
-    expect(element.textContent).toContain('Equipo #42');
+    expect(element.textContent).toContain('Consultando nombre');
+    http.expectOne('/api/teams/42').flush({ data: {
+      id: 42, tournament_id: 7, name: 'Club Campe\u00f3n', players_count: 14,
+      created_at: '2030-01-01T12:00:00.000Z',
+    } });
+    fixture.detectChanges();
+    expect(element.textContent).toContain('Club Campe\u00f3n');
+    expect(element.textContent).not.toContain('Equipo #42');
     expect(element.textContent).not.toContain('En curso');
   });
 

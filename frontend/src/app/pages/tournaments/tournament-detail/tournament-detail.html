@@ -28,8 +28,19 @@
         <div><dt>Formato</dt><dd>Eliminaci&oacute;n directa</dd></div>
         <div><dt>Reglamento</dt><dd>{{ ruleLabels[current.rules] ?? current.rules }}</dd></div>
         <div><dt>Fecha de creaci&oacute;n</dt><dd>{{ current.created_at | date:'dd/MM/yyyy HH:mm' }}</dd></div>
-        @if (current.champion_team_id !== null) {
-          <div><dt>Campe&oacute;n</dt><dd>Equipo #{{ current.champion_team_id }}</dd></div>
+        @if (current.status === 'finished' && current.champion_team_id !== null) {
+          <div>
+            <dt>Campe&oacute;n</dt>
+            <dd>
+              @if (isChampionLoading()) {
+                <span role="status">Consultando nombre...</span>
+              } @else if (championName()) {
+                {{ championName() }}
+              } @else {
+                <span class="error" role="alert">{{ championError() }}</span>
+              }
+            </dd>
+          </div>
         }
       </dl>
       @if (current.status === 'open') {
