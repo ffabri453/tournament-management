@@ -4,6 +4,7 @@
     @if (tournament(); as current) {
       <a [routerLink]="['/tournaments', current.id, 'edit']">Editar torneo</a>
       <a [routerLink]="['/tournaments', current.id, 'teams']">Ver equipos</a>
+      <a [routerLink]="['/tournaments', current.id, 'matches']">Partidos y cuadro</a>
     }
   </nav>
 

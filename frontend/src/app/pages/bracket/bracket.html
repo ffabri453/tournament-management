@@ -1,1 +1,71 @@
-<p>bracket works!</p>
+@if (bracket(); as current) {
+  @if (current.tournament.champion; as champion) {
+    <p class="champion"><span aria-hidden="true">★</span> Campe&oacute;n: <strong>{{ champion.name }}</strong></p>
+  }
+
+  @if (current.rounds.length === 0) {
+    <p class="message" role="status">Todav&iacute;a no hay partidos para mostrar. El cuadro se completar&aacute; cuando se inicie el torneo.</p>
+  } @else {
+    <p class="scroll-hint">Desplaz&aacute; el cuadro horizontalmente para ver todas las rondas.</p>
+    <div class="bracket-scroll" role="region" aria-label="Rondas del cuadro" tabindex="0">
+      <div class="bracket-grid">
+        @for (column of columns(); track column.round) {
+          <section class="round" [attr.aria-labelledby]="'round-' + column.round">
+            <h3 [id]="'round-' + column.round">{{ column.label }}</h3>
+            <div class="round-body" [style.grid-template-rows]="'repeat(' + initialMatchCount() + ', var(--row-height))'">
+              @for (slot of column.slots; track $index) {
+                <article class="match-slot" [class.pending-slot]="slot.match === null"
+                  [class.has-next-round]="slot.hasNextRound"
+                  [style.grid-row]="slot.gridRow" [style.--round-span]="slot.span">
+                  @if (slot.match; as match) {
+                    <button type="button" class="match-card" [class.selected]="selectedMatchId() === match.id"
+                      [class.finished]="match.status === 'finished'"
+                      [attr.aria-pressed]="selectedMatchId() === match.id"
+                      [attr.aria-label]="'Ver ' + match.home_team?.name + ' contra ' + match.away_team?.name"
+                      (click)="selectMatch(match.id)">
+                      <span class="match-card-header">
+                        <strong>Partido #{{ match.id }}</strong>
+                        @if (match.match_date) {
+                          <time [attr.datetime]="match.match_date">{{ match.match_date | date:'dd/MM/yyyy · HH:mm' }}</time>
+                        }
+                      </span>
+                      <span class="team" [class.winner]="isWinner(match, match.home_team)"
+                        [class.loser]="match.status === 'finished' && match.winner_team_id !== null && match.winner_team_id !== match.home_team?.id">
+                        <span class="crest-slot" aria-hidden="true"></span>
+                        <span class="team-name">{{ match.home_team?.name ?? 'Equipo pendiente' }}</span>
+                        <span class="score">
+                          <span>{{ match.home_goals ?? '–' }}</span>
+                          @if (match.home_penalties !== null) {
+                            <small class="penalties" [attr.aria-label]="match.home_penalties + ' penales'">({{ match.home_penalties }})</small>
+                          }
+                        </span>
+                      </span>
+                      <span class="team" [class.winner]="isWinner(match, match.away_team)"
+                        [class.loser]="match.status === 'finished' && match.winner_team_id !== null && match.winner_team_id !== match.away_team?.id">
+                        <span class="crest-slot" aria-hidden="true"></span>
+                        <span class="team-name">{{ match.away_team?.name ?? 'Equipo pendiente' }}</span>
+                        <span class="score">
+                          <span>{{ match.away_goals ?? '–' }}</span>
+                          @if (match.away_penalties !== null) {
+                            <small class="penalties" [attr.aria-label]="match.away_penalties + ' penales'">({{ match.away_penalties }})</small>
+                          }
+                        </span>
+                      </span>
+                    </button>
+                  } @else {
+                    <div class="match-card pending" aria-label="Partido pendiente de definici&oacute;n">
+                      <div class="match-card-header"><strong>Partido pendiente</strong><span>Fecha a definir</span></div>
+                      <div class="team"><span class="crest-slot" aria-hidden="true"></span><span class="team-name">Por definir</span><span class="score">–</span></div>
+                      <div class="team"><span class="crest-slot" aria-hidden="true"></span><span class="team-name">Por definir</span><span class="score">–</span></div>
+                    </div>
+                  }
+                  @if (slot.connectsForward) { <span class="connector" aria-hidden="true"></span> }
+                </article>
+              }
+            </div>
+          </section>
+        }
+      </div>
+    </div>
+  }
+}
