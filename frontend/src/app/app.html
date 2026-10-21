@@ -1,1 +1,4 @@
+@if (auth.user()) {
+  <nav aria-label="Sesión"><button type="button" (click)="auth.logout()">Cerrar sesión</button></nav>
+}
 <router-outlet />

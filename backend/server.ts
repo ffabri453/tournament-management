@@ -5,11 +5,15 @@ import tournamentRoutes from './src/routes/tournamentRoutes';
 import matchRoutes from './src/routes/matchRoutes';
 import teamroutes from './src/routes/teamroutes';
 import authRoutes from './src/routes/authRoutes';
+import { authenticate } from './src/middleware/authenticate';
+import { getJwtSecret } from './src/auth/token';
 
-const app = express();
+export const app = express();
+getJwtSecret();
 
 app.use(express.json());
 
+app.use(['/tournaments', '/matches', '/api/teams'], authenticate);
 app.use(tournamentRoutes);
 app.use(matchRoutes);
 app.use('/api/teams', teamroutes);
@@ -23,7 +27,7 @@ app.get('/', (req: Request, res: Response) => {
 });
 
 // Ruta de prueba de la base de datos
-app.get('/db-test', async (req: Request, res: Response): Promise<void> => {
+app.get('/db-test', authenticate, async (req: Request, res: Response): Promise<void> => {
   try {
     const result = await pool.query('SELECT NOW()');
 
@@ -32,16 +36,17 @@ app.get('/db-test', async (req: Request, res: Response): Promise<void> => {
       message: 'PostgreSQL connection successful',
       time: result.rows[0],
     });
-  } catch (error: any) {
+  } catch {
     res.status(500).json({
       ok: false,
       message: 'PostgreSQL connection failed',
-      error: error.message,
     });
   }
 });
 
 // Escuchar puerto
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
+}

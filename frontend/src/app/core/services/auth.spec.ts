@@ -9,6 +9,7 @@ describe('Auth', () => {
   let service: Auth;
 
   beforeEach(() => {
+    sessionStorage.clear();
     TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting()] });
     service = TestBed.inject(Auth);
   });
@@ -17,11 +18,11 @@ describe('Auth', () => {
     expect(service).toBeTruthy();
   });
 
-  afterEach(() => TestBed.inject(HttpTestingController).verify());
+  afterEach(() => { sessionStorage.clear(); TestBed.inject(HttpTestingController).verify(); });
 
   it('posts the exact credentials through the proxy and receives the public user', () => {
     const credentials = { email: 'user@example.com', password: ' secret ' };
-    const response: LoginResponse = { message: 'Login successful', data: {
+    const response: LoginResponse = { message: 'Login successful', access_token: `e30.${btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 3600 }))}.signature`, token_type: 'Bearer', expires_in: 3600, data: {
       id: 1, name: 'User', email: credentials.email, role: 'organizer', created_at: '2026-01-01T00:00:00.000Z',
     } };
     const received = vi.fn();

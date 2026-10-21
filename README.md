@@ -189,11 +189,14 @@ En Bruno, enviar `auth / Register` a `http://localhost:3000/auth/register`. El p
 
 Acepta solo `email` y `password`, ambos strings obligatorios. El email usa la misma validacion (hasta 254 caracteres) y normalizacion `trim` + minusculas que register. La contrasena no se recorta ni se normaliza: solo se exige que no este vacia, sin volver a imponer el minimo de 8 caracteres.
 
-El controlador busca con `findUserByEmail` y usa `await bcrypt.compare(password, user.password_hash)`. Si coincide, responde `200` con el formato existente `{ message, data }`:
+El controlador busca con `findUserByEmail` y usa `await bcrypt.compare(password, user.password_hash)`. Si coincide, responde `200` con los campos publicos existentes y la credencial JWT:
 
 ```json
 {
   "message": "Login successful",
+  "access_token": "<JWT firmado>",
+  "token_type": "Bearer",
+  "expires_in": 3600,
   "data": {
     "id": 1,
     "name": "Fabrizio",
@@ -206,7 +209,40 @@ El controlador busca con `findUserByEmail` y usa `await bcrypt.compare(password,
 
 Usuario inexistente o contrasena incorrecta: `401` con exactamente `{ "error": true, "message": "Invalid credentials" }`. Las contrasenas de mas de 72 bytes UTF-8 tambien devuelven `401` para evitar coincidencias por truncamiento de bcrypt. Para probar un fallo en Bruno, cambiar la contrasena de `Login` por `wrong`.
 
-Body o tipos invalidos: `400` con `Invalid login data` y `errors`. Errores internos: `500` con `{ "error": true, "message": "Error logging in" }`. No se devuelven contrasenas, hashes ni detalles internos. Todavia NO hay JWT, tokens, cookies, sesiones, middleware ni proteccion de rutas: el login solamente verifica las credenciales en esa solicitud. No se agrego mitigacion avanzada de diferencias de tiempo de respuesta.
+Body o tipos invalidos: `400` con `Invalid login data` y `errors`. Errores internos: `500` con `{ "error": true, "message": "Error logging in" }`. No se devuelven contrasenas, hashes ni detalles internos. El login emite un JWT firmado; las rutas de gestion requieren autenticacion (ver el flujo siguiente). No se agrego mitigacion avanzada de diferencias de tiempo de respuesta.
+
+### Autenticacion persistente
+
+Antes de iniciar el backend, configurar `JWT_SECRET` en `backend/.env` con un secreto aleatorio de al menos 32 bytes. Para generarlo directamente en el archivo sin imprimirlo, ejecutar desde `backend` una sola vez (si ya existe, conservar su valor):
+
+```powershell
+node -e "const fs = require('node:fs'); const crypto = require('node:crypto'); fs.appendFileSync('.env', '\nJWT_SECRET=' + crypto.randomBytes(32).toString('hex') + '\n');"
+npm.cmd run dev
+```
+
+El servidor rechaza el arranque si falta el secreto o es demasiado corto. No guardar `.env` en Git. No se requieren migraciones adicionales. En otra terminal, desde `frontend`, ejecutar `npm.cmd start` y abrir `http://localhost:4200`.
+
+Se usa `jsonwebtoken` para firmar y verificar JWT HS256 con expiracion de una hora, issuer y audience `tournament-management`. El payload contiene solo `sub` (ID de usuario) y los claims tecnicos `iat`, `exp`, `iss`, `aud`; no contiene contrasena, hash ni role, porque no hay autorizacion por roles en este alcance. Referencia de la biblioteca: https://github.com/auth0/node-jsonwebtoken.
+
+El middleware valida firma, algoritmo y expiracion, y consulta que el usuario siga existiendo. Protege todas las operaciones de `/tournaments`, `/matches`, `/api/teams`, ademas de `GET /auth/me` y el diagnostico `GET /db-test`. Son las APIs de las pantallas de gestion; no existe actualmente una pantalla publica de consulta. Login, registro y `GET /` siguen publicos. No se agregan permisos por propietario ni cambios en reglas de torneos, equipos o partidos.
+
+Angular conserva solo el token en `sessionStorage`: sobrevive a F5 dentro de la pesta?a y se elimina al cerrar su sesion de navegador. Si el navegador bloquea storage, la sesion funciona en memoria hasta recargar. No se guardan contrasenas ni datos de usuario en storage. Esta eleccion mantiene el protocolo Bearer simple, pero el token es accesible a JavaScript y puede ser robado ante XSS; en produccion usar HTTPS y prevenir XSS. No hay refresh token: al expirar hay que iniciar sesion otra vez.
+
+El interceptor envia `Authorization: Bearer <token>` solo a las rutas relativas `/api/tournaments`, `/api/teams`, `/api/matches` y `/api/auth/me`, incluidos sus recursos. No envia la credencial a login, registro, assets ni URLs externas. Un 401 de una peticion de la sesion actual limpia la credencial y navega a `/login`.
+
+El guard conserva todas las rutas existentes y protege `/tournaments` y sus rutas de detalle, creacion, edicion, equipos, partidos y bracket. Comprueba la expiracion local para descartar tokens vencidos y llama a `/api/auth/me` en cada navegacion para validar la sesion en el servidor y recuperar el usuario. Los datos locales nunca son la prueba definitiva. Ante falta de credencial o fallo de verificacion redirige a `/login`.
+
+El boton **Cerrar sesion** elimina token y usuario y navega a `/login`. No hay endpoint de logout: el cierre es local; una copia previamente robada del JWT sigue valida hasta su expiracion (sin lista de revocacion).
+
+Prueba manual:
+
+1. Abrir `/tournaments` sin login: debe redirigir a `/login`.
+2. Iniciar sesion con un usuario existente o registrado mediante `POST /auth/register`: debe abrir `/tournaments`. Un password incorrecto debe mostrar el error seguro y permitir reintentar.
+3. Navegar a detalle, equipos, partidos y bracket; sus flujos existentes deben funcionar.
+4. Pulsar F5 en una ruta protegida: debe conservar la sesion y validar `/api/auth/me`.
+5. En Network de DevTools, comprobar que `/api/auth/me` y las peticiones de gestion llevan Authorization y responden correctamente. No copiar ni publicar el token. Una peticion a `http://localhost:3000/tournaments` sin Authorization debe devolver 401.
+6. Pulsar **Cerrar sesion**: debe volver a `/login` y eliminar `tournament.accessToken` de Session Storage.
+7. Escribir `/tournaments` o una URL de bracket directamente, y probar Volver: no debe abrir una ruta protegida sin iniciar sesion.
 
 `npm test` incluye los tests unitarios del modelo sin requerir PostgreSQL. Para comprobar los constraints reales, usar una base desechable llamada `users_test`, nunca `torneos_db`:
 

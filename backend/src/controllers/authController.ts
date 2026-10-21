@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
+import { issueToken, tokenLifetimeSeconds } from '../auth/token';
 import { hasOnlyFields, isNonNumericName, isPlainObject } from '../domain/competitionRules';
 import { createUser, findUserByEmail } from '../models/User';
 
@@ -145,8 +146,12 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    res.set('Cache-Control', 'no-store');
     res.status(200).json({
       message: 'Login successful',
+      access_token: issueToken(user.id),
+      token_type: 'Bearer',
+      expires_in: tokenLifetimeSeconds,
       data: { id: user.id, name: user.name, email: user.email, role: user.role, created_at: user.created_at }
     });
   } catch {

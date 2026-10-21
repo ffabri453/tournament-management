@@ -1,3 +1,5 @@
+import { of } from 'rxjs';
+import { Auth } from './core/services/auth';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
@@ -9,7 +11,7 @@ describe('App routing', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [App],
-      providers: [provideRouter(routes), provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideRouter(routes), { provide: Auth, useValue: { validateSession: () => of(true), user: () => null } }, provideHttpClient(), provideHttpClientTesting()],
     }).compileComponents();
   });
 
