@@ -18,13 +18,14 @@ import { TournamentList } from './pages/tournaments/tournament-list/tournament-l
 const tournament: Tournament = { id: 7, name: 'Copa pública', location: 'Firmat',
   rules: 'official_rules_football_5', format: 'knockout', modality: 'futbol_5',
   max_teams: 4, status: 'open', champion_team_id: null, created_at: '2026-01-01T12:00:00Z' };
-const team = { id: 1, tournament_id: 7, name: 'Equipo Alfa', players_count: 7, created_at: tournament.created_at };
-const champion = { id: 1, name: team.name };
+const team = { id: 1, tournament_id: 7, name: 'Equipo Alfa', players_count: 7,
+  has_logo: false, created_at: tournament.created_at };
+const champion = { id: 1, name: team.name, has_logo: false };
 const match: BracketMatch = { id: 20, tournament_id: 7, home_team_id: 1, away_team_id: 2,
   match_date: '2026-01-02T12:00:00Z', location: 'Cancha Central', round: 'semi_final',
   home_goals: 2, away_goals: 1, home_penalties: null, away_penalties: null,
   winner_team_id: null, status: 'live', created_at: tournament.created_at,
-  home_team: champion, away_team: { id: 2, name: 'Equipo Beta' }, winner_team: null };
+  home_team: champion, away_team: { id: 2, name: 'Equipo Beta', has_logo: false }, winner_team: null };
 const bracket: TournamentBracket = { tournament: { ...tournament, status: 'in_progress', champion: null },
   rounds: [{ round: 'semi_final', matches: [match] }] };
 const user = { id: 1, name: 'User', email: 'user@example.com', role: 'organizer', created_at: tournament.created_at };
@@ -34,6 +35,12 @@ describe('Public tournament viewing', () => {
   let http: HttpTestingController;
   beforeEach(() => {
     sessionStorage.clear();
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true, writable: true, value: vi.fn(() => 'blob:public-team-logo'),
+    });
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true, writable: true, value: vi.fn(),
+    });
     TestBed.configureTestingModule({ providers: [provideRouter(routes),
       provideHttpClient(withInterceptors([authInterceptor])), provideHttpClientTesting()] });
     http = TestBed.inject(HttpTestingController);
@@ -113,6 +120,27 @@ describe('Public tournament viewing', () => {
       http.expectNone(request => request.method !== 'GET');
     });
   }
+
+  it('loads and displays bracket logos for visitors without Authorization', async () => {
+    const harness = await RouterTestingHarness.create();
+    await harness.navigateByUrl('/tournaments/7/bracket', MatchList);
+    publicGet('/api/tournaments/7/bracket', {
+      ...bracket,
+      rounds: [{ round: 'semi_final', matches: [{
+        ...match,
+        home_team: { ...champion, has_logo: true },
+      }] }],
+    });
+    harness.detectChanges();
+    const logoRequest = http.expectOne('/api/teams/1/logo');
+    expect(logoRequest.request.method).toBe('GET');
+    expect(logoRequest.request.responseType).toBe('blob');
+    expect(logoRequest.request.headers.has('Authorization')).toBe(false);
+    logoRequest.flush(new Blob([new Uint8Array([0x89, 0x50])], { type: 'image/png' }));
+    harness.detectChanges();
+    expect(harness.routeNativeElement?.querySelector<HTMLImageElement>('.team-crest')?.src)
+      .toContain('blob:public-team-logo');
+  });
 
   it('keeps next-round generation hidden when the public round has finished', async () => {
     const harness = await RouterTestingHarness.create();

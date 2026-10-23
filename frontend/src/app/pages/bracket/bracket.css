@@ -30,15 +30,18 @@ button.match-card:hover { border-color: #71849a; box-shadow: 0 4px 10px rgb(16 4
 .team { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; align-items: center; gap: 8px; min-height: 39px; padding: 5px 9px; }
 .team + .team { border-top: 1px solid #e1e6eb; }
 .crest-slot { width: 17px; height: 21px; border: 1px dashed #aeb8c2; border-radius: 3px; background: #f5f7f9; }
+.team-crest { box-sizing: border-box; width: 20px; height: 24px; object-fit: contain; }
 .team-name { min-width: 0; line-height: 1.25; overflow-wrap: anywhere; }
 .score { display: flex; align-items: baseline; justify-content: flex-end; gap: 4px; min-width: 22px; color: #102d4f; font-size: 15px; font-weight: 800; white-space: nowrap; }
 .score small { color: #5f6974; font-size: 11px; font-weight: 700; }
 .team.winner { background: #e5f3e9; color: #174d2d; font-weight: 700; }
 .team.winner .score { color: #174d2d; }
 .team.winner .crest-slot { border-color: #72a181; background: #d7eadc; }
+.team.winner .team-crest { filter: saturate(1.08); }
 .team.loser { background: #f5f6f7; color: #727b84; }
 .team.loser .score { color: #727b84; }
 .team.loser .crest-slot { opacity: .7; }
+.team.loser .team-crest { opacity: .72; }
 .pending { border-style: dashed; box-shadow: none; color: #6b7580; }
 .pending .match-card-header { border-bottom-color: #b4bec8; background: #526579; }
 .pending .crest-slot { opacity: .65; }

@@ -21,6 +21,7 @@ const publicTournamentReads = [
   /^\/tournaments\/[^/]+\/bracket\/?$/i,
   /^\/api\/teams\/?$/i,
   /^\/api\/teams\/[^/]+\/?$/i,
+  /^\/api\/teams\/[^/]+\/logo\/?$/i,
   /^\/matches\/?$/i,
 ];
 app.use(['/tournaments', '/matches', '/api/teams'], (req, res, next) => {

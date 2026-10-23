@@ -54,7 +54,7 @@ export interface StartTournamentResult {
   matches: Match[];
 }
 
-type BracketTeam = Pick<Team, 'id' | 'name'>;
+type BracketTeam = Pick<Team, 'id' | 'name' | 'has_logo'>;
 
 export interface BracketMatch extends Match {
   home_team: BracketTeam | null;
@@ -89,7 +89,8 @@ const tournamentSelect = `
   champion_team_id, created_at
 `;
 
-const teamSelect = 'id, tournament_id, name, players_count, created_at';
+const teamSelect = `id, tournament_id, name, players_count,
+  (logo_data IS NOT NULL) AS has_logo, created_at`;
 
 export const getInitialRound = (capacity: number): MatchRound => {
   if (!TOURNAMENT_CAPACITIES.includes(capacity as TournamentCapacity)) {
@@ -399,7 +400,11 @@ export const getAllTournaments = async (): Promise<Tournament[]> => {
 export const getTournamentBracket = async (id: number): Promise<TournamentBracket | null> => {
   const tournamentResult = await pool.query<TournamentBracket['tournament']>(
     `SELECT ${tournamentSelect},
-       (SELECT json_build_object('id', team.id, 'name', team.name)
+       (SELECT json_build_object(
+          'id', team.id,
+          'name', team.name,
+          'has_logo', team.logo_data IS NOT NULL
+        )
         FROM teams team
         WHERE team.id = tournaments.champion_team_id) AS champion
      FROM tournaments
@@ -412,13 +417,16 @@ export const getTournamentBracket = async (id: number): Promise<TournamentBracke
   const matchResult = await pool.query<BracketMatch>(
     `SELECT match_row.*,
        CASE WHEN home_team.id IS NOT NULL
-         THEN json_build_object('id', home_team.id, 'name', home_team.name)
+         THEN json_build_object('id', home_team.id, 'name', home_team.name,
+           'has_logo', home_team.logo_data IS NOT NULL)
          ELSE NULL END AS home_team,
        CASE WHEN away_team.id IS NOT NULL
-         THEN json_build_object('id', away_team.id, 'name', away_team.name)
+         THEN json_build_object('id', away_team.id, 'name', away_team.name,
+           'has_logo', away_team.logo_data IS NOT NULL)
          ELSE NULL END AS away_team,
        CASE WHEN winner_team.id IS NOT NULL
-         THEN json_build_object('id', winner_team.id, 'name', winner_team.name)
+         THEN json_build_object('id', winner_team.id, 'name', winner_team.name,
+           'has_logo', winner_team.logo_data IS NOT NULL)
          ELSE NULL END AS winner_team
      FROM matches match_row
      LEFT JOIN teams home_team ON home_team.id = match_row.home_team_id

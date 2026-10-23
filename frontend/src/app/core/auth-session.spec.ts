@@ -74,7 +74,7 @@ describe('Persistent authentication', () => {
     sessionStorage.setItem(storageKey, credential);
     const client = TestBed.inject(HttpClient);
     const http = TestBed.inject(HttpTestingController);
-    for (const path of ['/api/tournaments', '/api/teams/1', '/api/matches?x=1', '/api/auth/me']) {
+    for (const path of ['/api/tournaments', '/api/teams/1', '/api/teams/1/logo', '/api/matches?x=1', '/api/auth/me']) {
       client.get(path).subscribe();
       const request = http.expectOne(path);
       expect(request.request.headers.get('Authorization')).toBe(`Bearer ${credential}`);

@@ -20,6 +20,10 @@ const match = { id: 3, tournament_id: 1, home_team_id: 1, away_team_id: 2,
   winner_team_id: 2, status: 'finished', created_at: tournament.created_at };
 const bracketMatch = { ...match, home_team: { id: 1, name: 'Team 1' },
   away_team: champion, winner_team: champion };
+const logo = Buffer.from([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+  0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52
+]);
 
 before(async () => {
   process.env.JWT_SECRET = randomBytes(32).toString('hex');
@@ -40,6 +44,9 @@ beforeEach(() => {
     }
     if (sql.includes('FROM matches match_row')) return { rows: [bracketMatch] };
     if (sql.includes('FROM matches')) return { rows: [match] };
+    if (sql.startsWith('SELECT logo_data, logo_mime_type')) {
+      return { rows: [{ logo_data: logo, logo_mime_type: 'image/png' }] };
+    }
     assert.match(sql, /FROM teams/);
     return { rows: values ? teams.filter(team => team.id === values[0]) : teams };
   });
@@ -78,6 +85,13 @@ test('visitors can read teams and resolve the champion name without JWT', async 
   const detail = await fetch(`${url}/api/teams/2`);
   assert.equal(detail.status, 200);
   assert.deepEqual((await detail.json() as { data: unknown }).data, teams[1]);
+});
+
+test('visitors can read a team logo without JWT', async () => {
+  const response = await fetch(`${url}/api/teams/1/logo`);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('content-type'), 'image/png');
+  assert.deepEqual(Buffer.from(await response.arrayBuffer()), logo);
 });
 
 test('visitors can read matches and stored results without JWT', async () => {

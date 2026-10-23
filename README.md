@@ -274,6 +274,8 @@ No se guarda un capitán como texto del equipo. Si más adelante se administran 
 
 Ejecutar solo las migraciones pendientes, en orden, desde `backend` (no desde la raiz del repositorio):
 
+Antes de aplicar una migracion, confirmar que el destino sea `torneos_db` y crear un respaldo completo en formato personalizado con `pg_dump -Fc`, guardado fuera del repositorio. No volver a ejecutar migraciones que ya esten instaladas.
+
 ```powershell
 Get-Content -Raw .\src\db\migrations\001_tournament_name_location_and_team_columns.sql | docker compose -f .\docker-compose\docker-compose.yml exec -T postgres psql -U postgres -d torneos_db -v ON_ERROR_STOP=1
 Get-Content -Raw .\src\db\migrations\002_domain_validation.sql | docker compose -f .\docker-compose\docker-compose.yml exec -T postgres psql -U postgres -d torneos_db -v ON_ERROR_STOP=1
@@ -281,7 +283,10 @@ Get-Content -Raw .\src\db\migrations\003_penalty_shootouts.sql | docker compose 
 Get-Content -Raw .\src\db\migrations\004_rename_official_rules.sql | docker compose -f .\docker-compose\docker-compose.yml exec -T postgres psql -U postgres -d torneos_db -v ON_ERROR_STOP=1
 Get-Content -Raw .\src\db\migrations\005_tournament_champion.sql | docker compose -f .\docker-compose\docker-compose.yml exec -T postgres psql -U postgres -d torneos_db -v ON_ERROR_STOP=1
 Get-Content -Raw .\src\db\migrations\006_create_users.sql | docker compose -f .\docker-compose\docker-compose.yml exec -T postgres psql -U postgres -d torneos_db -v ON_ERROR_STOP=1
+Get-Content -Raw .\src\db\migrations\007_team_logos.sql | docker compose -f .\docker-compose\docker-compose.yml exec -T postgres psql -U postgres -d torneos_db -v ON_ERROR_STOP=1
 ```
+
+La migracion `007_team_logos.sql` es incremental y no destructiva: agrega `logo_data BYTEA` y `logo_mime_type VARCHAR(10)` como columnas opcionales, por lo que los equipos existentes conservan todos sus datos y quedan sin escudo (`NULL`). Tambien agrega y valida `chk_team_logo_consistency`, que limita cada imagen a 1 MB y admite solo PNG, JPEG o WebP. La migracion se ejecuta dentro de una transaccion y `ON_ERROR_STOP=1` detiene el proceso ante el primer error; si falla, no intentar repararla automaticamente ni restaurar el respaldo sin revisar primero el mensaje de PostgreSQL.
 
 La migración `002` instala los nuevos `CHECK` como `NOT VALID`: protege inmediatamente las filas nuevas o modificadas sin borrar datos históricos incompatibles. Después de corregir datos antiguos, cada restricción puede validarse con `ALTER TABLE ... VALIDATE CONSTRAINT ...`.
 

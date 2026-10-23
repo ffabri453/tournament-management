@@ -67,7 +67,7 @@ test('all mutations require authentication, including unsupported methods and un
   const query = mock.method(pool, 'query', async () => { throw new Error('Unexpected query'); });
   for (const path of ['/tournaments', '/tournaments/1', '/tournaments/1/bracket',
     '/tournaments/1/start', '/tournaments/1/next-round', '/matches', '/matches/1',
-    '/api/teams', '/api/teams/1']) {
+    '/api/teams', '/api/teams/1', '/api/teams/1/logo']) {
     for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
       assert.equal((await fetch(`${url}${path}`, { method })).status, 401, `${method} ${path}`);
     }

@@ -32,6 +32,35 @@
           @if (form.controls.players_count.touched && form.controls.players_count.invalid) {
             <p id="players-error" class="error">Ingres&aacute; un n&uacute;mero entero entre {{ limits()!.min }} y {{ limits()!.max }}.</p>
           }
+          @if (isEditing()) {
+            <section class="logo-editor" aria-labelledby="logo-title">
+              <h3 id="logo-title">Escudo del equipo</h3>
+              <div class="logo-preview">
+                @if (logoSource(); as source) {
+                  <img [src]="source" alt="Vista previa del escudo del equipo" (error)="logoLoadFailed()" />
+                } @else {
+                  <span class="logo-placeholder" aria-hidden="true"></span>
+                  <span>{{ logoRemovalRequested() ? 'El escudo se quitar&aacute; al guardar.' : 'Sin escudo' }}</span>
+                }
+              </div>
+              <label for="team-logo">Seleccionar escudo</label>
+              <input #logoInput id="team-logo" class="file-input" type="file"
+                accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
+                (change)="selectLogo($event)" aria-describedby="logo-help logo-error" />
+              <small id="logo-help">PNG, JPG o WebP. Tama&ntilde;o m&aacute;ximo: 1 MB.</small>
+              <div class="logo-actions">
+                <button type="button" class="secondary" (click)="removeLogo(logoInput)"
+                  [disabled]="!canRemoveLogo()">Quitar escudo</button>
+                @if (logoRemovalRequested() || logoFile()) {
+                  <button type="button" class="secondary" (click)="keepCurrentLogo(logoInput)">Conservar escudo actual</button>
+                }
+              </div>
+              @if (logoError()) { <p id="logo-error" role="alert" class="error">{{ logoError() }}</p> }
+              @if (structureLocked()) {
+                <small>El escudo puede modificarse aunque el torneo est&eacute; iniciado o finalizado.</small>
+              }
+            </section>
+          }
           <button type="submit" [disabled]="isSaving()">{{ isSaving() ? 'Guardando...' : 'Guardar equipo' }}</button>
         </fieldset>
         <a [routerLink]="['/tournaments', current.id, 'teams']">Cancelar</a>

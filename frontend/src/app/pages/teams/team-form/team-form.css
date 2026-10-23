@@ -12,4 +12,13 @@ button:disabled { cursor: wait; opacity: .65; }
 a:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid #2167ba; outline-offset: 3px; }
 small { color: #5b6460; }
 .error { color: #a12b32; line-height: 1.5; }
+.logo-editor { display: grid; gap: 10px; margin: 8px 0; padding: 16px; border: 1px solid #d3dad6; border-radius: 6px; background: #f8faf9; }
+.logo-editor h3 { margin: 0; font-size: 17px; }
+.logo-preview { display: flex; align-items: center; gap: 12px; min-height: 72px; color: #5b6460; }
+.logo-preview img, .logo-placeholder { box-sizing: border-box; width: 64px; height: 64px; flex: 0 0 64px; border: 1px solid #b8c2bc; border-radius: 6px; background: white; object-fit: contain; }
+.logo-placeholder { border-style: dashed; background: #eef2f0; }
+.file-input { background: white; }
+.logo-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+button.secondary { border-color: #65726b; background: white; color: #34413a; }
+button.secondary:hover { background: #edf1ef; }
 @media (max-width: 600px) { h1 { font-size: 24px; } main { padding: 0 8px; } }

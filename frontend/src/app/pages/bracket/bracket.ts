@@ -1,5 +1,7 @@
 import { DatePipe } from '@angular/common';
-import { Component, computed, input, output } from '@angular/core';
+import { Component, computed, inject, input, OnChanges, OnDestroy, OnInit, output, signal } from '@angular/core';
+import { Subscription } from 'rxjs';
+import { TeamService } from '../../core/services/team';
 import { MatchRound } from '../../models/match';
 import { BracketMatch, BracketTeam, Tournament, TournamentBracket } from '../../models/tournament';
 
@@ -38,13 +40,30 @@ const roundLabels: Record<MatchRound, string> = {
   templateUrl: './bracket.html',
   styleUrl: './bracket.css',
 })
-export class Bracket {
+export class Bracket implements OnChanges, OnInit, OnDestroy {
+  private readonly teamService = inject(TeamService);
+  private logoSubscription = new Subscription();
+  private initialized = false;
   readonly bracket = input.required<TournamentBracket>();
   readonly selectedMatchId = input<number | null>(null);
   readonly matchSelected = output<number>();
 
   protected readonly initialMatchCount = computed(() => this.bracket().tournament.max_teams / 2);
   protected readonly columns = computed<BracketRoundColumn[]>(() => this.buildColumns(this.bracket()));
+  protected readonly logoUrls = signal<Record<number, string>>({});
+
+  ngOnChanges(): void {
+    if (this.initialized) this.loadTeamLogos();
+  }
+
+  ngOnInit(): void {
+    this.initialized = true;
+    this.loadTeamLogos();
+  }
+
+  ngOnDestroy(): void {
+    this.clearTeamLogos();
+  }
 
   protected isWinner(match: BracketMatch, team: BracketTeam | null): boolean {
     return team !== null && match.winner_team_id === team.id;
@@ -52,6 +71,37 @@ export class Bracket {
 
   protected selectMatch(matchId: number): void {
     this.matchSelected.emit(matchId);
+  }
+
+  protected teamLogoUrl(team: BracketTeam | null): string | null {
+    return team?.has_logo ? this.logoUrls()[team.id] ?? null : null;
+  }
+
+  private loadTeamLogos(): void {
+    this.clearTeamLogos();
+    const ids = new Set<number>();
+    for (const round of this.bracket().rounds) {
+      for (const match of round.matches) {
+        if (match.home_team?.has_logo) ids.add(match.home_team.id);
+        if (match.away_team?.has_logo) ids.add(match.away_team.id);
+      }
+    }
+    this.logoSubscription = new Subscription();
+    for (const id of ids) {
+      this.logoSubscription.add(this.teamService.getLogo(id).subscribe({
+        next: blob => {
+          const objectUrl = URL.createObjectURL(blob);
+          this.logoUrls.update(urls => ({ ...urls, [id]: objectUrl }));
+        },
+        error: () => undefined,
+      }));
+    }
+  }
+
+  private clearTeamLogos(): void {
+    this.logoSubscription.unsubscribe();
+    for (const url of Object.values(this.logoUrls())) URL.revokeObjectURL(url);
+    this.logoUrls.set({});
   }
 
   private buildColumns(bracket: TournamentBracket): BracketRoundColumn[] {
