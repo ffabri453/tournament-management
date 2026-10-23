@@ -2,7 +2,7 @@ import { inject, Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
 import { map, Observable, of, tap } from 'rxjs';
-import { AuthenticatedUser, LoginRequest, LoginResponse } from '../../models/auth';
+import { AuthenticatedUser, LoginRequest, LoginResponse, RegisterRequest, RegisterResponse } from '../../models/auth';
 
 @Injectable({
   providedIn: 'root',
@@ -55,6 +55,10 @@ export class Auth {
   logout(): void {
     this.clear();
     void this.router.navigateByUrl('/login');
+  }
+
+  register({ name, email, password }: RegisterRequest): Observable<RegisterResponse> {
+    return this.http.post<RegisterResponse>('/api/auth/register', { name, email, password });
   }
 
   login(credentials: LoginRequest): Observable<LoginResponse> {

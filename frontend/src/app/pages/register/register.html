@@ -1,0 +1,30 @@
+<section>
+  <h1>Crear cuenta</h1>
+  <form [formGroup]="form" (ngSubmit)="submit()" [attr.aria-busy]="loading()">
+    <label for="name">Nombre</label>
+    <input id="name" type="text" autocomplete="name" formControlName="name" />
+    @if (form.controls.name.touched && form.controls.name.invalid) {
+      <p class="error">Ingresá un nombre no numérico de hasta 100 caracteres, sin caracteres nulos.</p>
+    }
+    <label for="email">Email</label>
+    <input id="email" type="email" autocomplete="username" formControlName="email" />
+    @if (form.controls.email.touched && form.controls.email.invalid) {
+      <p class="error">Ingresá un email válido de hasta 254 caracteres.</p>
+    }
+    <label for="password">Contraseña</label>
+    <input id="password" type="password" autocomplete="new-password" formControlName="password" />
+    @if (form.controls.password.touched && form.controls.password.invalid) {
+      <p class="error">Usá al menos 8 caracteres y hasta 72 bytes UTF-8, sin caracteres nulos ni sólo espacios.</p>
+    }
+    <label for="confirmPassword">Confirmar contraseña</label>
+    <input id="confirmPassword" type="password" autocomplete="new-password" formControlName="confirmPassword" />
+    @if (form.controls.confirmPassword.touched && (form.controls.confirmPassword.invalid || form.hasError('mismatch'))) {
+      <p class="error">Confirmá la contraseña. Las contraseñas deben coincidir.</p>
+    }
+    @if (error()) {
+      <p class="error" role="alert">{{ error() }}</p>
+    }
+    <button type="submit" [disabled]="loading()">{{ loading() ? 'Creando cuenta…' : 'Crear cuenta' }}</button>
+  </form>
+  <p>¿Ya tenés cuenta? <a routerLink="/login">Iniciar sesión</a></p>
+</section>
