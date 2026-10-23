@@ -1,4 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { MatchRound } from '../../models/match';
 import { BracketMatch, Tournament, TournamentBracket } from '../../models/tournament';
 import { Bracket } from './bracket';
@@ -6,6 +8,7 @@ import { Bracket } from './bracket';
 describe('Bracket', () => {
   let fixture: ComponentFixture<Bracket>;
   let element: HTMLElement;
+  let http: HttpTestingController;
 
   const tournament = (maxTeams: Tournament['max_teams'] = 8): Tournament => ({
     id: 7,
@@ -50,9 +53,24 @@ describe('Bracket', () => {
   });
 
   beforeEach(async () => {
-    await TestBed.configureTestingModule({ imports: [Bracket] }).compileComponents();
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true, writable: true, value: vi.fn(() => 'blob:team-logo'),
+    });
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true, writable: true, value: vi.fn(),
+    });
+    await TestBed.configureTestingModule({
+      imports: [Bracket],
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    }).compileComponents();
+    http = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(Bracket);
     element = fixture.nativeElement as HTMLElement;
+  });
+
+  afterEach(() => {
+    http.verify();
+    fixture.destroy();
   });
 
   const render = (bracket: TournamentBracket, selectedMatchId: number | null = null) => {
@@ -96,9 +114,14 @@ describe('Bracket', () => {
     const logoMatch = match(1, 'semi_final');
     logoMatch.home_team = { ...logoMatch.home_team!, has_logo: true };
     render(response(4, [{ round: 'semi_final', matches: [logoMatch] }]));
+    const request = http.expectOne('/api/teams/1/logo');
+    expect(request.request.method).toBe('GET');
+    expect(request.request.responseType).toBe('blob');
+    request.flush(new Blob([new Uint8Array([0x89, 0x50])], { type: 'image/png' }));
+    fixture.detectChanges();
     const firstCard = element.querySelector('button.match-card');
     const logo = firstCard?.querySelector<HTMLImageElement>('.team-crest');
-    expect(logo?.getAttribute('src')).toBe('/api/teams/1/logo');
+    expect(logo?.getAttribute('src')).toBe('blob:team-logo');
     expect(logo?.getAttribute('alt')).toBe('');
     expect(firstCard?.querySelectorAll('.crest-slot')).toHaveLength(1);
     expect(firstCard?.textContent).toContain('Club Deportivo Regional del Norte 1');

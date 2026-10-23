@@ -31,8 +31,8 @@
                       </span>
                       <span class="team" [class.winner]="isWinner(match, match.home_team)"
                         [class.loser]="match.status === 'finished' && match.winner_team_id !== null && match.winner_team_id !== match.home_team?.id">
-                        @if (match.home_team?.has_logo) {
-                          <img class="team-crest" [src]="teamLogoUrl(match.home_team!.id)" alt="" />
+                        @if (teamLogoUrl(match.home_team); as logoUrl) {
+                          <img class="team-crest" [src]="logoUrl" alt="" />
                         } @else { <span class="crest-slot" aria-hidden="true"></span> }
                         <span class="team-name">{{ match.home_team?.name ?? 'Equipo pendiente' }}</span>
                         <span class="score">
@@ -44,8 +44,8 @@
                       </span>
                       <span class="team" [class.winner]="isWinner(match, match.away_team)"
                         [class.loser]="match.status === 'finished' && match.winner_team_id !== null && match.winner_team_id !== match.away_team?.id">
-                        @if (match.away_team?.has_logo) {
-                          <img class="team-crest" [src]="teamLogoUrl(match.away_team!.id)" alt="" />
+                        @if (teamLogoUrl(match.away_team); as logoUrl) {
+                          <img class="team-crest" [src]="logoUrl" alt="" />
                         } @else { <span class="crest-slot" aria-hidden="true"></span> }
                         <span class="team-name">{{ match.away_team?.name ?? 'Equipo pendiente' }}</span>
                         <span class="score">

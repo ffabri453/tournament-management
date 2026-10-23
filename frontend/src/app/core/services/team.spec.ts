@@ -106,7 +106,16 @@ describe('TeamService', () => {
     expect(received).toHaveBeenCalledExactlyOnceWith(response);
   });
 
-  it('deletes a logo and exposes its stable URL', () => {
+  it('gets and deletes a logo through HttpClient', () => {
+    const logo = new Blob([new Uint8Array([0x89, 0x50])], { type: 'image/png' });
+    const receivedLogo = vi.fn();
+    service.getLogo(1).subscribe(receivedLogo);
+    const getRequest = http.expectOne('/api/teams/1/logo');
+    expect(getRequest.request.method).toBe('GET');
+    expect(getRequest.request.responseType).toBe('blob');
+    getRequest.flush(logo);
+    expect(receivedLogo).toHaveBeenCalledExactlyOnceWith(logo);
+
     const received = vi.fn();
     service.deleteLogo(1).subscribe(received);
     const request = http.expectOne('/api/teams/1/logo');
@@ -114,7 +123,6 @@ describe('TeamService', () => {
     expect(request.request.body).toBeNull();
     request.flush({ message: 'Team logo removed successfully', data: { team_id: 1, has_logo: false } });
     expect(received).toHaveBeenCalledOnce();
-    expect(service.logoUrl(1)).toBe('/api/teams/1/logo');
   });
 
   it('deletes by ID without a body and preserves the confirmation response', () => {

@@ -19,9 +19,21 @@ describe('TeamForm editing', () => {
     fixture.detectChanges();
     http.expectOne('/api/tournaments/7').flush(current);
     http.expectOne('/api/teams/12').flush({ data: currentTeam });
+    if (currentTeam.has_logo) {
+      const logo = http.expectOne('/api/teams/12/logo');
+      expect(logo.request.method).toBe('GET');
+      expect(logo.request.responseType).toBe('blob');
+      logo.flush(new Blob([new Uint8Array([0x89, 0x50])], { type: 'image/png' }));
+    }
     fixture.detectChanges();
   };
   beforeEach(async () => {
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true, writable: true, value: vi.fn(() => 'blob:team-logo'),
+    });
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true, writable: true, value: vi.fn(),
+    });
     params = new BehaviorSubject(convertToParamMap({ id: '7', teamId: '12' }));
     await TestBed.configureTestingModule({ imports: [TeamForm], providers: [
       provideHttpClient(), provideHttpClientTesting(), provideRouter([]),
@@ -83,7 +95,7 @@ describe('TeamForm editing', () => {
     load({ ...tournament, status }, { ...team, has_logo: true });
     vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
     const input = element.querySelector<HTMLInputElement>('#team-logo')!;
-    expect(element.querySelector<HTMLImageElement>('.logo-preview img')?.getAttribute('src')).toBe('/api/teams/12/logo');
+    expect(element.querySelector<HTMLImageElement>('.logo-preview img')?.getAttribute('src')).toBe('blob:team-logo');
     component.removeLogo(input);
     fixture.detectChanges();
     expect(element.textContent).toContain('se quitará al guardar');

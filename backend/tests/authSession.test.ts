@@ -67,7 +67,7 @@ test('all management routes require authentication for reads and writes', async 
   const query = mock.method(pool, 'query', async () => { throw new Error('Unexpected query'); });
   for (const path of ['/tournaments', '/tournaments/1', '/tournaments/1/bracket',
     '/tournaments/1/start', '/tournaments/1/next-round', '/matches', '/matches/1',
-    '/api/teams', '/api/teams/1', '/auth/me', '/db-test']) {
+    '/api/teams', '/api/teams/1', '/api/teams/1/logo', '/auth/me', '/db-test']) {
     for (const method of path === '/auth/me' || path === '/db-test' ? ['GET'] : ['GET', 'POST', 'PUT', 'DELETE']) {
       assert.equal((await fetch(`${url}${path}`, { method })).status, 401, `${method} ${path}`);
     }

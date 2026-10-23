@@ -54,8 +54,8 @@ export class TeamService {
     return this.http.delete<TeamLogoMutation>(`/api/teams/${id}/logo`);
   }
 
-  logoUrl(id: number): string {
-    return `/api/teams/${id}/logo`;
+  getLogo(id: number): Observable<Blob> {
+    return this.http.get(`/api/teams/${id}/logo`, { responseType: 'blob' });
   }
 
   delete(id: number): Observable<{ message: string }> {

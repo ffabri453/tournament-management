@@ -42,6 +42,8 @@ export class TeamForm implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   private readonly reload = new Subject<void>();
   private saveSubscription?: Subscription;
+  private logoLoadSubscription?: Subscription;
+  private storedLogoObjectUrl: string | null = null;
   private logoRequestActive = false;
 
   readonly tournament = signal<Tournament | null>(null);
@@ -54,6 +56,7 @@ export class TeamForm implements OnInit {
   readonly saveError = signal('');
   readonly logoError = signal('');
   readonly logoPreview = signal<string | null>(null);
+  readonly storedLogoPreview = signal<string | null>(null);
   readonly logoFile = signal<File | null>(null);
   readonly logoRemovalRequested = signal(false);
   readonly logoImageFailed = signal(false);
@@ -69,8 +72,7 @@ export class TeamForm implements OnInit {
     if (this.logoImageFailed() || this.logoRemovalRequested()) return null;
     const preview = this.logoPreview();
     if (preview) return preview;
-    const team = this.selectedTeam();
-    return team?.has_logo ? this.teamService.logoUrl(team.id) : null;
+    return this.storedLogoPreview();
   });
   readonly canRemoveLogo = computed(() =>
     !this.logoRemovalRequested() && (this.logoFile() !== null || this.selectedTeam()?.has_logo === true)
@@ -90,6 +92,7 @@ export class TeamForm implements OnInit {
   });
 
   ngOnInit(): void {
+    this.destroyRef.onDestroy(() => this.clearStoredLogo());
     combineLatest([this.route.paramMap, this.reload.pipe(startWith(undefined))]).pipe(
       switchMap(([params]) => {
         this.saveSubscription?.unsubscribe();
@@ -151,6 +154,7 @@ export class TeamForm implements OnInit {
       }
       this.tournament.set(tournament);
       this.selectedTeam.set(team);
+      this.loadStoredLogo(team);
       this.teamCount.set(count);
       const limits = playerLimits[tournament.modality];
       this.form.controls.players_count.setValidators([
@@ -273,12 +277,38 @@ export class TeamForm implements OnInit {
   }
 
   private resetLogoState(): void {
+    this.clearStoredLogo();
     this.logoError.set('');
     this.logoPreview.set(null);
     this.logoFile.set(null);
     this.logoRemovalRequested.set(false);
     this.logoImageFailed.set(false);
     this.invalidLogoSelection.set(false);
+  }
+
+  private loadStoredLogo(team: Team | null): void {
+    if (!team?.has_logo) return;
+    this.logoLoadSubscription = this.teamService.getLogo(team.id).pipe(
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe({
+      next: blob => {
+        this.clearStoredLogo();
+        this.storedLogoObjectUrl = URL.createObjectURL(blob);
+        this.storedLogoPreview.set(this.storedLogoObjectUrl);
+      },
+      error: () => {
+        this.logoImageFailed.set(true);
+        this.logoError.set('No se pudo cargar el escudo actual. Podés reemplazarlo o quitarlo.');
+      },
+    });
+  }
+
+  private clearStoredLogo(): void {
+    this.logoLoadSubscription?.unsubscribe();
+    this.logoLoadSubscription = undefined;
+    if (this.storedLogoObjectUrl) URL.revokeObjectURL(this.storedLogoObjectUrl);
+    this.storedLogoObjectUrl = null;
+    this.storedLogoPreview.set(null);
   }
 
   private clearPendingLogoSelection(): void {
