@@ -1,6 +1,7 @@
 import { authGuard } from './core/auth.guard';
 import { Routes } from '@angular/router';
 import { Login } from './pages/login/login';
+import { Register } from './pages/register/register';
 import { TournamentList } from './pages/tournaments/tournament-list/tournament-list';
 import { TournamentForm } from './pages/tournaments/tournament-form/tournament-form';
 import { TournamentDetail } from './pages/tournaments/tournament-detail/tournament-detail';
@@ -10,6 +11,7 @@ import { MatchList } from './pages/matches/match-list/match-list';
 
 export const routes: Routes = [
   { path: 'login', component: Login },
+  { path: 'register', component: Register },
   { path: '', redirectTo: 'tournaments', pathMatch: 'full' },
   { path: 'tournaments/new', component: TournamentForm, canActivate: [authGuard] },
   { path: 'tournaments/:id/edit', component: TournamentForm, canActivate: [authGuard] },

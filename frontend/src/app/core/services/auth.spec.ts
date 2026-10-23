@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { HttpErrorResponse, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { LoginResponse } from '../../models/auth';
+import { LoginResponse, RegisterResponse } from '../../models/auth';
 
 import { Auth } from './auth';
 
@@ -16,6 +16,32 @@ describe('Auth', () => {
 
   it('should be created', () => {
     expect(service).toBeTruthy();
+  });
+
+  it('posts only registration fields and receives a typed response without starting a session', () => {
+    const input = { name: 'User', email: 'user@example.com', password: ' password ', confirmPassword: ' password ', role: 'admin' };
+    const response: RegisterResponse = { message: 'User registered successfully', data: {
+      id: 1, name: 'User', email: input.email, role: 'organizer', created_at: '2026-01-01T00:00:00Z',
+    } };
+    const received = vi.fn();
+    service.register(input).subscribe(received);
+    const request = TestBed.inject(HttpTestingController).expectOne('/api/auth/register');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ name: input.name, email: input.email, password: input.password });
+    request.flush(response, { status: 201, statusText: 'Created' });
+    expect(received).toHaveBeenCalledWith(response);
+    expect(service.user()).toBeNull();
+    expect(service.token()).toBeNull();
+    expect(sessionStorage.length).toBe(0);
+  });
+
+  it('propagates registration errors', () => {
+    const failed = vi.fn();
+    service.register({ name: 'User', email: 'user@example.com', password: 'password' }).subscribe({ error: failed });
+    TestBed.inject(HttpTestingController).expectOne('/api/auth/register').flush(
+      { error: true, message: 'A user with this email already exists' }, { status: 409, statusText: 'Conflict' },
+    );
+    expect(failed).toHaveBeenCalledWith(expect.any(HttpErrorResponse));
   });
 
   afterEach(() => { sessionStorage.clear(); TestBed.inject(HttpTestingController).verify(); });
