@@ -6,6 +6,7 @@ import { BehaviorSubject } from 'rxjs';
 import { TournamentService } from '../../../core/services/tournament.service';
 import { Tournament } from '../../../models/tournament';
 import { TournamentDetail } from './tournament-detail';
+import { Auth } from '../../../core/services/auth';
 
 describe('TournamentDetail start action', () => {
   let fixture: ComponentFixture<TournamentDetail>;
@@ -37,6 +38,7 @@ describe('TournamentDetail start action', () => {
     params = new BehaviorSubject(convertToParamMap({ id: '7' }));
     await TestBed.configureTestingModule({ imports: [TournamentDetail], providers: [
       provideHttpClient(), provideHttpClientTesting(), provideRouter([]),
+      { provide: Auth, useValue: { user: () => ({ id: 1 }) } },
       { provide: ActivatedRoute, useValue: { paramMap: params.asObservable() } },
     ] }).compileComponents();
     http = TestBed.inject(HttpTestingController);

@@ -13,7 +13,25 @@ getJwtSecret();
 
 app.use(express.json());
 
-app.use(['/tournaments', '/matches', '/api/teams'], authenticate);
+// Only the reads used by tournament viewing bypass authentication. Unknown
+// routes and every other method in these resource families remain protected.
+const publicTournamentReads = [
+  /^\/tournaments\/?$/i,
+  /^\/tournaments\/[^/]+\/?$/i,
+  /^\/tournaments\/[^/]+\/bracket\/?$/i,
+  /^\/api\/teams\/?$/i,
+  /^\/api\/teams\/[^/]+\/?$/i,
+  /^\/api\/teams\/[^/]+\/logo\/?$/i,
+  /^\/matches\/?$/i,
+];
+app.use(['/tournaments', '/matches', '/api/teams'], (req, res, next) => {
+  const path = req.baseUrl + req.path;
+  if (req.method === 'GET' && publicTournamentReads.some(pattern => pattern.test(path))) {
+    next();
+    return;
+  }
+  return authenticate(req, res, next);
+});
 app.use(tournamentRoutes);
 app.use(matchRoutes);
 app.use('/api/teams', teamroutes);

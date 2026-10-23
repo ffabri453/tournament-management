@@ -8,6 +8,7 @@ import { catchError, combineLatest, EMPTY, finalize, startWith, Subject, Subscri
 import { TeamService } from '../../../core/services/team';
 import { TournamentService } from '../../../core/services/tournament.service';
 import { Tournament } from '../../../models/tournament';
+import { Auth } from '../../../core/services/auth';
 
 const futureMatchDate: ValidatorFn = control => {
   const value: unknown = control.value;
@@ -28,6 +29,7 @@ const futureMatchDate: ValidatorFn = control => {
   styleUrl: './tournament-detail.css',
 })
 export class TournamentDetail implements OnInit {
+  protected readonly auth = inject(Auth);
   private readonly route = inject(ActivatedRoute);
   private readonly tournamentService = inject(TournamentService);
   private readonly teamService = inject(TeamService);
@@ -109,6 +111,7 @@ export class TournamentDetail implements OnInit {
   }
 
   protected startTournament(): void {
+    if (!this.auth.user()) return;
     const tournament = this.tournament();
     if (!tournament || tournament.status !== 'open' || this.isStarting() || this.isLoading() || this.needsRefresh()) return;
     this.matchDate.markAsTouched();

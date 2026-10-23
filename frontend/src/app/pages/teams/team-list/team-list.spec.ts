@@ -7,6 +7,7 @@ import { TeamService } from '../../../core/services/team';
 import { Team } from '../../../models/team';
 import { Tournament } from '../../../models/tournament';
 import { TeamList } from './team-list';
+import { Auth } from '../../../core/services/auth';
 
 describe('TeamList', () => {
   let fixture: ComponentFixture<TeamList>;
@@ -26,6 +27,7 @@ describe('TeamList', () => {
     params = new BehaviorSubject(convertToParamMap({ id: '7' }));
     await TestBed.configureTestingModule({ imports: [TeamList], providers: [
       provideHttpClient(), provideHttpClientTesting(), provideRouter([]),
+      { provide: Auth, useValue: { user: () => ({ id: 1 }) } },
       { provide: ActivatedRoute, useValue: { paramMap: params.asObservable() } },
     ] }).compileComponents();
     http = TestBed.inject(HttpTestingController);

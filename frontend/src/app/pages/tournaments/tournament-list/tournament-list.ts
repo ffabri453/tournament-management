@@ -5,6 +5,7 @@ import { finalize } from 'rxjs';
 import { RouterLink } from '@angular/router';
 import { TournamentService } from '../../../core/services/tournament.service';
 import { Tournament } from '../../../models/tournament';
+import { Auth } from '../../../core/services/auth';
 
 @Component({
   selector: 'app-tournament-list',
@@ -13,6 +14,7 @@ import { Tournament } from '../../../models/tournament';
   styleUrl: './tournament-list.css',
 })
 export class TournamentList implements OnInit {
+  protected readonly auth = inject(Auth);
   private readonly tournamentService = inject(TournamentService);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -62,6 +64,7 @@ export class TournamentList implements OnInit {
   }
 
   protected deleteTournament(tournament: Tournament): void {
+    if (!this.auth.user()) return;
     if (this.deletingIds().has(tournament.id) || tournament.status !== 'open') return;
     if (!window.confirm(`¿Seguro que querés eliminar "${tournament.name}"? También se eliminarán sus equipos y partidos asociados.`)) return;
 

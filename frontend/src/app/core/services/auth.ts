@@ -1,7 +1,8 @@
 import { inject, Injectable, signal } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { map, Observable, of, tap } from 'rxjs';
+import { catchError, map, Observable, of, tap, throwError } from 'rxjs';
+import { REDIRECT_ON_UNAUTHORIZED } from '../auth.context';
 import { AuthenticatedUser, LoginRequest, LoginResponse, RegisterRequest, RegisterResponse } from '../../models/auth';
 
 @Injectable({
@@ -36,13 +37,19 @@ export class Auth {
     }
   }
 
-  validateSession(): Observable<boolean> {
+  validateSession(redirectOnUnauthorized = true): Observable<boolean> {
     const token = this.token();
     if (!token) return of(false);
-    return this.http.get<{ data: AuthenticatedUser }>('/api/auth/me').pipe(map(response => {
+    return this.http.get<{ data: AuthenticatedUser }>('/api/auth/me', {
+      context: new HttpContext().set(REDIRECT_ON_UNAUTHORIZED, redirectOnUnauthorized),
+    }).pipe(map(response => {
       if (this.token() !== token) return false;
       this.currentUser.set(response.data);
       return true;
+    }), catchError((error: unknown) => {
+      if (redirectOnUnauthorized) return throwError(() => error);
+      if (this.token() === token) this.clear();
+      return of(false);
     }));
   }
 

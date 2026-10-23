@@ -16,14 +16,14 @@
     } @else if (tournament(); as current) {
       <header>
         <p>{{ teams().length }} de {{ current.max_teams }} equipos</p>
-        @if (canAdd()) {
+        @if (auth.user() && canAdd()) {
           <a [routerLink]="['/tournaments', current.id, 'teams', 'new']">Agregar equipo</a>
         }
       </header>
-      @if (current.status !== 'open') {
+      @if (auth.user() && current.status !== 'open') {
         <p>El torneo ya fue iniciado o finalizado. No se pueden agregar equipos.</p>
         <p>Solo se pueden editar sus nombres; no se pueden eliminar equipos ni cambiar la cantidad de jugadores.</p>
-      } @else if (!canAdd()) {
+      } @else if (current.status === 'open' && !canAdd()) {
         <p>El torneo alcanz&oacute; su capacidad m&aacute;xima de equipos.</p>
       }
       @if (deleteError()) {
@@ -34,24 +34,26 @@
         <p role="status">Todav&iacute;a no hay equipos registrados en este torneo.</p>
       } @else {
         <table>
-          <thead><tr><th scope="col">Nombre</th><th scope="col">Jugadores</th><th scope="col">Acciones</th></tr></thead>
+          <thead><tr><th scope="col">Nombre</th><th scope="col">Jugadores</th>@if (auth.user()) { <th scope="col">Acciones</th> }</tr></thead>
           <tbody>
             @for (team of teams(); track team.id) {
               <tr>
                 <th scope="row">{{ team.name }}</th>
                 <td>{{ team.players_count }}</td>
-                <td>
-                  <div class="actions">
-                    <a [routerLink]="deletingId() === null ? ['/tournaments', current.id, 'teams', team.id, 'edit'] : null"
-                      [attr.aria-disabled]="deletingId() !== null" [attr.tabindex]="deletingId() === null ? null : -1"
-                      [attr.aria-label]="'Editar ' + team.name">Editar</a>
-                    <button type="button" class="delete" (click)="deleteTeam(team)"
-                      [disabled]="deletingId() !== null || current.status !== 'open'"
-                      [attr.aria-label]="'Eliminar ' + team.name">
-                      {{ deletingId() === team.id ? 'Eliminando...' : 'Eliminar' }}
-                    </button>
-                  </div>
-                </td>
+                @if (auth.user()) {
+                  <td>
+                    <div class="actions">
+                      <a [routerLink]="deletingId() === null ? ['/tournaments', current.id, 'teams', team.id, 'edit'] : null"
+                        [attr.aria-disabled]="deletingId() !== null" [attr.tabindex]="deletingId() === null ? null : -1"
+                        [attr.aria-label]="'Editar ' + team.name">Editar</a>
+                      <button type="button" class="delete" (click)="deleteTeam(team)"
+                        [disabled]="deletingId() !== null || current.status !== 'open'"
+                        [attr.aria-label]="'Eliminar ' + team.name">
+                        {{ deletingId() === team.id ? 'Eliminando...' : 'Eliminar' }}
+                      </button>
+                    </div>
+                  </td>
+                }
               </tr>
             }
           </tbody>

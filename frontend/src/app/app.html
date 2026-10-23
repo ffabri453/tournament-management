@@ -1,4 +1,10 @@
-@if (auth.user()) {
-  <nav aria-label="Sesión"><button type="button" (click)="auth.logout()">Cerrar sesión</button></nav>
-}
+<nav aria-label="Navegación principal">
+  <a routerLink="/tournaments">Consultar torneos</a>
+  @if (auth.user()) {
+    <button type="button" (click)="auth.logout()">Cerrar sesión</button>
+  } @else {
+    <a routerLink="/login">Iniciar sesión</a>
+    <a routerLink="/register">Registrarse</a>
+  }
+</nav>
 <router-outlet />
