@@ -52,7 +52,7 @@ describe('Login', () => {
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
     component.form.setValue({ email: 'user@example.com', password: 'secret' });
     component.submit();
-    response.next({ message: 'Login successful', data: {
+    response.next({ message: 'Login successful', access_token: `e30.${btoa(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 3600 }))}.signature`, token_type: 'Bearer', expires_in: 3600, data: {
       id: 1, name: 'User', email: 'user@example.com', role: 'admin', created_at: '2026-01-01T00:00:00Z',
     } });
     response.complete();

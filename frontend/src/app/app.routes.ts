@@ -1,3 +1,4 @@
+import { authGuard } from './core/auth.guard';
 import { Routes } from '@angular/router';
 import { Login } from './pages/login/login';
 import { TournamentList } from './pages/tournaments/tournament-list/tournament-list';
@@ -10,13 +11,13 @@ import { MatchList } from './pages/matches/match-list/match-list';
 export const routes: Routes = [
   { path: 'login', component: Login },
   { path: '', redirectTo: 'tournaments', pathMatch: 'full' },
-  { path: 'tournaments/new', component: TournamentForm },
-  { path: 'tournaments/:id/edit', component: TournamentForm },
-  { path: 'tournaments/:id/teams/new', component: TeamForm },
-  { path: 'tournaments/:id/teams/:teamId/edit', component: TeamForm },
-  { path: 'tournaments/:id/teams', component: TeamList },
-  { path: 'tournaments/:id/matches', component: MatchList },
-  { path: 'tournaments/:id/bracket', component: MatchList },
-  { path: 'tournaments/:id', component: TournamentDetail },
-  { path: 'tournaments', component: TournamentList },
+  { path: 'tournaments/new', component: TournamentForm, canActivate: [authGuard] },
+  { path: 'tournaments/:id/edit', component: TournamentForm, canActivate: [authGuard] },
+  { path: 'tournaments/:id/teams/new', component: TeamForm, canActivate: [authGuard] },
+  { path: 'tournaments/:id/teams/:teamId/edit', component: TeamForm, canActivate: [authGuard] },
+  { path: 'tournaments/:id/teams', component: TeamList, canActivate: [authGuard] },
+  { path: 'tournaments/:id/matches', component: MatchList, canActivate: [authGuard] },
+  { path: 'tournaments/:id/bracket', component: MatchList, canActivate: [authGuard] },
+  { path: 'tournaments/:id', component: TournamentDetail, canActivate: [authGuard] },
+  { path: 'tournaments', component: TournamentList, canActivate: [authGuard] },
 ];

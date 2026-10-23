@@ -1,3 +1,5 @@
+import { randomBytes } from 'node:crypto';
+import { verifyToken } from '../src/auth/token';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
@@ -13,6 +15,7 @@ import pool from '../src/config/db';
 import authRoutes from '../src/routes/authRoutes';
 
 test('register followed by login works with real PostgreSQL and bcrypt without changing stored users', async (t) => {
+  process.env.JWT_SECRET = randomBytes(32).toString('hex');
   const connectionString = process.env.USER_TEST_DATABASE_URL;
   assert.ok(connectionString, 'USER_TEST_DATABASE_URL must point to a disposable users_test database');
   assert.equal(new URL(connectionString).pathname, '/users_test', 'Only the users_test database is allowed');
@@ -48,14 +51,18 @@ test('register followed by login works with real PostgreSQL and bcrypt without c
       const response = await post('login', { email: input.email, password: input.password });
       assert.equal(response.status, 200);
       assert.equal(response.headers.get('set-cookie'), null);
-      assert.deepEqual(await response.json(), { message: 'Login successful', data: created.data });
+      const result = await response.json() as { access_token: string; data: unknown };
+      assert.equal(verifyToken(result.access_token), created.data.id);
+      assert.deepEqual(result.data, created.data);
       assert.deepEqual(Object.keys(created.data).sort(), ['created_at', 'email', 'id', 'name', 'role']);
     });
 
     await t.test('login normalizes email case and surrounding spaces', async () => {
       const response = await post('login', { email: ' FABRI@EXAMPLE.COM ', password: input.password });
       assert.equal(response.status, 200);
-      assert.deepEqual(await response.json(), { message: 'Login successful', data: created.data });
+      const result = await response.json() as { access_token: string; data: unknown };
+      assert.equal(verifyToken(result.access_token), created.data.id);
+      assert.deepEqual(result.data, created.data);
     });
 
     await t.test('bcrypt rejects incorrect passwords and both credential failures produce the same 401', async () => {
