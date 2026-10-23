@@ -10,6 +10,7 @@ import { TournamentService } from '../../../core/services/tournament.service';
 import { Match, UpdateMatchRequest } from '../../../models/match';
 import { BracketMatch, TournamentBracket } from '../../../models/tournament';
 import { Bracket } from '../../bracket/bracket';
+import { Auth } from '../../../core/services/auth';
 
 @Component({
   selector: 'app-match-list',
@@ -18,6 +19,7 @@ import { Bracket } from '../../bracket/bracket';
   styleUrl: './match-list.css',
 })
 export class MatchList implements OnInit {
+  protected readonly auth = inject(Auth);
   private readonly route = inject(ActivatedRoute);
   private readonly matchService = inject(MatchService);
   private readonly tournamentService = inject(TournamentService);
@@ -41,7 +43,7 @@ export class MatchList implements OnInit {
   protected readonly canGenerateNextRound = computed(() => {
     const tournament = this.tournament();
     const currentRound = this.currentRound();
-    return tournament?.status === 'in_progress' && this.nextRound() !== null &&
+    return this.auth.user() !== null && tournament?.status === 'in_progress' && this.nextRound() !== null &&
       currentRound !== null && currentRound.matches.length > 0 &&
       currentRound.matches.every(match => match.status === 'finished' && match.winner_team_id !== null);
   });
@@ -165,7 +167,7 @@ export class MatchList implements OnInit {
 
   protected canEditResult(match: Match): boolean {
     const tournament = this.tournament();
-    return tournament !== null && tournament.status !== 'finished' && match.status !== 'finished' &&
+    return this.auth.user() !== null && tournament !== null && tournament.status !== 'finished' && match.status !== 'finished' &&
       Number.isFinite(Date.parse(match.match_date)) && Date.parse(match.match_date) <= Date.now();
   }
 

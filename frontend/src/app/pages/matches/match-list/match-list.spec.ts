@@ -5,6 +5,7 @@ import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/route
 import { BehaviorSubject } from 'rxjs';
 import { BracketMatch, Tournament, TournamentBracket } from '../../../models/tournament';
 import { MatchList } from './match-list';
+import { Auth } from '../../../core/services/auth';
 
 describe('MatchList unified screen', () => {
   let fixture: ComponentFixture<MatchList>;
@@ -80,6 +81,7 @@ describe('MatchList unified screen', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter([]),
+        { provide: Auth, useValue: { user: () => ({ id: 1 }) } },
         { provide: ActivatedRoute, useValue: { paramMap: params.asObservable() } },
       ],
     }).compileComponents();

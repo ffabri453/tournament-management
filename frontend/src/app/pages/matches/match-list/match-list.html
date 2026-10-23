@@ -84,7 +84,7 @@
                 <col style="width: 11%" />
                 <col style="width: 10%" />
                 <col style="width: 13%" />
-                <col style="width: 16%" />
+                @if (auth.user()) { <col style="width: 16%" /> }
               </colgroup>
               <thead>
                 <tr>
@@ -94,7 +94,7 @@
                   <th scope="col">Ubicaci&oacute;n</th>
                   <th scope="col">Estado</th>
                   <th scope="col">Resultado</th>
-                  <th scope="col">Acciones</th>
+                  @if (auth.user()) { <th scope="col">Acciones</th> }
                 </tr>
               </thead>
               <tbody>
@@ -110,21 +110,23 @@
                     <td>{{ match.location }}</td>
                     <td><span class="status" [attr.data-status]="match.status">{{ statusLabels[match.status] }}</span></td>
                     <td class="result">{{ result(match) ?? 'Sin resultado' }}</td>
-                    <td class="actions">
-                      @if (match.status === 'finished') {
-                        <span class="unavailable">Resultado cerrado</span>
-                      } @else if (!canEditResult(match)) {
-                        <span class="unavailable">Disponible desde {{ match.match_date | date:'dd/MM/yyyy HH:mm' }}</span>
-                      } @else {
-                        <button type="button" (click)="openResultForm(match)"
-                          [disabled]="editingMatchId() !== null || savingMatchId() !== null || needsRefresh()"
-                          [attr.aria-label]="(result(match) ? 'Editar resultado de ' : 'Cargar resultado de ') + teamName(match.home_team_id) + ' contra ' + teamName(match.away_team_id)">
-                          {{ result(match) ? 'Editar resultado' : 'Cargar resultado' }}
-                        </button>
-                      }
-                    </td>
+                    @if (auth.user()) {
+                      <td class="actions">
+                        @if (match.status === 'finished') {
+                          <span class="unavailable">Resultado cerrado</span>
+                        } @else if (!canEditResult(match)) {
+                          <span class="unavailable">Disponible desde {{ match.match_date | date:'dd/MM/yyyy HH:mm' }}</span>
+                        } @else {
+                          <button type="button" (click)="openResultForm(match)"
+                            [disabled]="editingMatchId() !== null || savingMatchId() !== null || needsRefresh()"
+                            [attr.aria-label]="(result(match) ? 'Editar resultado de ' : 'Cargar resultado de ') + teamName(match.home_team_id) + ' contra ' + teamName(match.away_team_id)">
+                            {{ result(match) ? 'Editar resultado' : 'Cargar resultado' }}
+                          </button>
+                        }
+                      </td>
+                    }
                   </tr>
-                  @if (editingMatchId() === match.id) {
+                  @if (auth.user() && editingMatchId() === match.id) {
                     <tr class="form-row">
                       <td colspan="7">
                         <form [formGroup]="resultForm" (ngSubmit)="saveResult()" [attr.aria-busy]="savingMatchId() === match.id">

@@ -5,7 +5,7 @@ import { provideRouter, Router } from '@angular/router';
 import { RouterTestingHarness } from '@angular/router/testing';
 import { routes } from '../app.routes';
 import { Login } from '../pages/login/login';
-import { TournamentList } from '../pages/tournaments/tournament-list/tournament-list';
+import { TournamentForm } from '../pages/tournaments/tournament-form/tournament-form';
 import { Auth } from './services/auth';
 import { authInterceptor } from './auth.interceptor';
 
@@ -69,7 +69,7 @@ describe('Persistent authentication', () => {
     expect(valid).toHaveBeenCalledWith(false);
   });
 
-  it('adds Bearer only to the protected API paths and clears the session on 401', () => {
+  it('adds Bearer only to the application API paths and clears the session on protected 401', () => {
     const credential = token();
     sessionStorage.setItem(storageKey, credential);
     const client = TestBed.inject(HttpClient);
@@ -88,15 +88,15 @@ describe('Persistent authentication', () => {
       request.flush({});
     }
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
-    client.get('/api/tournaments').subscribe({ error: () => undefined });
-    http.expectOne('/api/tournaments').flush({}, { status: 401, statusText: 'Unauthorized' });
+    client.put('/api/tournaments/1', {}).subscribe({ error: () => undefined });
+    http.expectOne('/api/tournaments/1').flush({}, { status: 401, statusText: 'Unauthorized' });
     expect(TestBed.inject(Auth).token()).toBeNull();
     expect(navigate).toHaveBeenCalledWith('/login');
   });
 
   it('redirects direct unauthenticated access and leaves login public', async () => {
     const harness = await RouterTestingHarness.create();
-    await harness.navigateByUrl('/tournaments', Login);
+    await harness.navigateByUrl('/tournaments/new', Login);
     expect(TestBed.inject(Router).url).toBe('/login');
     await harness.navigateByUrl('/login', Login);
   });
@@ -105,13 +105,12 @@ describe('Persistent authentication', () => {
     sessionStorage.setItem(storageKey, token());
     const http = TestBed.inject(HttpTestingController);
     const harness = await RouterTestingHarness.create();
-    const navigation = harness.navigateByUrl('/tournaments', TournamentList);
+    const navigation = harness.navigateByUrl('/tournaments/new', TournamentForm);
     await vi.waitFor(() => http.expectOne('/api/auth/me').flush({ data: user }));
     await navigation;
-    http.expectOne('/api/tournaments').flush([]);
     TestBed.inject(Auth).logout();
     await harness.fixture.whenStable();
-    await harness.navigateByUrl('/tournaments/1/bracket', Login);
+    await harness.navigateByUrl('/tournaments/new', Login);
     expect(TestBed.inject(Router).url).toBe('/login');
   });
 
@@ -119,7 +118,7 @@ describe('Persistent authentication', () => {
     sessionStorage.setItem(storageKey, token());
     const http = TestBed.inject(HttpTestingController);
     const harness = await RouterTestingHarness.create();
-    const navigation = harness.navigateByUrl('/tournaments');
+    const navigation = harness.navigateByUrl('/tournaments/new');
     await vi.waitFor(() => http.expectOne('/api/auth/me').flush({}, { status: 401, statusText: 'Unauthorized' }));
     await navigation;
     await harness.fixture.whenStable();

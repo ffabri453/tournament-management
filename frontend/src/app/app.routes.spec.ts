@@ -22,14 +22,14 @@ describe('Tournament creation routing', () => {
   });
 
   it('loads the real login form at /login', async () => {
-    TestBed.configureTestingModule({ providers: [provideRouter(routes), { provide: Auth, useValue: { validateSession: () => of(true), user: () => null } }, provideHttpClient(), provideHttpClientTesting()] });
+    TestBed.configureTestingModule({ providers: [provideRouter(routes), { provide: Auth, useValue: { validateSession: () => of(true), user: () => ({ id: 1 }) } }, provideHttpClient(), provideHttpClientTesting()] });
     const harness = await RouterTestingHarness.create();
     await harness.navigateByUrl('/login', Login);
     expect(harness.routeNativeElement?.querySelector('h1')?.textContent).toBe('Iniciar sesión');
     TestBed.inject(HttpTestingController).verify();
   });
   it('shows the detail and permits navigation to edit and back without writes', async () => {
-    TestBed.configureTestingModule({ providers: [provideRouter(routes), { provide: Auth, useValue: { validateSession: () => of(true), user: () => null } }, provideHttpClient(), provideHttpClientTesting()] });
+    TestBed.configureTestingModule({ providers: [provideRouter(routes), { provide: Auth, useValue: { validateSession: () => of(true), user: () => ({ id: 1 }) } }, provideHttpClient(), provideHttpClientTesting()] });
     const http = TestBed.inject(HttpTestingController);
     const harness = await RouterTestingHarness.create();
     const tournament = { id: 5, name: 'Copa de detalle', location: 'Firmat', modality: 'futbol_5', max_teams: 4, rules: 'official_rules_football_5', format: 'knockout', status: 'open', champion_team_id: null, created_at: '2026-10-02T12:00:00.000Z' };
@@ -60,7 +60,7 @@ describe('Tournament creation routing', () => {
   });
 
   it('shows a safe 404 at /tournaments/999999/edit without an editable form', async () => {
-    TestBed.configureTestingModule({ providers: [provideRouter(routes), { provide: Auth, useValue: { validateSession: () => of(true), user: () => null } }, provideHttpClient(), provideHttpClientTesting()] });
+    TestBed.configureTestingModule({ providers: [provideRouter(routes), { provide: Auth, useValue: { validateSession: () => of(true), user: () => ({ id: 1 }) } }, provideHttpClient(), provideHttpClientTesting()] });
     const http = TestBed.inject(HttpTestingController);
     const harness = await RouterTestingHarness.create();
     const form = await harness.navigateByUrl('/tournaments/999999/edit', TournamentForm);
@@ -75,7 +75,7 @@ describe('Tournament creation routing', () => {
   });
 
   it('loads the same form at /tournaments/:id/edit and refreshes the list after PUT', async () => {
-    TestBed.configureTestingModule({ providers: [provideRouter(routes), { provide: Auth, useValue: { validateSession: () => of(true), user: () => null } }, provideHttpClient(), provideHttpClientTesting()] });
+    TestBed.configureTestingModule({ providers: [provideRouter(routes), { provide: Auth, useValue: { validateSession: () => of(true), user: () => ({ id: 1 }) } }, provideHttpClient(), provideHttpClientTesting()] });
     const http = TestBed.inject(HttpTestingController);
     const harness = await RouterTestingHarness.create();
     const form = await harness.navigateByUrl('/tournaments/5/edit', TournamentForm);
@@ -99,7 +99,7 @@ describe('Tournament creation routing', () => {
   });
 
   it('loads /tournaments/new and reloads the list with the created tournament after success', async () => {
-    TestBed.configureTestingModule({ providers: [provideRouter(routes), { provide: Auth, useValue: { validateSession: () => of(true), user: () => null } }, provideHttpClient(), provideHttpClientTesting()] });
+    TestBed.configureTestingModule({ providers: [provideRouter(routes), { provide: Auth, useValue: { validateSession: () => of(true), user: () => ({ id: 1 }) } }, provideHttpClient(), provideHttpClientTesting()] });
     const http = TestBed.inject(HttpTestingController);
     const harness = await RouterTestingHarness.create();
     await harness.navigateByUrl('/tournaments', TournamentList);

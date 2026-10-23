@@ -7,6 +7,7 @@ import { TeamService } from '../../../core/services/team';
 import { TournamentService } from '../../../core/services/tournament.service';
 import { Team } from '../../../models/team';
 import { Tournament } from '../../../models/tournament';
+import { Auth } from '../../../core/services/auth';
 
 @Component({
   selector: 'app-team-list',
@@ -15,6 +16,7 @@ import { Tournament } from '../../../models/tournament';
   styleUrl: './team-list.css',
 })
 export class TeamList implements OnInit {
+  protected readonly auth = inject(Auth);
   private readonly route = inject(ActivatedRoute);
   private readonly teamService = inject(TeamService);
   private readonly tournamentService = inject(TournamentService);
@@ -83,6 +85,7 @@ export class TeamList implements OnInit {
   }
 
   protected deleteTeam(team: Team): void {
+    if (!this.auth.user()) return;
     const tournament = this.tournament();
     if (!tournament || tournament.status !== 'open' || this.isLoading() || this.deletingId() !== null ||
         team.tournament_id !== tournament.id || !this.teams().some(current => current.id === team.id)) return;

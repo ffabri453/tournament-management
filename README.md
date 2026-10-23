@@ -224,25 +224,33 @@ El servidor rechaza el arranque si falta el secreto o es demasiado corto. No gua
 
 Se usa `jsonwebtoken` para firmar y verificar JWT HS256 con expiracion de una hora, issuer y audience `tournament-management`. El payload contiene solo `sub` (ID de usuario) y los claims tecnicos `iat`, `exp`, `iss`, `aud`; no contiene contrasena, hash ni role, porque no hay autorizacion por roles en este alcance. Referencia de la biblioteca: https://github.com/auth0/node-jsonwebtoken.
 
-El middleware valida firma, algoritmo y expiracion, y consulta que el usuario siga existiendo. Protege todas las operaciones de `/tournaments`, `/matches`, `/api/teams`, ademas de `GET /auth/me` y el diagnostico `GET /db-test`. Son las APIs de las pantallas de gestion; no existe actualmente una pantalla publica de consulta. Login, registro y `GET /` siguen publicos. No se agregan permisos por propietario ni cambios en reglas de torneos, equipos o partidos.
+El middleware valida firma, algoritmo y expiracion, y consulta que el usuario siga existiendo. Las siguientes consultas de torneos son publicas y no requieren JWT:
+
+- `GET /tournaments` y `GET /tournaments/:id`.
+- `GET /tournaments/:id/bracket`, con partidos, resultados y campeon.
+- `GET /api/teams` y `GET /api/teams/:id`; el detalle usa este ultimo para resolver el nombre del campeon.
+- `GET /matches`.
+
+Todas las mutaciones (`POST`, `PUT`, `PATCH`, `DELETE`) de esas familias siguen protegidas, incluidos iniciar torneo y generar la siguiente ronda. Tambien siguen protegidos `GET /matches/:id`, `GET /auth/me`, `GET /db-test` y rutas desconocidas dentro de esas familias. Login, registro y `GET /` conservan su acceso publico. No se agregan permisos por rol o propietario ni cambios en reglas de torneos, equipos o partidos.
 
 Angular conserva solo el token en `sessionStorage`: sobrevive a F5 dentro de la pesta?a y se elimina al cerrar su sesion de navegador. Si el navegador bloquea storage, la sesion funciona en memoria hasta recargar. No se guardan contrasenas ni datos de usuario en storage. Esta eleccion mantiene el protocolo Bearer simple, pero el token es accesible a JavaScript y puede ser robado ante XSS; en produccion usar HTTPS y prevenir XSS. No hay refresh token: al expirar hay que iniciar sesion otra vez.
 
-El interceptor envia `Authorization: Bearer <token>` solo a las rutas relativas `/api/tournaments`, `/api/teams`, `/api/matches` y `/api/auth/me`, incluidos sus recursos. No envia la credencial a login, registro, assets ni URLs externas. Un 401 de una peticion de la sesion actual limpia la credencial y navega a `/login`.
+El interceptor envia `Authorization: Bearer <token>` cuando hay credencial, solo a las rutas relativas `/api/tournaments`, `/api/teams`, `/api/matches` y `/api/auth/me`, incluidos sus recursos. Los GET publicos funcionan sin token y el backend no valida las credenciales opcionales de esas lecturas. No envia la credencial a login, registro, assets ni URLs externas. Un 401 de una peticion protegida de la sesion actual limpia la credencial y navega a `/login`.
 
-El guard conserva todas las rutas existentes y protege `/tournaments` y sus rutas de detalle, creacion, edicion, equipos, partidos y bracket. Comprueba la expiracion local para descartar tokens vencidos y llama a `/api/auth/me` en cada navegacion para validar la sesion en el servidor y recuperar el usuario. Los datos locales nunca son la prueba definitiva. Ante falta de credencial o fallo de verificacion redirige a `/login`.
+Angular permite consultar sin AuthGuard `/tournaments`, `/tournaments/:id`, `/tournaments/:id/teams`, `/tournaments/:id/matches` y `/tournaments/:id/bracket`. Las dos ultimas rutas reutilizan la misma pantalla de partidos y cuadro. `/login` y `/register` siguen publicas; `/` redirige al listado. El guard protege `/tournaments/new`, `/tournaments/:id/edit`, `/tournaments/:id/teams/new` y `/tournaments/:id/teams/:teamId/edit`: comprueba la expiracion local y valida la sesion con `/api/auth/me` antes de abrir los formularios.
+
+La UI usa el usuario del servicio Auth para mostrar acciones de gestion solo despues del login o de una validacion de sesion exitosa. Sin usuario muestra datos, resultados, seleccion de partidos y campeon, sin crear, editar, eliminar, iniciar ni generar rondas. Al recargar, la aplicacion restaura la sesion mediante `/api/auth/me` si existe un token local vigente. Esta validacion inicial es opcional para la consulta publica: ante un error limpia la sesion y conserva la pantalla publica, sin redirigir a login. Las comprobaciones del guard y los 401 de operaciones protegidas mantienen su comportamiento. La navegacion principal ofrece consultar torneos, iniciar sesion y registrarse; con usuario ofrece cerrar sesion.
 
 El boton **Cerrar sesion** elimina token y usuario y navega a `/login`. No hay endpoint de logout: el cierre es local; una copia previamente robada del JWT sigue valida hasta su expiracion (sin lista de revocacion).
 
 Prueba manual:
 
-1. Abrir `/tournaments` sin login: debe redirigir a `/login`.
-2. Iniciar sesion con un usuario existente o registrado mediante `POST /auth/register`: debe abrir `/tournaments`. Un password incorrecto debe mostrar el error seguro y permitir reintentar.
-3. Navegar a detalle, equipos, partidos y bracket; sus flujos existentes deben funcionar.
-4. Pulsar F5 en una ruta protegida: debe conservar la sesion y validar `/api/auth/me`.
-5. En Network de DevTools, comprobar que `/api/auth/me` y las peticiones de gestion llevan Authorization y responden correctamente. No copiar ni publicar el token. Una peticion a `http://localhost:3000/tournaments` sin Authorization debe devolver 401.
-6. Pulsar **Cerrar sesion**: debe volver a `/login` y eliminar `tournament.accessToken` de Session Storage.
-7. Escribir `/tournaments` o una URL de bracket directamente, y probar Volver: no debe abrir una ruta protegida sin iniciar sesion.
+1. Iniciar backend y frontend como se indica arriba. Abrir una ventana privada en `http://localhost:4200/tournaments`: debe mostrar el listado y enlaces a login y registro, sin crear, editar ni eliminar.
+2. Abrir el detalle de un torneo, sus equipos, `/tournaments/:id/matches` y `/tournaments/:id/bracket`. Deben verse datos, resultados y campeon cuando corresponda. Seleccionar partidos en el cuadro debe mostrar sus datos sin abrir formularios de resultado. Recargar debe conservar la consulta sin pedir login.
+3. Abrir `/tournaments/new`, `/tournaments/:id/edit`, `/tournaments/:id/teams/new` o `/tournaments/:id/teams/:teamId/edit` sin sesion: deben redirigir a `/login`. `/login` y `/register` deben permanecer accesibles.
+4. Iniciar sesion con un usuario existente. Deben reaparecer las acciones de gestion existentes segun el estado del torneo. Probar crear/editar equipos, iniciar torneo y guardar resultados en un torneo de prueba. Recargar una ruta publica debe validar `/api/auth/me` y recuperar los controles; un token rechazado debe dejar esa consulta en modo visitante.
+5. En otra terminal ejecutar `curl.exe -i -X POST http://localhost:3000/tournaments -H "Content-Type: application/json" -d "{}"` sin Authorization: debe devolver `401 Authentication required`. Comprobar tambien PUT, PATCH y DELETE de torneos, equipos y partidos. `GET http://localhost:3000/tournaments` debe devolver 200; `/auth/me` y `/db-test` sin JWT deben devolver 401.
+6. Pulsar **Cerrar sesion**: debe volver a `/login` y eliminar `tournament.accessToken` de Session Storage. Volver al listado o al bracket debe funcionar en modo visitante; las rutas de modificacion deben continuar bloqueadas.
 
 `npm test` incluye los tests unitarios del modelo sin requerir PostgreSQL. Para comprobar los constraints reales, usar una base desechable llamada `users_test`, nunca `torneos_db`:
 

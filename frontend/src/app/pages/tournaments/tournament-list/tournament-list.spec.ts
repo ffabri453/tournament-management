@@ -4,6 +4,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Tournament } from '../../../models/tournament';
 import { TournamentList } from './tournament-list';
 import { provideRouter, Router } from '@angular/router';
+import { Auth } from '../../../core/services/auth';
 
 describe('TournamentList', () => {
   let fixture: ComponentFixture<TournamentList>;
@@ -19,7 +20,8 @@ describe('TournamentList', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [TournamentList],
-      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([]),
+        { provide: Auth, useValue: { user: () => ({ id: 1 }) } }],
     }).compileComponents();
     http = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(TournamentList);
