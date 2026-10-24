@@ -1,3 +1,4 @@
+import { Auth } from '../../../core/services/auth';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
 import { TournamentForm } from './tournament-form';
@@ -15,7 +16,7 @@ describe('TournamentForm', () => {
   beforeEach(async () => {
     await TestBed.configureTestingModule({
       imports: [TournamentForm],
-      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+      providers: [{ provide: Auth, useValue: { user: () => ({ id: 1, role: 'organizer' }) } }, provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
     }).compileComponents();
 
     fixture = TestBed.createComponent(TournamentForm);

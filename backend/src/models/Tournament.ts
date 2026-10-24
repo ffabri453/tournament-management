@@ -1,4 +1,5 @@
 import pool from '../config/db';
+import { assertAuthenticatedActor, assertTournamentManager, TournamentActor } from '../domain/tournamentAccess';
 import {
   DomainError,
   INITIAL_ROUND_BY_CAPACITY,
@@ -23,6 +24,7 @@ import { Team } from './teammodel';
 
 export interface Tournament {
   id: number;
+  organizer_id: number | null;
   name: string;
   location: TournamentLocation;
   rules: string;
@@ -86,7 +88,7 @@ const tournamentColumns: Record<keyof UpdateTournamentInput, string> = {
 
 const tournamentSelect = `
   id, name, location, rules, format, modality, max_teams, status,
-  champion_team_id, created_at
+  champion_team_id, organizer_id, created_at
 `;
 
 const teamSelect = `id, tournament_id, name, players_count,
@@ -457,7 +459,8 @@ export const getTournamentById = async (id: number): Promise<Tournament | null> 
   return result.rows[0] ?? null;
 };
 
-export const createTournament = async (tournament: CreateTournamentInput): Promise<Tournament> => {
+export const createTournament = async (tournament: CreateTournamentInput, actor: TournamentActor): Promise<Tournament> => {
+  assertAuthenticatedActor(actor);
   if (tournament.status !== 'open') {
     throw new DomainError(
       'TOURNAMENT_INITIAL_STATUS_INVALID',
@@ -466,8 +469,8 @@ export const createTournament = async (tournament: CreateTournamentInput): Promi
   }
 
   const result = await pool.query(
-    `INSERT INTO tournaments (name, location, rules, format, modality, max_teams, status)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `INSERT INTO tournaments (name, location, rules, format, modality, max_teams, status, organizer_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      RETURNING ${tournamentSelect}`,
     [
       tournament.name,
@@ -476,7 +479,8 @@ export const createTournament = async (tournament: CreateTournamentInput): Promi
       tournament.format,
       tournament.modality,
       tournament.max_teams,
-      tournament.status
+      tournament.status,
+      actor.id
     ]
   );
 
@@ -528,7 +532,8 @@ export const validateTournamentDeletable = (
 
 export const updateTournament = async (
   id: number,
-  tournament: UpdateTournamentInput
+  tournament: UpdateTournamentInput,
+  actor: TournamentActor
 ): Promise<Tournament | null> => {
   const client = await pool.connect();
 
@@ -549,6 +554,7 @@ export const updateTournament = async (
       return null;
     }
 
+    assertTournamentManager(current.organizer_id, actor);
     // Evita modificar la estructura del torneo una vez iniciado.
     validateTournamentMutable(current, tournament);
 
@@ -631,7 +637,8 @@ export const updateTournament = async (
 
 export const startTournament = async (
   id: number,
-  input: StartTournamentInput
+  input: StartTournamentInput,
+  actor: TournamentActor
 ): Promise<StartTournamentResult> => {
   const client = await pool.connect();
   let transactionStarted = false;
@@ -654,6 +661,7 @@ export const startTournament = async (
       throw new DomainError('TOURNAMENT_NOT_FOUND', 'Tournament not found');
     }
 
+    assertTournamentManager(tournament.organizer_id, actor);
     const teamsResult = await client.query<Team>(
       `SELECT ${teamSelect}
        FROM teams
@@ -736,7 +744,8 @@ export const startTournament = async (
 
 export const advanceTournamentRound = async (
   id: number,
-  input: AdvanceTournamentRoundInput
+  input: AdvanceTournamentRoundInput,
+  actor: TournamentActor
 ): Promise<AdvanceTournamentRoundResult> => {
   const client = await pool.connect();
   let transactionStarted = false;
@@ -759,6 +768,7 @@ export const advanceTournamentRound = async (
       throw new DomainError('TOURNAMENT_NOT_FOUND', 'Tournament not found');
     }
 
+    assertTournamentManager(tournament.organizer_id, actor);
     const matchesResult = await client.query<Match>(
       `SELECT id, tournament_id, home_team_id, away_team_id, match_date, location,
               round, home_goals, away_goals, home_penalties, away_penalties,
@@ -810,7 +820,7 @@ export const advanceTournamentRound = async (
   }
 };
 
-export const deleteTournament = async (id: number): Promise<Tournament | null> => {
+export const deleteTournament = async (id: number, actor: TournamentActor): Promise<Tournament | null> => {
   const client = await pool.connect();
 
   try {
@@ -829,6 +839,7 @@ export const deleteTournament = async (id: number): Promise<Tournament | null> =
       return null;
     }
 
+    assertTournamentManager(current.organizer_id, actor);
     const historyResult = await client.query<{ exists: boolean }>(
       `SELECT EXISTS (
          SELECT 1

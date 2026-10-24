@@ -8,6 +8,8 @@ import { TeamService } from '../../../core/services/team';
 import { TournamentService } from '../../../core/services/tournament.service';
 import { Tournament } from '../../../models/tournament';
 import { Team } from '../../../models/team';
+import { Auth } from '../../../core/services/auth';
+import { canManageTournament } from '../../../core/tournament-access';
 
 const playerLimits: Record<Tournament['modality'], { min: number; max: number }> = {
   futbol_5: { min: 5, max: 10 },
@@ -35,6 +37,7 @@ const logoMaxBytes = 1024 * 1024;
   styleUrl: './team-form.css',
 })
 export class TeamForm implements OnInit {
+  private readonly auth = inject(Auth);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly teamService = inject(TeamService);
@@ -81,6 +84,7 @@ export class TeamForm implements OnInit {
     if (this.serverRestriction()) return this.serverRestriction();
     const tournament = this.tournament();
     if (!tournament) return '';
+    if (!canManageTournament(this.auth.user(), tournament)) return 'No tenés permiso para gestionar este torneo.';
     if (this.isEditing()) return '';
     if (tournament.status !== 'open') return 'El torneo ya fue iniciado o finalizado. No se pueden agregar equipos.';
     if (this.teamCount() >= tournament.max_teams) return 'El torneo alcanz\u00f3 su capacidad m\u00e1xima de equipos.';
@@ -264,6 +268,7 @@ export class TeamForm implements OnInit {
   }
 
   private saveLogo(team: Team): Observable<unknown> {
+    if (!canManageTournament(this.auth.user(), this.tournament())) return EMPTY;
     const file = this.logoFile();
     if (file) {
       this.logoRequestActive = true;
@@ -319,6 +324,10 @@ export class TeamForm implements OnInit {
   }
 
   private handleSaveError(error: unknown): void {
+    if (error instanceof HttpErrorResponse && error.status === 403) {
+      this.serverRestriction.set('No tenés permiso para gestionar este torneo.');
+      return;
+    }
     if (error instanceof HttpErrorResponse) {
       const body: unknown = error.error;
       const message = typeof body === 'object' && body !== null && 'message' in body && typeof body.message === 'string'

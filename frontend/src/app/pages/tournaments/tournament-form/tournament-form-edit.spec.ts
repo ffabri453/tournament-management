@@ -1,3 +1,4 @@
+import { Auth } from '../../../core/services/auth';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -11,7 +12,7 @@ describe('TournamentForm editing', () => {
   let component: TournamentForm;
   let http: HttpTestingController;
   let params: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
-  const tournament: Tournament = { id: 5, name: 'Copa', location: 'Firmat', modality: 'futbol_5', max_teams: 4, rules: 'official_rules_football_5', format: 'knockout', status: 'open', champion_team_id: null, created_at: '2026-10-02T12:00:00.000Z' };
+  const tournament: Tournament = { organizer_id: 1, id: 5, name: 'Copa', location: 'Firmat', modality: 'futbol_5', max_teams: 4, rules: 'official_rules_football_5', format: 'knockout', status: 'open', champion_team_id: null, created_at: '2026-10-02T12:00:00.000Z' };
   const load = (value = tournament) => {
     http.expectOne('/api/tournaments/5').flush(value);
     fixture.detectChanges();
@@ -22,7 +23,7 @@ describe('TournamentForm editing', () => {
     params = new BehaviorSubject(convertToParamMap({ id: '5' }));
     await TestBed.configureTestingModule({
       imports: [TournamentForm],
-      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([]),
+      providers: [{ provide: Auth, useValue: { user: () => ({ id: 1, role: 'organizer' }) } }, provideHttpClient(), provideHttpClientTesting(), provideRouter([]),
         { provide: ActivatedRoute, useValue: { paramMap: params.asObservable() } }],
     }).compileComponents();
     http = TestBed.inject(HttpTestingController);

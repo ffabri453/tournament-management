@@ -50,7 +50,7 @@ const createFinishedFinalInput = (winner: 7 | 8 = 7): MatchInput => ({
 const completionTournament = (
   status: TournamentStatus = 'in_progress',
   championTeamId: number | null = null
-) => ({ id: 1, status, champion_team_id: championTeamId });
+) => ({ organizer_id: 1, id: 1, status, champion_team_id: championTeamId });
 
 class FakeFinalClient {
   public readonly commands: string[] = [];
@@ -100,7 +100,7 @@ class FakeFinalClient {
       return this.result(ids.includes(this.tournament.id) ? [this.tournament] : []);
     }
 
-    if (sql.startsWith('SELECT status FROM tournaments')) {
+    if (sql.startsWith('SELECT status, organizer_id FROM tournaments')) {
       return this.result([this.tournament]);
     }
 
@@ -303,7 +303,7 @@ test('champion cannot already be defined before completion', () => {
 });
 
 test('tournament CRUD rejects champion_team_id', () => {
-  const createResult = validateTournament({
+  const createResult = validateTournament({ organizer_id: 1,
     name: 'Copa Regional',
     location: 'Firmat',
     rules: 'official_rules_football_7',
@@ -312,7 +312,7 @@ test('tournament CRUD rejects champion_team_id', () => {
     max_teams: 4,
     champion_team_id: 7
   }, false);
-  const updateResult = validateTournament({ champion_team_id: 7 }, true);
+  const updateResult = validateTournament({ organizer_id: 1, champion_team_id: 7 }, true);
 
   assert.equal(createResult.data, undefined);
   assert.ok(createResult.errors.some((error) => error.includes('champion_team_id')));
@@ -325,7 +325,7 @@ test('finishing the final commits match and tournament together', async () => {
 
   const result = await withFakeClient(client, () => updateMatch(
     client.match.id,
-    createFinishedFinalInput(8)
+    createFinishedFinalInput(8), { id: 1, role: 'admin' }
   ));
 
   assert.equal(result?.status, 'finished');
@@ -343,7 +343,7 @@ test('tournament update failure rolls back the final result', async () => {
   client.failOnTournamentUpdate = true;
 
   await assert.rejects(
-    withFakeClient(client, () => updateMatch(client.match.id, createFinishedFinalInput())),
+    withFakeClient(client, () => updateMatch(client.match.id, createFinishedFinalInput(), { id: 1, role: 'admin' })),
     /Simulated tournament completion failure/
   );
   assert.equal(client.match.status, 'scheduled');
@@ -358,7 +358,7 @@ test('final match update failure leaves tournament unchanged', async () => {
   client.failOnMatchUpdate = true;
 
   await assert.rejects(
-    withFakeClient(client, () => updateMatch(client.match.id, createFinishedFinalInput())),
+    withFakeClient(client, () => updateMatch(client.match.id, createFinishedFinalInput(), { id: 1, role: 'admin' })),
     /Simulated final match update failure/
   );
   assert.equal(client.match.status, 'scheduled');
@@ -369,10 +369,10 @@ test('final match update failure leaves tournament unchanged', async () => {
 
 test('duplicate completion cannot replace the champion', async () => {
   const client = new FakeFinalClient(createFinalFixture(), completionTournament());
-  await withFakeClient(client, () => updateMatch(client.match.id, createFinishedFinalInput(7)));
+  await withFakeClient(client, () => updateMatch(client.match.id, createFinishedFinalInput(7), { id: 1, role: 'admin' }));
 
   await assert.rejects(
-    withFakeClient(client, () => updateMatch(client.match.id, createFinishedFinalInput(8))),
+    withFakeClient(client, () => updateMatch(client.match.id, createFinishedFinalInput(8), { id: 1, role: 'admin' })),
     (error: unknown) => error instanceof DomainError && error.code === 'MATCH_FINISHED_LOCKED'
   );
   assert.equal(client.tournament.status, 'finished');
@@ -383,7 +383,7 @@ test('match update rechecks round participants after acquiring the tournament lo
   const client = new FakeFinalClient(createFinalFixture(), completionTournament());
   client.teamRoundConflict = true;
   await assert.rejects(
-    withFakeClient(client, () => updateMatch(client.match.id, createFinishedFinalInput())),
+    withFakeClient(client, () => updateMatch(client.match.id, createFinishedFinalInput(), { id: 1, role: 'admin' })),
     (error: unknown) => error instanceof DomainError && error.code === 'MATCH_TEAM_ROUND_CONFLICT'
   );
   const lockIndex = client.commands.findIndex(sql => sql.includes('ANY($1::integer[])'));
@@ -400,10 +400,10 @@ test('manual creation rechecks round participants before inserting', async () =>
     withFakeClient(client, () => createManualMatch({
       ...createFinishedFinalInput(), status: 'scheduled',
       home_goals: null, away_goals: null, winner_team_id: null
-    })),
+    }, { id: 1, role: 'admin' })),
     (error: unknown) => error instanceof DomainError && error.code === 'MATCH_TEAM_ROUND_CONFLICT'
   );
-  const lockIndex = client.commands.findIndex(sql => sql.startsWith('SELECT status FROM tournaments'));
+  const lockIndex = client.commands.findIndex(sql => sql.startsWith('SELECT status, organizer_id FROM tournaments'));
   const validationIndex = client.commands.findIndex(sql => sql.startsWith('SELECT t.max_teams'));
   assert.ok(lockIndex >= 0 && validationIndex > lockIndex);
   assert.ok(client.commands.includes('ROLLBACK'));
@@ -415,7 +415,7 @@ test('multiple final matches abort before any update', async () => {
   client.finalMatchIds = [10, 11];
 
   await assert.rejects(
-    withFakeClient(client, () => updateMatch(client.match.id, createFinishedFinalInput())),
+    withFakeClient(client, () => updateMatch(client.match.id, createFinishedFinalInput(), { id: 1, role: 'admin' })),
     (error: unknown) => error instanceof DomainError && error.code === 'INCONSISTENT_FINAL_MATCHES'
   );
   assert.equal(client.match.status, 'scheduled');

@@ -91,7 +91,7 @@ after(async () => {
 });
 
 beforeEach(() => {
-  tournaments = [{
+  tournaments = [{ organizer_id: 1,
     id: 1,
     name: 'Demo Cup',
     location: 'Firmat',

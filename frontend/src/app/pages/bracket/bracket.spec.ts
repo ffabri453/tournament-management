@@ -10,7 +10,7 @@ describe('Bracket', () => {
   let element: HTMLElement;
   let http: HttpTestingController;
 
-  const tournament = (maxTeams: Tournament['max_teams'] = 8): Tournament => ({
+  const tournament = (maxTeams: Tournament['max_teams'] = 8): Tournament => ({ organizer_id: 1,
     id: 7,
     name: 'Copa de Clubes Regionales',
     location: 'Firmat',

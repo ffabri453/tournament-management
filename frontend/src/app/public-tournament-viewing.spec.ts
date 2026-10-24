@@ -15,7 +15,7 @@ import { TeamList } from './pages/teams/team-list/team-list';
 import { TournamentDetail } from './pages/tournaments/tournament-detail/tournament-detail';
 import { TournamentList } from './pages/tournaments/tournament-list/tournament-list';
 
-const tournament: Tournament = { id: 7, name: 'Copa pública', location: 'Firmat',
+const tournament: Tournament = { organizer_id: 1, id: 7, name: 'Copa pública', location: 'Firmat',
   rules: 'official_rules_football_5', format: 'knockout', modality: 'futbol_5',
   max_teams: 4, status: 'open', champion_team_id: null, created_at: '2026-01-01T12:00:00Z' };
 const team = { id: 1, tournament_id: 7, name: 'Equipo Alfa', players_count: 7,
@@ -57,13 +57,50 @@ describe('Public tournament viewing', () => {
     request.flush(data);
   }
 
+  it.each([
+    ['organizer', 1, true], ['organizer', 2, false], ['organizer', null, false],
+    ['admin', 2, true], ['admin', null, true],
+  ] as const)('shows management actions for role=%s owner=%s: %s', async (role, organizer_id, allowed) => {
+    TestBed.inject(Auth).login({ email: user.email, password: 'test' }).subscribe();
+    http.expectOne('/api/auth/login').flush({ access_token: credential(), data: { ...user, role } });
+    const current = { ...tournament, organizer_id };
+    const harness = await RouterTestingHarness.create();
+    const list = await harness.navigateByUrl('/tournaments', TournamentList);
+    http.expectOne('/api/tournaments').flush([current]);
+    harness.detectChanges();
+    expect(Boolean(harness.routeNativeElement?.querySelector('a[href="/tournaments/7/edit"]'))).toBe(allowed);
+    if (!allowed) list['deleteTournament'](current);
+    const detail = await harness.navigateByUrl('/tournaments/7', TournamentDetail);
+    http.expectOne('/api/tournaments/7').flush(current);
+    harness.detectChanges();
+    expect(Boolean(harness.routeNativeElement?.querySelector('form'))).toBe(allowed);
+    if (!allowed) {
+      detail.matchDate.setValue('2099-01-01T12:00');
+      detail['startTournament']();
+    }
+    const teams = await harness.navigateByUrl('/tournaments/7/teams', TeamList);
+    http.expectOne('/api/tournaments/7').flush(current);
+    http.expectOne('/api/teams').flush({ data: [team] });
+    harness.detectChanges();
+    expect(Boolean(harness.routeNativeElement?.querySelector('a[href="/tournaments/7/teams/new"]'))).toBe(allowed);
+    if (!allowed) teams['deleteTeam'](team);
+    const matches = await harness.navigateByUrl('/tournaments/7/matches', MatchList);
+    http.expectOne('/api/tournaments/7/bracket').flush({ ...bracket, tournament: { ...bracket.tournament, organizer_id } });
+    matches['openResultForm'](match);
+    harness.detectChanges();
+    expect(Boolean(harness.routeNativeElement?.querySelector('form'))).toBe(allowed);
+    if (!allowed) matches['saveResult']();
+    http.expectNone(request => request.method !== 'GET');
+  });
+
   it('lets visitors navigate from the list to detail without authentication or modification controls', async () => {
     const harness = await RouterTestingHarness.create();
     await harness.navigateByUrl('/tournaments', TournamentList);
     publicGet('/api/tournaments', [tournament]);
     harness.detectChanges();
     expect(harness.routeNativeElement?.textContent).toContain(tournament.name);
-    expect(harness.routeNativeElement?.textContent).not.toMatch(/Crear torneo|Editar|Eliminar/);
+    expect(harness.routeNativeElement?.textContent).not.toMatch(/Editar|Eliminar/);
+    expect(harness.routeNativeElement?.querySelector('a[href^="/login?returnUrl="]')).toBeTruthy();
     harness.routeNativeElement?.querySelector<HTMLAnchorElement>('a.detail-link')?.click();
     await harness.fixture.whenStable();
     publicGet('/api/tournaments/7', tournament);

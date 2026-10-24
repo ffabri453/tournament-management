@@ -2,7 +2,7 @@
   <nav aria-label="Navegaci&oacute;n del torneo">
     <a routerLink="/tournaments">Volver a torneos</a>
     @if (tournament(); as current) {
-      @if (auth.user()) { <a [routerLink]="['/tournaments', current.id, 'edit']">Editar torneo</a> }
+      @if (canManage()) { <a [routerLink]="['/tournaments', current.id, 'edit']">Editar torneo</a> }
       <a [routerLink]="['/tournaments', current.id, 'teams']">Ver equipos</a>
       <a [routerLink]="['/tournaments', current.id, 'matches']">Partidos y cuadro</a>
     }
@@ -43,7 +43,7 @@
           </div>
         }
       </dl>
-      @if (auth.user() && current.status === 'open') {
+      @if (canManage() && current.status === 'open') {
         <form class="start-form" [formGroup]="startForm" (ngSubmit)="startTournament()" [attr.aria-busy]="isStarting()">
           <h2>Iniciar torneo</h2>
           <p>Se requieren exactamente {{ current.max_teams }} equipos v&aacute;lidos y ning&uacute;n partido previo.</p>

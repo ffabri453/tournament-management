@@ -23,6 +23,10 @@ let teamExists: boolean;
 let commands: string[];
 
 const app = express();
+app.use((_req, res, next) => {
+  res.locals.user = { id: 1, role: 'admin' };
+  next();
+});
 app.use('/api/teams', teamRoutes);
 const server = app.listen(0, '127.0.0.1');
 let baseUrl: string;
@@ -30,9 +34,13 @@ let baseUrl: string;
 before(async () => {
   if (!server.listening) await once(server, 'listening');
   baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-  mock.method(pool, 'query', async (queryText: string, values: unknown[] = []) => {
+  const query = async (queryText: string, values: unknown[] = []) => {
     const sql = queryText.replace(/\s+/g, ' ').trim();
     commands.push(sql);
+    if (['BEGIN', 'COMMIT', 'ROLLBACK'].includes(sql)) return { rows: [] };
+    if (sql.startsWith('SELECT tournament.organizer_id')) {
+      return { rows: teamExists ? [{ organizer_id: 1 }] : [] };
+    }
     if (sql.includes('FROM teams') && sql.includes('ORDER BY id ASC')) {
       return { rows: teamExists ? [{
         id: 1, tournament_id: 7, name: 'Equipo Alfa', players_count: 7,
@@ -43,7 +51,7 @@ before(async () => {
       return { rows: teamExists && logo ? [{ logo_data: logo.data, logo_mime_type: logo.mimeType }] : [] };
     }
     if (sql.includes('SET logo_data = $1')) {
-      if (teamExists) logo = { data: values[0] as Buffer, mimeType: values[1] as string };
+      if (teamExists) logo = values[0] === null ? null : { data: values[0] as Buffer, mimeType: values[1] as string };
       return { rows: teamExists ? [{ id: 1 }] : [], rowCount: teamExists ? 1 : 0 };
     }
     if (sql.includes('SET logo_data = NULL')) {
@@ -51,7 +59,9 @@ before(async () => {
       return { rows: teamExists ? [{ id: 1 }] : [], rowCount: teamExists ? 1 : 0 };
     }
     throw new Error(`Unexpected SQL: ${sql}`);
-  });
+  };
+  mock.method(pool, 'query', query);
+  mock.method(pool, 'connect', async () => ({ query, release() {} }));
 });
 
 after(async () => {

@@ -5,6 +5,7 @@ import { finalize } from 'rxjs';
 import { RouterLink } from '@angular/router';
 import { TournamentService } from '../../../core/services/tournament.service';
 import { Tournament } from '../../../models/tournament';
+import { canManageTournament } from '../../../core/tournament-access';
 import { Auth } from '../../../core/services/auth';
 
 @Component({
@@ -64,7 +65,7 @@ export class TournamentList implements OnInit {
   }
 
   protected deleteTournament(tournament: Tournament): void {
-    if (!this.auth.user()) return;
+    if (!this.canManage(tournament)) return;
     if (this.deletingIds().has(tournament.id) || tournament.status !== 'open') return;
     if (!window.confirm(`¿Seguro que querés eliminar "${tournament.name}"? También se eliminarán sus equipos y partidos asociados.`)) return;
 
@@ -92,8 +93,13 @@ export class TournamentList implements OnInit {
     });
   }
 
+  protected canManage(tournament: Tournament): boolean {
+    return canManageTournament(this.auth.user(), tournament);
+  }
+
   private getDeleteError(error: unknown): string {
     if (error instanceof HttpErrorResponse) {
+      if (error.status === 403) return 'No tenés permiso para gestionar este torneo.';
       if ([0, 502, 503, 504].includes(error.status)) return 'No se pudo conectar con el servidor. Intentá nuevamente más tarde.';
       if (error.status === 400) return 'No se pudo eliminar el torneo porque sus datos no son válidos. Actualizá el listado e intentá nuevamente.';
       if (error.status === 404) return 'El torneo ya no existe. Actualizá el listado para consultar los torneos disponibles.';

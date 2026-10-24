@@ -31,7 +31,7 @@ const assertDomainCode = (action: () => void, code: string): void => {
   );
 };
 
-const createTournamentFixture = (status: TournamentStatus): Tournament => ({
+const createTournamentFixture = (status: TournamentStatus): Tournament => ({ organizer_id: 1,
   id: 1,
   name: 'Copa Regional',
   location: 'Firmat',

@@ -23,7 +23,7 @@ const nextRoundDate = new Date('2099-01-17T20:00:00-03:00');
 const createTournamentFixture = (
   maxTeams: TournamentCapacity,
   status: TournamentStatus = 'in_progress'
-): Tournament => ({
+): Tournament => ({ organizer_id: 1,
   id: 1,
   name: 'Copa Regional',
   location: 'Firmat',
@@ -340,7 +340,7 @@ test('successful advancement commits only the next round', async () => {
 
   const result = await withFakeClient(client, () => advanceTournamentRound(1, {
     match_date: nextRoundDate
-  }));
+  }, { id: 1, role: 'admin' }));
 
   assert.equal(result.current_round, 'quarter_final');
   assert.equal(result.next_round, 'semi_final');
@@ -361,7 +361,7 @@ test('eight-team flow advances round by round and stops at the final', async () 
 
   const semiFinalResult = await withFakeClient(client, () => advanceTournamentRound(1, {
     match_date: nextRoundDate
-  }));
+  }, { id: 1, role: 'admin' }));
   assert.equal(semiFinalResult.next_round, 'semi_final');
   assert.equal(semiFinalResult.matches.length, 2);
 
@@ -374,7 +374,7 @@ test('eight-team flow advances round by round and stops at the final', async () 
 
   const finalResult = await withFakeClient(client, () => advanceTournamentRound(1, {
     match_date: new Date('2099-01-24T20:00:00-03:00')
-  }));
+  }, { id: 1, role: 'admin' }));
   assert.equal(finalResult.next_round, 'final');
   assert.equal(finalResult.matches.length, 1);
   assert.equal(client.matches.filter((match) => match.round === 'quarter_final').length, 4);
@@ -385,7 +385,7 @@ test('eight-team flow advances round by round and stops at the final', async () 
   await assert.rejects(
     withFakeClient(client, () => advanceTournamentRound(1, {
       match_date: new Date('2099-01-31T20:00:00-03:00')
-    })),
+    }, { id: 1, role: 'admin' })),
     (error: unknown) => error instanceof DomainError &&
       error.code === 'TOURNAMENT_ALREADY_AT_FINAL'
   );
@@ -396,7 +396,7 @@ test('missing tournament rolls back with a not-found domain error', async () => 
   const client = new FakeNextRoundClient(null, []);
 
   await assert.rejects(
-    withFakeClient(client, () => advanceTournamentRound(999, { match_date: nextRoundDate })),
+    withFakeClient(client, () => advanceTournamentRound(999, { match_date: nextRoundDate }, { id: 1, role: 'admin' })),
     (error: unknown) => error instanceof DomainError && error.code === 'TOURNAMENT_NOT_FOUND'
   );
   assert.ok(client.commands.includes('ROLLBACK'));
@@ -411,7 +411,7 @@ test('insertion failure rolls back the entire next round', async () => {
   client.failOnInsert = 2;
 
   await assert.rejects(
-    withFakeClient(client, () => advanceTournamentRound(1, { match_date: nextRoundDate })),
+    withFakeClient(client, () => advanceTournamentRound(1, { match_date: nextRoundDate }, { id: 1, role: 'admin' })),
     /Simulated next-round insertion failure/
   );
   assert.equal(client.matches.length, 4);

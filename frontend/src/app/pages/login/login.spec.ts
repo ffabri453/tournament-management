@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { HttpErrorResponse } from '@angular/common/http';
-import { provideRouter, Router } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
 import { Subject } from 'rxjs';
 import { Auth } from '../../core/services/auth';
 import { LoginResponse } from '../../models/auth';
@@ -59,6 +59,21 @@ describe('Login', () => {
     expect(navigate).toHaveBeenCalledWith('/tournaments');
     expect(component.form.controls.password.value).toBe('');
     expect(component.loading()).toBe(false);
+  });
+
+  it.each([
+    ['/tournaments/new', '/tournaments/new'],
+    ['https://example.test', '/tournaments'],
+    ['//example.test', '/tournaments'],
+  ])('returns safely after login from %s', (returnUrl, destination) => {
+    vi.spyOn(TestBed.inject(ActivatedRoute).snapshot, 'queryParamMap', 'get').mockReturnValue(convertToParamMap({ returnUrl }));
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+    component.form.setValue({ email: 'user@example.com', password: 'secret' });
+    component.submit();
+    response.next({ message: 'OK', access_token: 'test', token_type: 'Bearer', expires_in: 3600,
+      data: { id: 1, name: 'User', email: 'user@example.com', role: 'organizer', created_at: '2026-01-01' } });
+    response.complete();
+    expect(navigate).toHaveBeenCalledWith(destination);
   });
 
   it.each([

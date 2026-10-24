@@ -47,6 +47,25 @@ Si ya usabas el proyecto antes de separar las carpetas, abrir una terminal nueva
 
 Si ya tenés una base, aplicá las migraciones pendientes antes de iniciar la API. En particular, el flujo con campeón requiere `005_tournament_champion.sql`; encender Docker no actualiza un volumen existente.
 
+## Permisos de gestion
+
+- Visitante: consulta torneos, equipos, logos, resultados, bracket y campeon sin registrarse.
+- Organizador: cualquier cuenta registrada puede crear torneos y gestionar solamente los propios.
+- Admin: puede gestionar todos los torneos, incluidos los anteriores sin propietario. Las reglas deportivas siguen aplicandose, tambien para admins.
+- `organizer_id` se asigna desde la sesion al crear, nunca desde el cuerpo enviado por el navegador. No hay transferencia de propietario ni asignacion publica de admins.
+- La API devuelve `401` sin sesion y `403` al intentar gestionar un torneo ajeno. Controla tambien equipos, logos, partidos, inicio y siguiente ronda, dentro de las transacciones. Mover un equipo o partido requiere permiso sobre ambos torneos.
+- Los torneos anteriores quedan con `organizer_id = NULL`, gestionables solo por admins. Para promover una cuenta, un responsable con acceso a PostgreSQL debe confirmar su email exacto, verificar que corresponde a esa persona y actualizar su rol. No se asignan roles por nombre ni por coincidencias parciales. Las cuentas y sus roles se configuran en cada base de datos; no se transfieren mediante Git. Nunca subir contrasenas ni archivos de credenciales al repositorio.
+
+Prueba de integracion de permisos (desde `backend`, con las variables `DB_*` de una instancia PostgreSQL de desarrollo):
+
+```powershell
+$env:RUN_DB_TESTS = '1'
+node --test --require ts-node/register tests/tournamentOwnership.integration.test.ts
+Remove-Item Env:RUN_DB_TESTS
+```
+
+La prueba crea y elimina un esquema temporal unico: no escribe en las tablas de la aplicacion. Comprueba la migracion `008`, la consulta publica, permisos de propietario y admin, logos y el flujo hasta campeon. `npm test` la omite cuando `RUN_DB_TESTS` no vale `1`.
+
 ## Pruebas con Bruno
 
 La coleccion `backend/bruno` contiene 20 solicitudes en ingles, organizadas en `tournaments`, `teams`, `match` y `auth`: los 15 endpoints CRUD, `Start tournament`, `Next round`, `GET tournament bracket`, `Register` y `Login`. Si Bruno tenia abierta la ubicacion anterior, volver a abrir la coleccion desde `backend/bruno`.
@@ -149,7 +168,7 @@ Disponible en `open`, `in_progress` y `finished`; sin partidos devuelve `rounds:
 
 ## Usuarios: base de datos y modelo
 
-La tabla `users` contiene `id`, `name`, `email`, `password_hash`, `role` y `created_at`, sin relaciones con los torneos. El email es unico ignorando mayusculas y espacios exteriores; los roles permitidos son `admin` y `organizer`, con `organizer` por defecto. Nombre, email y hash no pueden estar vacios.
+La tabla `users` contiene `id`, `name`, `email`, `password_hash`, `role` y `created_at`. Desde la migracion `008`, `tournaments.organizer_id` referencia al usuario creador. El email es unico ignorando mayusculas y espacios exteriores; los roles permitidos son `admin` y `organizer`, con `organizer` por defecto. Nombre, email y hash no pueden estar vacios.
 
 `User.ts` recibe `password_hash` ya preparado y no calcula hashes. `createUser` y `findUserById` devuelven campos publicos; `findUserByEmail` es una consulta interna que tambien devuelve el hash. El modelo no verifica que el valor recibido sea un hash criptografico: nunca debe recibir una contrasena en texto plano.
 
@@ -220,9 +239,9 @@ node -e "const fs = require('node:fs'); const crypto = require('node:crypto'); f
 npm.cmd run dev
 ```
 
-El servidor rechaza el arranque si falta el secreto o es demasiado corto. No guardar `.env` en Git. No se requieren migraciones adicionales. En otra terminal, desde `frontend`, ejecutar `npm.cmd start` y abrir `http://localhost:4200`.
+El servidor rechaza el arranque si falta el secreto o es demasiado corto. No guardar `.env` en Git. Las bases existentes requieren las migraciones pendientes, incluida `008` para propietarios. En otra terminal, desde `frontend`, ejecutar `npm.cmd start` y abrir `http://localhost:4200`.
 
-Se usa `jsonwebtoken` para firmar y verificar JWT HS256 con expiracion de una hora, issuer y audience `tournament-management`. El payload contiene solo `sub` (ID de usuario) y los claims tecnicos `iat`, `exp`, `iss`, `aud`; no contiene contrasena, hash ni role, porque no hay autorizacion por roles en este alcance. Referencia de la biblioteca: https://github.com/auth0/node-jsonwebtoken.
+Se usa `jsonwebtoken` para firmar y verificar JWT HS256 con expiracion de una hora, issuer y audience `tournament-management`. El payload contiene solo `sub` (ID de usuario) y los claims tecnicos `iat`, `exp`, `iss`, `aud`; no contiene contrasena, hash ni role. El backend consulta el rol actual en PostgreSQL en cada peticion protegida. Referencia de la biblioteca: https://github.com/auth0/node-jsonwebtoken.
 
 El middleware valida firma, algoritmo y expiracion, y consulta que el usuario siga existiendo. Las siguientes consultas de torneos son publicas y no requieren JWT:
 
@@ -231,7 +250,7 @@ El middleware valida firma, algoritmo y expiracion, y consulta que el usuario si
 - `GET /api/teams` y `GET /api/teams/:id`; el detalle usa este ultimo para resolver el nombre del campeon.
 - `GET /matches`.
 
-Todas las mutaciones (`POST`, `PUT`, `PATCH`, `DELETE`) de esas familias siguen protegidas, incluidos iniciar torneo y generar la siguiente ronda. Tambien siguen protegidos `GET /matches/:id`, `GET /auth/me`, `GET /db-test` y rutas desconocidas dentro de esas familias. Login, registro y `GET /` conservan su acceso publico. No se agregan permisos por rol o propietario ni cambios en reglas de torneos, equipos o partidos.
+Todas las mutaciones de esas familias siguen protegidas, incluidos iniciar torneo y generar la siguiente ronda. Tambien siguen protegidos `GET /matches/:id`, `GET /auth/me`, `GET /db-test` y rutas desconocidas dentro de esas familias. Login, registro y `GET /` conservan su acceso publico. Se aplican los permisos por propietario descritos abajo sin cambiar las reglas deportivas.
 
 Angular conserva solo el token en `sessionStorage`: sobrevive a F5 dentro de la pesta?a y se elimina al cerrar su sesion de navegador. Si el navegador bloquea storage, la sesion funciona en memoria hasta recargar. No se guardan contrasenas ni datos de usuario en storage. Esta eleccion mantiene el protocolo Bearer simple, pero el token es accesible a JavaScript y puede ser robado ante XSS; en produccion usar HTTPS y prevenir XSS. No hay refresh token: al expirar hay que iniciar sesion otra vez.
 
@@ -239,16 +258,16 @@ El interceptor envia `Authorization: Bearer <token>` cuando hay credencial, solo
 
 Angular permite consultar sin AuthGuard `/tournaments`, `/tournaments/:id`, `/tournaments/:id/teams`, `/tournaments/:id/matches` y `/tournaments/:id/bracket`. Las dos ultimas rutas reutilizan la misma pantalla de partidos y cuadro. `/login` y `/register` siguen publicas; `/` redirige al listado. El guard protege `/tournaments/new`, `/tournaments/:id/edit`, `/tournaments/:id/teams/new` y `/tournaments/:id/teams/:teamId/edit`: comprueba la expiracion local y valida la sesion con `/api/auth/me` antes de abrir los formularios.
 
-La UI usa el usuario del servicio Auth para mostrar acciones de gestion solo despues del login o de una validacion de sesion exitosa. Sin usuario muestra datos, resultados, seleccion de partidos y campeon, sin crear, editar, eliminar, iniciar ni generar rondas. Al recargar, la aplicacion restaura la sesion mediante `/api/auth/me` si existe un token local vigente. Esta validacion inicial es opcional para la consulta publica: ante un error limpia la sesion y conserva la pantalla publica, sin redirigir a login. Las comprobaciones del guard y los 401 de operaciones protegidas mantienen su comportamiento. La navegacion principal ofrece consultar torneos, iniciar sesion y registrarse; con usuario ofrece cerrar sesion.
+La UI muestra acciones de gestion solo para el propietario o un admin despues de validar la sesion. Sin usuario muestra datos, resultados, seleccion de partidos y campeon. El enlace Crear torneo dirige al visitante a `/login?returnUrl=%2Ftournaments%2Fnew`; despues de ingresar abre el formulario de creacion. No permite modificar sin sesion. Al recargar, la aplicacion restaura la sesion mediante `/api/auth/me` si existe un token local vigente. Esta validacion inicial es opcional para la consulta publica: ante un error limpia la sesion y conserva la pantalla publica, sin redirigir a login.
 
 El boton **Cerrar sesion** elimina token y usuario y navega a `/login`. No hay endpoint de logout: el cierre es local; una copia previamente robada del JWT sigue valida hasta su expiracion (sin lista de revocacion).
 
 Prueba manual:
 
-1. Iniciar backend y frontend como se indica arriba. Abrir una ventana privada en `http://localhost:4200/tournaments`: debe mostrar el listado y enlaces a login y registro, sin crear, editar ni eliminar.
+1. Iniciar backend y frontend como se indica arriba. Abrir una ventana privada en `http://localhost:4200/tournaments`: debe mostrar el listado sin editar ni eliminar. Crear torneo debe pedir login.
 2. Abrir el detalle de un torneo, sus equipos, `/tournaments/:id/matches` y `/tournaments/:id/bracket`. Deben verse datos, resultados y campeon cuando corresponda. Seleccionar partidos en el cuadro debe mostrar sus datos sin abrir formularios de resultado. Recargar debe conservar la consulta sin pedir login.
 3. Abrir `/tournaments/new`, `/tournaments/:id/edit`, `/tournaments/:id/teams/new` o `/tournaments/:id/teams/:teamId/edit` sin sesion: deben redirigir a `/login`. `/login` y `/register` deben permanecer accesibles.
-4. Iniciar sesion con un usuario existente. Deben reaparecer las acciones de gestion existentes segun el estado del torneo. Probar crear/editar equipos, iniciar torneo y guardar resultados en un torneo de prueba. Recargar una ruta publica debe validar `/api/auth/me` y recuperar los controles; un token rechazado debe dejar esa consulta en modo visitante.
+4. Iniciar sesion como organizador y crear un torneo de prueba. Deben aparecer sus acciones de gestion segun el estado deportivo, pero no las de otro organizador. Un admin puede gestionar ambos. Probar equipos, inicio y resultados en ese torneo. Recargar una ruta publica debe validar `/api/auth/me` y recuperar los controles; un token rechazado debe dejar esa consulta en modo visitante.
 5. En otra terminal ejecutar `curl.exe -i -X POST http://localhost:3000/tournaments -H "Content-Type: application/json" -d "{}"` sin Authorization: debe devolver `401 Authentication required`. Comprobar tambien PUT, PATCH y DELETE de torneos, equipos y partidos. `GET http://localhost:3000/tournaments` debe devolver 200; `/auth/me` y `/db-test` sin JWT deben devolver 401.
 6. Pulsar **Cerrar sesion**: debe volver a `/login` y eliminar `tournament.accessToken` de Session Storage. Volver al listado o al bracket debe funcionar en modo visitante; las rutas de modificacion deben continuar bloqueadas.
 
@@ -284,6 +303,7 @@ Get-Content -Raw .\src\db\migrations\004_rename_official_rules.sql | docker comp
 Get-Content -Raw .\src\db\migrations\005_tournament_champion.sql | docker compose -f .\docker-compose\docker-compose.yml exec -T postgres psql -U postgres -d torneos_db -v ON_ERROR_STOP=1
 Get-Content -Raw .\src\db\migrations\006_create_users.sql | docker compose -f .\docker-compose\docker-compose.yml exec -T postgres psql -U postgres -d torneos_db -v ON_ERROR_STOP=1
 Get-Content -Raw .\src\db\migrations\007_team_logos.sql | docker compose -f .\docker-compose\docker-compose.yml exec -T postgres psql -U postgres -d torneos_db -v ON_ERROR_STOP=1
+Get-Content -Raw .\src\db\migrations\008_tournament_organizer.sql | docker compose -f .\docker-compose\docker-compose.yml exec -T postgres psql -U postgres -d torneos_db -v ON_ERROR_STOP=1
 ```
 
 La migracion `007_team_logos.sql` es incremental y no destructiva: agrega `logo_data BYTEA` y `logo_mime_type VARCHAR(10)` como columnas opcionales, por lo que los equipos existentes conservan todos sus datos y quedan sin escudo (`NULL`). Tambien agrega y valida `chk_team_logo_consistency`, que limita cada imagen a 1 MB y admite solo PNG, JPEG o WebP. La migracion se ejecuta dentro de una transaccion y `ON_ERROR_STOP=1` detiene el proceso ante el primer error; si falla, no intentar repararla automaticamente ni restaurar el respaldo sin revisar primero el mensaje de PostgreSQL.
