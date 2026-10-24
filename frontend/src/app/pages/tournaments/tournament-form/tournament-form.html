@@ -3,7 +3,7 @@
   @if (isLoading()) {
     <p role="status">Cargando torneo…</p>
   }
-  @if (!isLoading() && !loadFailed()) {
+  @if (auth.user() && !isLoading() && !loadFailed()) {
   <form [formGroup]="form" (ngSubmit)="submit()" [attr.aria-busy]="isSaving()">
     <fieldset [disabled]="isSaving()">
       <label for="name">Nombre</label>

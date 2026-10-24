@@ -8,6 +8,7 @@ import { catchError, combineLatest, EMPTY, finalize, startWith, Subject, Subscri
 import { TeamService } from '../../../core/services/team';
 import { TournamentService } from '../../../core/services/tournament.service';
 import { Tournament } from '../../../models/tournament';
+import { canManageTournament } from '../../../core/tournament-access';
 import { Auth } from '../../../core/services/auth';
 
 const futureMatchDate: ValidatorFn = control => {
@@ -111,7 +112,7 @@ export class TournamentDetail implements OnInit {
   }
 
   protected startTournament(): void {
-    if (!this.auth.user()) return;
+    if (!this.canManage()) return;
     const tournament = this.tournament();
     if (!tournament || tournament.status !== 'open' || this.isStarting() || this.isLoading() || this.needsRefresh()) return;
     this.matchDate.markAsTouched();
@@ -139,6 +140,10 @@ export class TournamentDetail implements OnInit {
     });
   }
 
+  protected canManage(): boolean {
+    return canManageTournament(this.auth.user(), this.tournament());
+  }
+
   private loadChampion(tournament: Tournament): void {
     this.championSubscription?.unsubscribe();
     this.championName.set('');
@@ -164,6 +169,10 @@ export class TournamentDetail implements OnInit {
 
   private setStartError(error: unknown): void {
     if (error instanceof HttpErrorResponse) {
+      if (error.status === 403) {
+        this.startError.set('No tenés permiso para gestionar este torneo.');
+        return;
+      }
       const body: unknown = error.error;
       const message = typeof body === 'object' && body !== null && 'message' in body && typeof body.message === 'string'
         ? body.message : '';

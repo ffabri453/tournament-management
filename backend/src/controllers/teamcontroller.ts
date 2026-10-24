@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { respondWithAccessError } from '../middleware/accessError';
 import {
   DomainError,
   hasOnlyFields,
@@ -101,6 +102,7 @@ export const validateTeamBody = (
 };
 
 const respondWithTeamError = (error: any, res: Response, fallback: string): void => {
+  if (respondWithAccessError(error, res)) return;
   if (error instanceof DomainError) {
     const status = error.code === 'TOURNAMENT_NOT_FOUND' ? 404 :
       error.code === 'INVALID_PLAYERS_COUNT_FOR_MODALITY' ? 400 : 409;
@@ -178,7 +180,7 @@ export const createNewTeam = async (req: Request, res: Response): Promise<void> 
   }
 
   try {
-    const team = await createTeam(validation.data);
+    const team = await createTeam(validation.data, res.locals.user);
     res.status(201).json({ message: 'Team created successfully', data: team });
   } catch (error) {
     respondWithTeamError(error, res, 'Error creating team');
@@ -206,7 +208,7 @@ export const updateExistingTeam = async (
   }
 
   try {
-    const team = await updateTeam(id, validation.data);
+    const team = await updateTeam(id, validation.data, res.locals.user);
     if (!team) {
       res.status(404).json({ error: true, message: 'Team not found' });
       return;
@@ -229,7 +231,7 @@ export const deleteTeamById = async (
       return;
     }
 
-    const deleted = await deleteTeam(id);
+    const deleted = await deleteTeam(id, res.locals.user);
     if (!deleted) {
       res.status(404).json({ error: true, message: 'Team not found' });
       return;
@@ -282,7 +284,7 @@ export const updateTeamLogo = async (
     const saved = await saveTeamLogo(id, {
       data: validation.data,
       mime_type: validation.mimeType
-    });
+    }, res.locals.user);
     if (!saved) {
       res.status(404).json({ error: true, message: 'Team not found' });
       return;
@@ -291,7 +293,8 @@ export const updateTeamLogo = async (
       message: 'Team logo updated successfully',
       data: { team_id: id, has_logo: true }
     });
-  } catch {
+  } catch (error) {
+    if (respondWithAccessError(error, res)) return;
     res.status(500).json({ error: true, message: 'Error updating team logo' });
   }
 };
@@ -306,7 +309,7 @@ export const deleteTeamLogo = async (
     return;
   }
   try {
-    const removed = await removeTeamLogo(id);
+    const removed = await removeTeamLogo(id, res.locals.user);
     if (!removed) {
       res.status(404).json({ error: true, message: 'Team not found' });
       return;
@@ -315,7 +318,8 @@ export const deleteTeamLogo = async (
       message: 'Team logo removed successfully',
       data: { team_id: id, has_logo: false }
     });
-  } catch {
+  } catch (error) {
+    if (respondWithAccessError(error, res)) return;
     res.status(500).json({ error: true, message: 'Error removing team logo' });
   }
 };

@@ -1,3 +1,4 @@
+import { Auth } from '../../../core/services/auth';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
@@ -13,7 +14,7 @@ describe('TeamForm editing', () => {
   let http: HttpTestingController;
   let element: HTMLElement;
   let params: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
-  const tournament: Tournament = { id: 7, name: 'Copa Regional', location: 'Firmat', modality: 'futbol_7', max_teams: 4, rules: 'official_rules_football_7', format: 'knockout', status: 'open', champion_team_id: null, created_at: '2026-10-16T12:00:00.000Z' };
+  const tournament: Tournament = { organizer_id: 1, id: 7, name: 'Copa Regional', location: 'Firmat', modality: 'futbol_7', max_teams: 4, rules: 'official_rules_football_7', format: 'knockout', status: 'open', champion_team_id: null, created_at: '2026-10-16T12:00:00.000Z' };
   const team: Team = { id: 12, tournament_id: 7, name: 'Equipo Alfa', players_count: 7, has_logo: false, created_at: tournament.created_at };
   const load = (current = tournament, currentTeam = team) => {
     fixture.detectChanges();
@@ -35,7 +36,7 @@ describe('TeamForm editing', () => {
       configurable: true, writable: true, value: vi.fn(),
     });
     params = new BehaviorSubject(convertToParamMap({ id: '7', teamId: '12' }));
-    await TestBed.configureTestingModule({ imports: [TeamForm], providers: [
+    await TestBed.configureTestingModule({ imports: [TeamForm], providers: [{ provide: Auth, useValue: { user: () => ({ id: 1, role: 'organizer' }) } },
       provideHttpClient(), provideHttpClientTesting(), provideRouter([]),
       { provide: ActivatedRoute, useValue: { paramMap: params.asObservable() } },
     ] }).compileComponents();

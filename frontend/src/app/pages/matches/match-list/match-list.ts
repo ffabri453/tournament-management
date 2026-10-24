@@ -10,6 +10,7 @@ import { TournamentService } from '../../../core/services/tournament.service';
 import { Match, UpdateMatchRequest } from '../../../models/match';
 import { BracketMatch, TournamentBracket } from '../../../models/tournament';
 import { Bracket } from '../../bracket/bracket';
+import { canManageTournament } from '../../../core/tournament-access';
 import { Auth } from '../../../core/services/auth';
 
 @Component({
@@ -43,7 +44,7 @@ export class MatchList implements OnInit {
   protected readonly canGenerateNextRound = computed(() => {
     const tournament = this.tournament();
     const currentRound = this.currentRound();
-    return this.auth.user() !== null && tournament?.status === 'in_progress' && this.nextRound() !== null &&
+    return this.canManage() && tournament?.status === 'in_progress' && this.nextRound() !== null &&
       currentRound !== null && currentRound.matches.length > 0 &&
       currentRound.matches.every(match => match.status === 'finished' && match.winner_team_id !== null);
   });
@@ -167,7 +168,7 @@ export class MatchList implements OnInit {
 
   protected canEditResult(match: Match): boolean {
     const tournament = this.tournament();
-    return this.auth.user() !== null && tournament !== null && tournament.status !== 'finished' && match.status !== 'finished' &&
+    return this.canManage() && tournament !== null && tournament.status !== 'finished' && match.status !== 'finished' &&
       Number.isFinite(Date.parse(match.match_date)) && Date.parse(match.match_date) <= Date.now();
   }
 
@@ -304,8 +305,16 @@ export class MatchList implements OnInit {
     this.resultForm.reset();
   }
 
+  protected canManage(): boolean {
+    return canManageTournament(this.auth.user(), this.tournament());
+  }
+
   private setSaveError(error: unknown): void {
     if (error instanceof HttpErrorResponse) {
+      if (error.status === 403) {
+        this.saveError.set('No tenés permiso para gestionar este torneo.');
+        return;
+      }
       const body: unknown = error.error;
       const message = typeof body === 'object' && body !== null && 'message' in body && typeof body.message === 'string'
         ? body.message : '';
@@ -344,6 +353,10 @@ export class MatchList implements OnInit {
 
   private setRoundError(error: unknown): void {
     if (error instanceof HttpErrorResponse) {
+      if (error.status === 403) {
+        this.roundError.set('No tenés permiso para gestionar este torneo.');
+        return;
+      }
       const body: unknown = error.error;
       const message = typeof body === 'object' && body !== null && 'message' in body && typeof body.message === 'string'
         ? body.message : '';

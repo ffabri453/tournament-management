@@ -10,7 +10,7 @@ describe('TournamentList', () => {
   let fixture: ComponentFixture<TournamentList>;
   let http: HttpTestingController;
   let element: HTMLElement;
-  const tournament: Tournament = {
+  const tournament: Tournament = { organizer_id: 1,
     id: 7, name: 'Copa de prueba', location: 'Firmat',
     rules: 'official_rules_football_5', format: 'knockout', modality: 'futbol_5',
     max_teams: 16, status: 'open', champion_team_id: null,
@@ -21,7 +21,7 @@ describe('TournamentList', () => {
     await TestBed.configureTestingModule({
       imports: [TournamentList],
       providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([]),
-        { provide: Auth, useValue: { user: () => ({ id: 1 }) } }],
+        { provide: Auth, useValue: { user: () => ({ id: 1, role: 'organizer' }) } }],
     }).compileComponents();
     http = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(TournamentList);

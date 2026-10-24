@@ -2,6 +2,7 @@ import { Match, MatchRound } from './match';
 
 export interface Tournament {
   id: number;
+  organizer_id: number | null;
   name: string;
   location: 'Firmat' | 'Venado Tuerto' | 'Rosario' | 'Elortondo';
   rules: string;

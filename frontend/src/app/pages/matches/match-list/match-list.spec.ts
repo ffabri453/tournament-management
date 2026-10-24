@@ -13,7 +13,7 @@ describe('MatchList unified screen', () => {
   let http: HttpTestingController;
   let params: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
 
-  const tournament: Tournament = {
+  const tournament: Tournament = { organizer_id: 1,
     id: 7,
     name: 'Copa Regional',
     location: 'Firmat',
@@ -81,7 +81,7 @@ describe('MatchList unified screen', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         provideRouter([]),
-        { provide: Auth, useValue: { user: () => ({ id: 1 }) } },
+        { provide: Auth, useValue: { user: () => ({ id: 1, role: 'organizer' }) } },
         { provide: ActivatedRoute, useValue: { paramMap: params.asObservable() } },
       ],
     }).compileComponents();

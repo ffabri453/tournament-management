@@ -14,7 +14,7 @@ describe('TeamList', () => {
   let http: HttpTestingController;
   let element: HTMLElement;
   let params: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
-  const tournament: Tournament = { id: 7, name: 'Copa Regional', location: 'Firmat', modality: 'futbol_7', max_teams: 4, rules: 'official_rules_football_7', format: 'knockout', status: 'open', champion_team_id: null, created_at: '2026-10-09T12:00:00.000Z' };
+  const tournament: Tournament = { organizer_id: 1, id: 7, name: 'Copa Regional', location: 'Firmat', modality: 'futbol_7', max_teams: 4, rules: 'official_rules_football_7', format: 'knockout', status: 'open', champion_team_id: null, created_at: '2026-10-09T12:00:00.000Z' };
   const team: Team = { id: 1, tournament_id: 7, name: 'Equipo Alfa', players_count: 7, has_logo: false, created_at: tournament.created_at };
   const load = (current = tournament, teams: Team[] = [team]) => {
     fixture.detectChanges();
@@ -27,7 +27,7 @@ describe('TeamList', () => {
     params = new BehaviorSubject(convertToParamMap({ id: '7' }));
     await TestBed.configureTestingModule({ imports: [TeamList], providers: [
       provideHttpClient(), provideHttpClientTesting(), provideRouter([]),
-      { provide: Auth, useValue: { user: () => ({ id: 1 }) } },
+      { provide: Auth, useValue: { user: () => ({ id: 1, role: 'organizer' }) } },
       { provide: ActivatedRoute, useValue: { paramMap: params.asObservable() } },
     ] }).compileComponents();
     http = TestBed.inject(HttpTestingController);

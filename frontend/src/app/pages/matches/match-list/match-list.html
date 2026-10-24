@@ -84,7 +84,7 @@
                 <col style="width: 11%" />
                 <col style="width: 10%" />
                 <col style="width: 13%" />
-                @if (auth.user()) { <col style="width: 16%" /> }
+                @if (canManage()) { <col style="width: 16%" /> }
               </colgroup>
               <thead>
                 <tr>
@@ -94,7 +94,7 @@
                   <th scope="col">Ubicaci&oacute;n</th>
                   <th scope="col">Estado</th>
                   <th scope="col">Resultado</th>
-                  @if (auth.user()) { <th scope="col">Acciones</th> }
+                  @if (canManage()) { <th scope="col">Acciones</th> }
                 </tr>
               </thead>
               <tbody>
@@ -110,7 +110,7 @@
                     <td>{{ match.location }}</td>
                     <td><span class="status" [attr.data-status]="match.status">{{ statusLabels[match.status] }}</span></td>
                     <td class="result">{{ result(match) ?? 'Sin resultado' }}</td>
-                    @if (auth.user()) {
+                    @if (canManage()) {
                       <td class="actions">
                         @if (match.status === 'finished') {
                           <span class="unavailable">Resultado cerrado</span>
@@ -126,7 +126,7 @@
                       </td>
                     }
                   </tr>
-                  @if (auth.user() && editingMatchId() === match.id) {
+                  @if (canManage() && editingMatchId() === match.id) {
                     <tr class="form-row">
                       <td colspan="7">
                         <form [formGroup]="resultForm" (ngSubmit)="saveResult()" [attr.aria-busy]="savingMatchId() === match.id">

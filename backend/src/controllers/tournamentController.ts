@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { respondWithAccessError } from '../middleware/accessError';
 import {
   DomainError,
   RULES_BY_MODALITY,
@@ -173,6 +174,7 @@ const respondWithWriteError = (
   res: Response,
   fallbackMessage: string
 ): void => {
+  if (respondWithAccessError(error, res)) return;
   if (
     error?.code === '23505' &&
     error?.constraint === 'unique_tournament_name_location'
@@ -198,6 +200,7 @@ const respondWithWriteError = (
 };
 
 const respondWithStartError = (error: unknown, res: Response): void => {
+  if (respondWithAccessError(error, res)) return;
   if (!(error instanceof DomainError)) {
     res.status(500).json({ error: true, message: 'Error starting tournament' });
     return;
@@ -217,6 +220,7 @@ const respondWithStartError = (error: unknown, res: Response): void => {
 };
 
 const respondWithRoundAdvanceError = (error: unknown, res: Response): void => {
+  if (respondWithAccessError(error, res)) return;
   if (!(error instanceof DomainError)) {
     res.status(500).json({ error: true, message: 'Error generating next tournament round' });
     return;
@@ -298,7 +302,7 @@ export const postTournament = async (req: Request, res: Response): Promise<void>
   }
 
   try {
-    const tournament = await createTournament(validation.data as CreateTournamentInput);
+    const tournament = await createTournament(validation.data as CreateTournamentInput, res.locals.user);
     res.status(201).json(tournament);
   } catch (error) {
     respondWithWriteError(error, res, 'Error creating tournament');
@@ -323,7 +327,7 @@ export const startTournament = async (req: Request, res: Response): Promise<void
   }
 
   try {
-    const result = await startTournamentModel(id, validation.data);
+    const result = await startTournamentModel(id, validation.data, res.locals.user);
     res.status(201).json({
       message: 'Tournament started successfully',
       data: result
@@ -354,7 +358,7 @@ export const generateNextTournamentRound = async (
   }
 
   try {
-    const result = await advanceTournamentRound(id, validation.data);
+    const result = await advanceTournamentRound(id, validation.data, res.locals.user);
     res.status(201).json({
       message: 'Next round generated successfully',
       data: result
@@ -382,7 +386,7 @@ export const putTournament = async (req: Request, res: Response): Promise<void> 
   }
 
   try {
-    const tournament = await updateTournament(id, validation.data);
+    const tournament = await updateTournament(id, validation.data, res.locals.user);
     if (!tournament) {
       res.status(404).json({ error: true, message: 'Tournament not found' });
       return;
@@ -402,7 +406,7 @@ export const removeTournament = async (req: Request, res: Response): Promise<voi
       return;
     }
 
-    const tournament = await deleteTournament(id);
+    const tournament = await deleteTournament(id, res.locals.user);
     if (!tournament) {
       res.status(404).json({ error: true, message: 'Tournament not found' });
       return;

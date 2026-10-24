@@ -1,7 +1,11 @@
 <main>
   <header>
     <h1>Torneos</h1>
-    @if (auth.user()) { <a routerLink="/tournaments/new">Crear torneo</a> }
+    @if (auth.user()) {
+      <a routerLink="/tournaments/new">Crear torneo</a>
+    } @else {
+      <a routerLink="/login" [queryParams]="{ returnUrl: '/tournaments/new' }">Crear torneo</a>
+    }
     @if (!isLoading() && !errorMessage()) {
       <span class="total">{{ tournaments().length }} en total</span>
     }
@@ -40,7 +44,7 @@
                 <td>{{ tournament.max_teams }} equipos</td>
                 <td>
                   <a class="detail-link" [routerLink]="['/tournaments', tournament.id]" [attr.aria-label]="'Ver detalle de ' + tournament.name">Ver detalle</a>
-                  @if (auth.user()) {
+                  @if (canManage(tournament)) {
                     <a [routerLink]="['/tournaments', tournament.id, 'edit']" [attr.aria-label]="'Editar ' + tournament.name">Editar</a>
                     <button type="button" (click)="deleteTournament(tournament)"
                       [disabled]="deletingIds().has(tournament.id) || tournament.status !== 'open'"

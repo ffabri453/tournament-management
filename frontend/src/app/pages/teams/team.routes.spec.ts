@@ -11,10 +11,10 @@ import { TeamForm } from './team-form/team-form';
 
 describe('Tournament team routing', () => {
   it('navigates from detail to teams, creates in context, reloads the list and returns to detail', async () => {
-    TestBed.configureTestingModule({ providers: [provideRouter(routes), { provide: Auth, useValue: { validateSession: () => of(true), user: () => ({ id: 1 }) } }, provideHttpClient(), provideHttpClientTesting()] });
+    TestBed.configureTestingModule({ providers: [provideRouter(routes), { provide: Auth, useValue: { validateSession: () => of(true), user: () => ({ id: 1, role: 'organizer' }) } }, provideHttpClient(), provideHttpClientTesting()] });
     const http = TestBed.inject(HttpTestingController);
     const harness = await RouterTestingHarness.create();
-    const tournament = { id: 7, name: 'Copa', location: 'Firmat', modality: 'futbol_5', max_teams: 4, rules: 'official_rules_football_5', format: 'knockout', status: 'open', champion_team_id: null, created_at: '2026-10-09T12:00:00.000Z' };
+    const tournament = { organizer_id: 1, id: 7, name: 'Copa', location: 'Firmat', modality: 'futbol_5', max_teams: 4, rules: 'official_rules_football_5', format: 'knockout', status: 'open', champion_team_id: null, created_at: '2026-10-09T12:00:00.000Z' };
     const team = { id: 1, tournament_id: 7, name: 'Equipo Alfa', players_count: 7, has_logo: false, created_at: tournament.created_at };
     const click = async (href: string) => {
       const link = harness.routeNativeElement?.querySelector<HTMLAnchorElement>(`a[href="${href}"]`);

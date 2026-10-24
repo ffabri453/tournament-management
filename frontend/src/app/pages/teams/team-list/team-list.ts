@@ -7,6 +7,7 @@ import { TeamService } from '../../../core/services/team';
 import { TournamentService } from '../../../core/services/tournament.service';
 import { Team } from '../../../models/team';
 import { Tournament } from '../../../models/tournament';
+import { canManageTournament } from '../../../core/tournament-access';
 import { Auth } from '../../../core/services/auth';
 
 @Component({
@@ -85,7 +86,7 @@ export class TeamList implements OnInit {
   }
 
   protected deleteTeam(team: Team): void {
-    if (!this.auth.user()) return;
+    if (!this.canManage()) return;
     const tournament = this.tournament();
     if (!tournament || tournament.status !== 'open' || this.isLoading() || this.deletingId() !== null ||
         team.tournament_id !== tournament.id || !this.teams().some(current => current.id === team.id)) return;
@@ -101,8 +102,13 @@ export class TeamList implements OnInit {
     });
   }
 
+  protected canManage(): boolean {
+    return canManageTournament(this.auth.user(), this.tournament());
+  }
+
   private getDeleteError(error: unknown): string {
     if (error instanceof HttpErrorResponse) {
+      if (error.status === 403) return 'No tenés permiso para gestionar este torneo.';
       if (error.status === 404) return 'El equipo ya no existe. Actualiz\u00e1 el listado.';
       if (error.status === 400) return 'El identificador del equipo no es v\u00e1lido. Actualiz\u00e1 el listado.';
       if (error.status === 409) {

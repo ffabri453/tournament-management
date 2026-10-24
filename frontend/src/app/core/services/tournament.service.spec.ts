@@ -35,7 +35,7 @@ describe('TournamentService', () => {
     expect(failed).toHaveBeenCalledWith(expect.any(HttpErrorResponse));
   });
 
-  const tournament: Tournament = { id: 5, name: 'Copa', location: 'Firmat', modality: 'futbol_5', max_teams: 4, rules: 'official_rules_football_5', format: 'knockout', status: 'open', champion_team_id: null, created_at: '2026-10-02T12:00:00.000Z' };
+  const tournament: Tournament = { organizer_id: 1, id: 5, name: 'Copa', location: 'Firmat', modality: 'futbol_5', max_teams: 4, rules: 'official_rules_football_5', format: 'knockout', status: 'open', champion_team_id: null, created_at: '2026-10-02T12:00:00.000Z' };
 
   it('starts the correct tournament with POST and returns the nested updated tournament', () => {
     const received = vi.fn();
@@ -140,7 +140,7 @@ describe('TournamentService', () => {
       name: 'Copa Regional', location: 'Firmat', modality: 'futbol_5', max_teams: 4,
       rules: 'official_rules_football_5', format: 'knockout',
     };
-    const created: Tournament = { ...payload, id: 8, status: 'open', champion_team_id: null, created_at: '2026-10-02T12:00:00.000Z' };
+    const created: Tournament = { ...payload, organizer_id: 1, id: 8, status: 'open', champion_team_id: null, created_at: '2026-10-02T12:00:00.000Z' };
     let received: Tournament | undefined;
     service.create(payload).subscribe((tournament) => { received = tournament; });
     const request = http.expectOne('/api/tournaments');

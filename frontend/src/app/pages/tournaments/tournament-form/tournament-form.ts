@@ -6,6 +6,8 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { catchError, EMPTY, switchMap } from 'rxjs';
 import { TournamentService } from '../../../core/services/tournament.service';
 import { Tournament } from '../../../models/tournament';
+import { Auth } from '../../../core/services/auth';
+import { canManageTournament } from '../../../core/tournament-access';
 
 const validName: ValidatorFn = (control) => {
   const value: unknown = control.value;
@@ -32,6 +34,8 @@ const rulesByModality: Record<Tournament['modality'], string> = {
   styleUrl: './tournament-form.css',
 })
 export class TournamentForm implements OnInit {
+  readonly auth = inject(Auth);
+  private currentTournament: Tournament | null = null;
   private readonly tournamentService = inject(TournamentService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
@@ -59,6 +63,7 @@ export class TournamentForm implements OnInit {
         const rawId = params.get('id');
         this.isEditing.set(rawId !== null);
         this.tournamentId = null;
+        this.currentTournament = null;
         this.isLoading.set(false);
         this.loadFailed.set(false);
         this.structureLocked.set(false);
@@ -84,6 +89,13 @@ export class TournamentForm implements OnInit {
       }),
       takeUntilDestroyed(this.destroyRef),
     ).subscribe((tournament) => {
+      this.isLoading.set(false);
+      this.currentTournament = tournament;
+      if (!canManageTournament(this.auth.user(), tournament)) {
+        this.loadFailed.set(true);
+        this.errorMessage.set('No tenés permiso para gestionar este torneo.');
+        return;
+      }
       this.tournamentId = tournament.id;
       this.form.setValue({ name: tournament.name, location: tournament.location,
         modality: tournament.modality, max_teams: tournament.max_teams });
@@ -98,6 +110,7 @@ export class TournamentForm implements OnInit {
   }
 
   submit(): void {
+    if (!this.auth.user() || (this.isEditing() && !canManageTournament(this.auth.user(), this.currentTournament))) return;
     if (this.isSaving() || this.isLoading() || this.loadFailed() ||
         (this.isEditing() && this.tournamentId === null)) return;
     this.form.markAllAsTouched();
@@ -125,6 +138,7 @@ export class TournamentForm implements OnInit {
 
   private getErrorMessage(error: unknown, loading = false): string {
     if (error instanceof HttpErrorResponse) {
+      if (error.status === 403) return 'No tenés permiso para gestionar este torneo.';
       if (this.isEditing() && error.status === 404) return 'No se encontró el torneo. Volvé al listado de torneos.';
       if ([0, 502, 503, 504].includes(error.status)) {
         return 'No se pudo conectar con el servidor. Intentá nuevamente más tarde.';

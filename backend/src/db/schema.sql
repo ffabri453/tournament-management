@@ -302,7 +302,7 @@ ON matches (
     GREATEST(home_team_id, away_team_id)            -- Equipo con mayor id, sin importar si es local o visitante.
 );
 
--- Guarda usuarios sin relacionarlos todavia con los torneos.
+-- Usuarios registrados; los visitantes no necesitan cuenta.
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -319,3 +319,8 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE UNIQUE INDEX IF NOT EXISTS unique_user_email
 ON users (LOWER(BTRIM(email)));
+
+-- Se agrega despues de users porque la clave foranea depende de esa tabla.
+ALTER TABLE tournaments
+    ADD COLUMN IF NOT EXISTS organizer_id INTEGER REFERENCES users(id) ON DELETE RESTRICT;
+CREATE INDEX IF NOT EXISTS idx_tournaments_organizer_id ON tournaments (organizer_id);

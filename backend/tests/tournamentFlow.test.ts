@@ -24,7 +24,7 @@ const futureMatchDate = new Date('2099-01-10T20:00:00-03:00');
 const createTournamentFixture = (
   maxTeams: TournamentCapacity,
   status: TournamentStatus = 'open'
-): Tournament => ({
+): Tournament => ({ organizer_id: 1,
   id: 1,
   name: 'Copa Regional',
   location: 'Firmat',
@@ -280,7 +280,7 @@ test('successful start commits matches and changes status', async () => {
 
   const result = await withFakeClient(client, () => startTournament(1, {
     match_date: futureMatchDate
-  }));
+  }, { id: 1, role: 'admin' }));
 
   assert.equal(result.matches.length, 2);
   assert.equal(result.tournament.status, 'in_progress');
@@ -295,7 +295,7 @@ test('missing tournament returns its domain error and rolls back', async () => {
   const client = new FakeTournamentClient(null, []);
 
   await assert.rejects(
-    withFakeClient(client, () => startTournament(999, { match_date: futureMatchDate })),
+    withFakeClient(client, () => startTournament(999, { match_date: futureMatchDate }, { id: 1, role: 'admin' })),
     (error: unknown) => error instanceof DomainError && error.code === 'TOURNAMENT_NOT_FOUND'
   );
   assert.ok(client.commands.includes('ROLLBACK'));
@@ -315,7 +315,7 @@ test('existing matches prevent bracket duplication', async () => {
   );
 
   await assert.rejects(
-    withFakeClient(client, () => startTournament(1, { match_date: futureMatchDate })),
+    withFakeClient(client, () => startTournament(1, { match_date: futureMatchDate }, { id: 1, role: 'admin' })),
     (error: unknown) => error instanceof DomainError &&
       error.code === 'TOURNAMENT_MATCHES_ALREADY_EXIST'
   );
@@ -330,9 +330,9 @@ test('calling start twice does not create duplicate matches', async () => {
     createTeamFixtures(4)
   );
 
-  await withFakeClient(client, () => startTournament(1, { match_date: futureMatchDate }));
+  await withFakeClient(client, () => startTournament(1, { match_date: futureMatchDate }, { id: 1, role: 'admin' }));
   await assert.rejects(
-    withFakeClient(client, () => startTournament(1, { match_date: futureMatchDate })),
+    withFakeClient(client, () => startTournament(1, { match_date: futureMatchDate }, { id: 1, role: 'admin' })),
     (error: unknown) => error instanceof DomainError && error.code === 'TOURNAMENT_NOT_OPEN'
   );
   assert.equal(client.matches.length, 2);
@@ -346,7 +346,7 @@ test('match insertion failure rolls back every change', async () => {
   client.failOnInsert = 3;
 
   await assert.rejects(
-    withFakeClient(client, () => startTournament(1, { match_date: futureMatchDate })),
+    withFakeClient(client, () => startTournament(1, { match_date: futureMatchDate }, { id: 1, role: 'admin' })),
     /Simulated match insertion failure/
   );
   assert.equal(client.matches.length, 0);

@@ -8,7 +8,7 @@ import pool from '../src/config/db';
 
 let server: Server;
 let url: string;
-const tournament = { id: 1, name: 'Public Cup', location: 'Firmat', format: 'knockout',
+const tournament = { organizer_id: 1, id: 1, name: 'Public Cup', location: 'Firmat', format: 'knockout',
   modality: 'futbol_5', max_teams: 4, rules: 'official_rules_football_5', status: 'finished',
   champion_team_id: 2, created_at: '2026-01-01T00:00:00.000Z' };
 const teams = [1, 2].map(id => ({ id, tournament_id: 1, name: `Team ${id}`,

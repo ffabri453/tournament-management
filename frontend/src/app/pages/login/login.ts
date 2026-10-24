@@ -1,7 +1,7 @@
 import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormControl, FormGroup, ReactiveFormsModule, ValidatorFn, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 import { Auth } from '../../core/services/auth';
@@ -19,6 +19,7 @@ const backendEmail: ValidatorFn = (control) => {
   styleUrl: './login.css',
 })
 export class Login {
+  private readonly route = inject(ActivatedRoute);
   private readonly auth = inject(Auth);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
@@ -44,7 +45,9 @@ export class Login {
     ).subscribe({
       next: () => {
         this.form.controls.password.reset();
-        void this.router.navigateByUrl('/tournaments').catch(() => {
+        const destination = this.route.snapshot.queryParamMap.get('returnUrl') === '/tournaments/new'
+          ? '/tournaments/new' : '/tournaments';
+        void this.router.navigateByUrl(destination).catch(() => {
           this.error.set('No se pudo abrir la lista de torneos. Intentá nuevamente.');
         });
       },
