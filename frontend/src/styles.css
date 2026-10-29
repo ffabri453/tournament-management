@@ -1,1 +1,4 @@
-/* You can add global styles to this file, and also import other style files */
+:root { --nav-height: 76px; font-family: Arial, Helvetica, sans-serif; color: #112640; background: #f6f8fb; }
+body { margin: 0; }
+button, input, select { font: inherit; }
+@media (max-width: 600px) { :root { --nav-height: 72px; } }

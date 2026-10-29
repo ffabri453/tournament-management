@@ -52,17 +52,18 @@ describe('TeamList', () => {
     const method = vi.spyOn(TestBed.inject(TeamService), 'getByTournamentId');
     load(tournament, [team, { ...team, id: 2, tournament_id: 8, name: 'Equipo ajeno' }]);
     expect(method).toHaveBeenCalledExactlyOnceWith(7);
-    expect(element.textContent).toContain('Equipos de Copa Regional');
+    expect(element.querySelector('h1')?.textContent).toBe('Equipos');
+    expect(element.querySelector('.tournament-name')?.textContent).toBe('Copa Regional');
     expect(element.textContent).toContain('1 de 4 equipos');
     expect(element.textContent).toContain('Equipo Alfa');
     expect(element.textContent).not.toContain('Equipo ajeno');
-    expect(element.querySelector('td')?.textContent).toBe('7');
+    expect(element.querySelector('.player-count')?.textContent).toBe('7');
   });
 
   it('shows an empty state even when other tournaments have teams', () => {
     load(tournament, [{ ...team, tournament_id: 8 }]);
     expect(element.textContent).toContain('no hay equipos registrados');
-    expect(element.querySelector('table')).toBeNull();
+    expect(element.querySelector('.team-grid')).toBeNull();
     expect(element.querySelector('a[href="/tournaments/7/teams/new"]')).not.toBeNull();
   });
 
@@ -71,7 +72,7 @@ describe('TeamList', () => {
     fixture.detectChanges();
     http.expectNone(() => true);
     expect(element.querySelector('[role="alert"]')?.textContent).toContain('identificador');
-    expect(element.querySelector('table')).toBeNull();
+    expect(element.querySelector('.team-grid')).toBeNull();
   });
 
   it('handles a missing tournament without requesting teams', () => {
@@ -143,7 +144,7 @@ describe('TeamList', () => {
     load();
     params.next(convertToParamMap({ id: 'invalid' }));
     fixture.detectChanges();
-    expect(element.querySelector('table')).toBeNull();
+    expect(element.querySelector('.team-grid')).toBeNull();
     expect(element.textContent).not.toContain(team.name);
     http.expectNone(() => true);
   });
@@ -181,14 +182,14 @@ describe('TeamList', () => {
     fixture.detectChanges();
     expect(Array.from(element.querySelectorAll<HTMLButtonElement>('button.delete')).every(button => button.disabled)).toBe(true);
     expect(element.textContent).toContain('Eliminando...');
-    expect(element.querySelectorAll('tbody tr')).toHaveLength(4);
+    expect(element.querySelectorAll('.team-card')).toHaveLength(4);
     const request = http.expectOne('/api/teams/1');
     expect(request.request.method).toBe('DELETE');
     request.flush({ message: 'Team deleted successfully' });
     http.expectOne('/api/tournaments/7').flush(tournament);
     http.expectOne('/api/teams').flush({ data: [{ ...team, id: 2 }] });
     fixture.detectChanges();
-    expect(element.querySelectorAll('tbody tr')).toHaveLength(1);
+    expect(element.querySelectorAll('.team-card')).toHaveLength(1);
     expect(element.textContent).toContain('1 de 4 equipos');
     expect(element.querySelector('a[href$="/new"]')).not.toBeNull();
     expect(element.querySelector<HTMLButtonElement>('button.delete')?.disabled).toBe(false);
@@ -213,7 +214,7 @@ describe('TeamList', () => {
     if (status === 0) request.error(new ProgressEvent('error'));
     else request.flush({ message: 'raw database error' }, { status, statusText: 'Error' });
     fixture.detectChanges();
-    expect(element.querySelectorAll('tbody tr')).toHaveLength(1);
+    expect(element.querySelectorAll('.team-card')).toHaveLength(1);
     expect(element.querySelector('[role="alert"]')).not.toBeNull();
     expect(element.textContent).not.toContain('raw database');
     const refresh = Array.from(element.querySelectorAll('button')).find(button => button.textContent === 'Actualizar equipos');
@@ -221,7 +222,7 @@ describe('TeamList', () => {
     http.expectOne('/api/tournaments/7').flush(tournament);
     http.expectOne('/api/teams').flush({ data: [] });
     fixture.detectChanges();
-    expect(element.querySelector('table')).toBeNull();
+    expect(element.querySelector('.team-grid')).toBeNull();
     expect(element.querySelector('[role="alert"]')).toBeNull();
   });
 

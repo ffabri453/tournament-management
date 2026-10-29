@@ -1,58 +1,38 @@
-<main>
-  <nav aria-label="Navegaci&oacute;n de partidos y cuadro">
+<main [class.bracket-view]="activeView() === 'bracket'">
+  <div class="page-content">
+    <nav aria-label="Navegación de partidos y cuadro">
+      @if (tournament(); as current) {
+        <a class="back-link" [routerLink]="['/tournaments', current.id]"><span aria-hidden="true">←</span> Volver al torneo</a>
+      } @else {
+        <a class="back-link" routerLink="/tournaments"><span aria-hidden="true">←</span> Volver a torneos</a>
+      }
+    </nav>
+    <h1>Partidos y resultados</h1>
     @if (tournament(); as current) {
-      <a [routerLink]="['/tournaments', current.id]">Volver al torneo</a>
-    } @else {
-      <a routerLink="/tournaments">Volver a torneos</a>
+      <p class="subtitle">{{ current.name }} · {{ tournamentStatusLabels[current.status] }}</p>
     }
-  </nav>
-
-  <h1>Partidos y cuadro{{ tournament() ? ' de ' + tournament()!.name : '' }}</h1>
-  <section class="screen-state" aria-label="Partidos y cuadro del torneo" [attr.aria-busy]="isLoading()">
-    @if (isLoading()) {
-      <p class="message" role="status">Cargando partidos y cuadro...</p>
-    } @else if (errorMessage()) {
-      <div class="message error">
-        <p role="alert">{{ errorMessage() }}</p>
-        @if (canRetry()) { <button type="button" (click)="retry()">Reintentar</button> }
-      </div>
-    } @else if (bracket(); as currentBracket) {
-      <section class="bracket-section" aria-labelledby="bracket-title">
-        <h2 id="bracket-title">Cuadro de eliminaci&oacute;n directa</h2>
-        <app-bracket [bracket]="currentBracket" [selectedMatchId]="selectedMatchId()"
-          (matchSelected)="selectMatch($event)" />
-
-        @if (canGenerateNextRound() && nextRound(); as upcomingRound) {
-          <section class="next-round-panel" aria-labelledby="next-round-title">
-            <form [formGroup]="nextRoundForm" (ngSubmit)="generateNextRound()"
-              [attr.aria-busy]="generatingRound()">
-              <h3 id="next-round-title">Generar {{ roundLabels[upcomingRound] }}</h3>
-              <p>Todos los partidos de la ronda actual tienen un ganador. Eleg&iacute; la fecha y hora de los pr&oacute;ximos encuentros.</p>
-              <fieldset [disabled]="generatingRound() || savingMatchId() !== null || needsRefresh()">
-                <label for="next-round-date">
-                  Fecha y hora de la siguiente ronda
-                  <input id="next-round-date" type="datetime-local" formControlName="match_date" />
-                </label>
-                @if (nextRoundForm.controls.match_date.touched && nextRoundForm.controls.match_date.invalid) {
-                  <p class="error" role="alert">Ingres&aacute; una fecha y hora futuras.</p>
-                }
-                <div class="form-actions">
-                  <button type="submit">{{ generatingRound() ? 'Generando...' : 'Generar siguiente ronda' }}</button>
-                </div>
-              </fieldset>
-            </form>
-          </section>
-        }
-        @if (roundError()) {
-          <p class="error round-message" role="alert">{{ roundError() }}</p>
-          @if (needsRefresh()) {
-            <button type="button" class="secondary" (click)="refreshMatches()">Actualizar partidos</button>
-          }
-        }
-        @if (roundSuccess()) { <p class="success round-message" role="status">{{ roundSuccess() }}</p> }
-      </section>
-
-      @if (selectedMatch(); as selected) {
+    <section class="screen-state" aria-label="Partidos y cuadro del torneo" [attr.aria-busy]="isLoading()">
+      @if (isLoading()) {
+        <app-loading label="Cargando partidos y cuadro..." />
+      } @else if (errorMessage()) {
+        <div class="message error">
+          <p role="alert">{{ errorMessage() }}</p>
+          @if (canRetry()) { <button type="button" (click)="retry()">Reintentar</button> }
+        </div>
+      } @else if (bracket(); as currentBracket) {
+        <div class="view-switch" role="group" aria-label="Vista del torneo">
+          <button type="button" [attr.aria-pressed]="activeView() === 'matches'" aria-controls="matches-panel"
+            [disabled]="editingMatchId() !== null || generatingRound()" (click)="activeView.set('matches')">Partidos</button>
+          <button type="button" [attr.aria-pressed]="activeView() === 'bracket'" aria-controls="bracket-panel"
+            [disabled]="editingMatchId() !== null || generatingRound()" (click)="activeView.set('bracket')">Cuadro</button>
+        </div>
+        <section id="bracket-panel" class="bracket-section" [hidden]="activeView() !== 'bracket'" aria-labelledby="bracket-title">
+          <h2 id="bracket-title">Cuadro de eliminación directa</h2>
+          <p class="quote">«Ningún jugador es tan bueno como todos juntos». — Alfredo Di Stéfano</p>
+          <div class="bracket-surface">
+            <app-bracket [bracket]="currentBracket" [selectedMatchId]="selectedMatchId()" (matchSelected)="selectMatch($event)" />
+          </div>
+          @if (selectedMatch(); as selected) {
         <article class="selected-match" aria-labelledby="selected-match-title">
           <p class="eyebrow">Encuentro seleccionado</p>
           <h2 id="selected-match-title">{{ teamName(selected.home_team_id) }} vs. {{ teamName(selected.away_team_id) }}</h2>
@@ -70,66 +50,54 @@
         </article>
       }
 
-      <section class="matches-section" aria-labelledby="matches-title">
-        <h2 id="matches-title">Partidos y resultados</h2>
-        @if (matches().length === 0) {
-          <p class="message" role="status">Todav&iacute;a no hay partidos registrados en este torneo.</p>
-        } @else {
-          <div class="table-scroll" role="region" aria-label="Tabla de partidos" tabindex="0">
-            <table>
-              <colgroup>
-                <col style="width: 25%" />
-                <col style="width: 11%" />
-                <col style="width: 14%" />
-                <col style="width: 11%" />
-                <col style="width: 10%" />
-                <col style="width: 13%" />
-                @if (canManage()) { <col style="width: 16%" /> }
-              </colgroup>
-              <thead>
-                <tr>
-                  <th scope="col">Equipos</th>
-                  <th scope="col">Ronda</th>
-                  <th scope="col">Fecha</th>
-                  <th scope="col">Ubicaci&oacute;n</th>
-                  <th scope="col">Estado</th>
-                  <th scope="col">Resultado</th>
-                  @if (canManage()) { <th scope="col">Acciones</th> }
-                </tr>
-              </thead>
-              <tbody>
-                @for (match of matches(); track match.id) {
-                  <tr [class.selected-row]="selectedMatchId() === match.id">
-                    <th scope="row">
-                      <span>{{ teamName(match.home_team_id) }}</span>
-                      <span class="versus">vs.</span>
-                      <span>{{ teamName(match.away_team_id) }}</span>
-                    </th>
-                    <td>{{ roundLabels[match.round] }}</td>
-                    <td>{{ match.match_date | date:'dd/MM/yyyy HH:mm' }}</td>
-                    <td>{{ match.location }}</td>
-                    <td><span class="status" [attr.data-status]="match.status">{{ statusLabels[match.status] }}</span></td>
-                    <td class="result">{{ result(match) ?? 'Sin resultado' }}</td>
-                    @if (canManage()) {
-                      <td class="actions">
-                        @if (match.status === 'finished') {
-                          <span class="unavailable">Resultado cerrado</span>
-                        } @else if (!canEditResult(match)) {
-                          <span class="unavailable">Disponible desde {{ match.match_date | date:'dd/MM/yyyy HH:mm' }}</span>
-                        } @else {
-                          <button type="button" (click)="openResultForm(match)"
-                            [disabled]="editingMatchId() !== null || savingMatchId() !== null || needsRefresh()"
-                            [attr.aria-label]="(result(match) ? 'Editar resultado de ' : 'Cargar resultado de ') + teamName(match.home_team_id) + ' contra ' + teamName(match.away_team_id)">
-                            {{ result(match) ? 'Editar resultado' : 'Cargar resultado' }}
-                          </button>
-                        }
-                      </td>
-                    }
-                  </tr>
+
+        </section>
+        <section id="matches-panel" class="matches-section" [hidden]="activeView() !== 'matches'" aria-label="Partidos y resultados">
+          @if (currentBracket.tournament.champion; as champion) {
+            <div class="champion-banner"><strong>¡CAMPEONES!</strong><h2>{{ champion.name }}</h2><p>«Salir campeón es la gloria». — Alejandro Sabella</p></div>
+          }
+          @if (matches().length === 0) {
+            <p class="message" role="status">Todavía no hay partidos registrados en este torneo.</p>
+          } @else {
+            <div class="round-filter" role="group" aria-label="Filtrar partidos por ronda">
+              <button type="button" [attr.aria-pressed]="selectedRound() === null" [disabled]="editingMatchId() !== null"
+                (click)="selectedRound.set(null)">Todos</button>
+              @for (round of currentBracket.rounds; track round.round) {
+                <button type="button" [attr.aria-pressed]="selectedRound() === round.round" [disabled]="editingMatchId() !== null"
+                  (click)="selectedRound.set(round.round)">{{ roundLabels[round.round] }}</button>
+              }
+            </div>
+            <div class="match-list">
+              @for (match of visibleMatches(); track match.id) {
+                <article class="match-item" [class.selected-row]="selectedMatchId() === match.id"
+                  [attr.aria-label]="teamName(match.home_team_id) + ' contra ' + teamName(match.away_team_id)">
+                  <div class="match-heading">
+                    <span>{{ roundLabels[match.round] }} · Partido #{{ match.id }}</span>
+                    <span class="status" [attr.data-status]="match.status">{{ statusLabels[match.status] }}</span>
+                  </div>
+                  <div class="scoreboard">
+                    <strong [class.winner]="match.winner_team_id === match.home_team_id">{{ teamName(match.home_team_id) }}</strong>
+                    <span class="result">{{ result(match) ?? 'vs.' }}</span>
+                    <strong [class.winner]="match.winner_team_id === match.away_team_id">{{ teamName(match.away_team_id) }}</strong>
+                  </div>
+                  <div class="match-meta"><time [attr.datetime]="match.match_date">{{ match.match_date | date:'dd/MM/yyyy HH:mm' }}</time><span>{{ match.location }}</span></div>
+                  @if (canManage()) {
+                    <div class="actions">
+                      @if (match.status === 'finished') {
+                        <span class="unavailable">Resultado cerrado</span>
+                      } @else if (!canEditResult(match)) {
+                        <span class="unavailable">Disponible desde {{ match.match_date | date:'dd/MM/yyyy HH:mm' }}</span>
+                      } @else if (editingMatchId() !== match.id) {
+                        <button type="button" data-ball-feedback (click)="openResultForm(match)"
+                          [disabled]="editingMatchId() !== null || savingMatchId() !== null || needsRefresh() || generatingRound()"
+                          [attr.aria-label]="(result(match) ? 'Editar resultado de ' : 'Cargar resultado de ') + teamName(match.home_team_id) + ' contra ' + teamName(match.away_team_id)">
+                          {{ result(match) ? 'Editar resultado' : 'Cargar resultado' }}
+                        </button>
+                      }
+                    </div>
+                  }
                   @if (canManage() && editingMatchId() === match.id) {
-                    <tr class="form-row">
-                      <td colspan="7">
-                        <form [formGroup]="resultForm" (ngSubmit)="saveResult()" [attr.aria-busy]="savingMatchId() === match.id">
+                    <div class="result-editor"><form [formGroup]="resultForm" (ngSubmit)="saveResult()" [attr.aria-busy]="savingMatchId() === match.id">
                           <h3>Resultado: {{ teamName(match.home_team_id) }} vs. {{ teamName(match.away_team_id) }}</h3>
                           <fieldset [disabled]="savingMatchId() === match.id || needsRefresh()">
                             <div class="score-fields">
@@ -178,24 +146,56 @@
                             }
                             @if (saveError()) { <p class="error" role="alert">{{ saveError() }}</p> }
                             <div class="form-actions">
-                              <button type="submit">{{ savingMatchId() === match.id ? 'Guardando...' : 'Guardar resultado' }}</button>
+                              <button type="submit" data-ball-feedback>{{ savingMatchId() === match.id ? 'Guardando...' : 'Guardar resultado' }}</button>
                               <button type="button" class="secondary" (click)="cancelResultForm()">Cancelar</button>
                             </div>
                           </fieldset>
                           @if (needsRefresh()) {
                             <button type="button" class="secondary refresh" (click)="refreshMatches()">Actualizar partidos</button>
                           }
-                        </form>
-                      </td>
-                    </tr>
+                        @if (savingMatchId() === match.id) { <app-loading label="Guardando resultado…" /> }</form></div>
                   }
+                </article>
+              }
+            </div>
+          }
+          @if (saveSuccess()) { <p class="success" role="status">{{ saveSuccess() }}</p> }
+        </section>
+        <div class="round-management">
+          @if (canGenerateNextRound() && nextRound(); as upcomingRound) {
+          <section class="next-round-panel" aria-labelledby="next-round-title">
+            <form [formGroup]="nextRoundForm" (ngSubmit)="generateNextRound()"
+              [attr.aria-busy]="generatingRound()">
+              <h3 id="next-round-title">Generar {{ roundLabels[upcomingRound] }}</h3>
+              <p>Todos los partidos de la ronda actual tienen un ganador. Eleg&iacute; la fecha y hora de los pr&oacute;ximos encuentros.</p>
+              <fieldset [disabled]="generatingRound() || savingMatchId() !== null || needsRefresh()">
+                <label for="next-round-date">
+                  Fecha y hora de la siguiente ronda
+                  <input id="next-round-date" type="datetime-local" formControlName="match_date" />
+                </label>
+                @if (nextRoundForm.controls.match_date.touched && nextRoundForm.controls.match_date.invalid) {
+                  <p class="error" role="alert">Ingres&aacute; una fecha y hora futuras.</p>
                 }
-              </tbody>
-            </table>
-          </div>
+                <div class="form-actions">
+                  <button type="submit" data-ball-feedback>{{ generatingRound() ? 'Generando...' : 'Generar siguiente ronda' }}</button>
+                </div>
+              </fieldset>
+            @if (generatingRound()) { <app-loading label="Generando ronda…" /> }</form>
+          </section>
         }
-        @if (saveSuccess()) { <p class="success" role="status">{{ saveSuccess() }}</p> }
-      </section>
-    }
-  </section>
+        @if (roundError()) {
+          <p class="error round-message" role="alert">{{ roundError() }}</p>
+          @if (needsRefresh()) {
+            <button type="button" class="secondary" (click)="refreshMatches()">Actualizar partidos</button>
+          }
+        }
+        @if (roundSuccess()) { <p class="success round-message" role="status">{{ roundSuccess() }}</p> }
+
+          @if (canManage() && tournament()?.status === 'in_progress' && nextRound() && !canGenerateNextRound()) {
+            <p class="round-help">Completá todos los partidos de la ronda actual para habilitar la siguiente.</p>
+          }
+        </div>
+      }
+    </section>
+  </div>
 </main>

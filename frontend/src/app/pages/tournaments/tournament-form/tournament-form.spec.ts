@@ -30,6 +30,18 @@ describe('TournamentForm', () => {
     expect(component).toBeTruthy();
   });
 
+  it('binds radio choices to backend values and keeps capacity numeric', () => {
+    const element = fixture.nativeElement as HTMLElement;
+    element.querySelectorAll<HTMLInputElement>('.modality-options input')[1].click();
+    element.querySelectorAll<HTMLInputElement>('.capacity-options input')[1].click();
+    fixture.detectChanges();
+    expect(component.form.controls.modality.value).toBe('futbol_7');
+    expect(component.form.controls.max_teams.value).toBe(8);
+    expect(element.querySelectorAll('.modality-options input:checked')).toHaveLength(1);
+    expect(element.querySelectorAll('.capacity-options input:checked')).toHaveLength(1);
+    http.expectNone('/api/tournaments');
+  });
+
   it('does not POST an invalid form and shows validation messages', () => {
     component.submit();
     http.expectNone('/api/tournaments');
@@ -81,10 +93,10 @@ describe('TournamentForm', () => {
 
   it('cancels without POST', async () => {
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
-    (fixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>('a')?.click();
+    (fixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>('.cancel-link')?.click();
     await fixture.whenStable();
     expect(navigate.mock.calls[0]?.[0].toString()).toBe('/tournaments');
-    expect((fixture.nativeElement as HTMLElement).querySelector('a')?.getAttribute('href')).toBe('/tournaments');
+    expect((fixture.nativeElement as HTMLElement).querySelector('.cancel-link')?.getAttribute('href')).toBe('/tournaments');
     http.expectNone('/api/tournaments');
   });
 

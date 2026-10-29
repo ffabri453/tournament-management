@@ -62,7 +62,7 @@ describe('Register', () => {
     component.submit();
     fixture.detectChanges();
     expect(register).toHaveBeenCalledExactlyOnceWith({ name: 'User', email: 'user@example.com', password: ' password ' });
-    expect(fixture.nativeElement.querySelector('button').disabled).toBe(true);
+    expect(fixture.nativeElement.querySelector('button[type="submit"]').disabled).toBe(true);
     expect(fixture.nativeElement.textContent).toContain('Creando cuenta');
     expect(fixture.nativeElement.querySelector('form').getAttribute('aria-busy')).toBe('true');
   });

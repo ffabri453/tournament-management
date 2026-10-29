@@ -93,7 +93,7 @@ describe('Bracket', () => {
     expect(element.querySelectorAll('.crest-slot')).toHaveLength((capacity - 1) * 2);
   });
 
-  it('shows full names, goals, penalties and the winner without abbreviating', () => {
+  it('preserves full names, goals, penalties and the winner in compact cards', () => {
     const penaltyMatch = { ...match(1, 'semi_final', true), home_goals: 2, away_goals: 2,
       home_penalties: 5, away_penalties: 4 };
     render(response(4, [
@@ -106,6 +106,7 @@ describe('Bracket', () => {
     expect(text).toContain('(5)');
     expect(text).toContain('(4)');
     expect(text).not.toContain('Club Dep.');
+    expect(element.querySelector('.team-name')?.getAttribute('title')).toBe(penaltyMatch.home_team!.name);
     expect(element.querySelector('.team.winner .team-name')?.textContent).toBe('Club Deportivo Regional del Norte 1');
     expect(element.querySelector('.team.loser .team-name')?.textContent).toBe('Asociación Atlética del Sur 2');
   });
@@ -133,7 +134,8 @@ describe('Bracket', () => {
     const header = element.querySelector('button.match-card .match-card-header');
     expect(header?.textContent).toContain('Partido #27');
     expect(header?.querySelector('time')?.getAttribute('datetime')).toBe(scheduled.match_date);
-    expect(header?.querySelector('time')?.textContent).toMatch(/\d{2}\/\d{2}\/\d{4} · \d{2}:\d{2}/);
+    expect(header?.querySelector('time')?.getAttribute('title')).toMatch(/2026/);
+    expect(header?.querySelector('time')?.textContent).toMatch(/\d{2}\/\d{2} \d{2}:\d{2}/);
   });
 
   it('renders future rounds as connected pending slots without inventing teams', () => {

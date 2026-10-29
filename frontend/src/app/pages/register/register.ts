@@ -5,6 +5,7 @@ import { Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 import { Auth } from '../../core/services/auth';
+import { Loading } from '../../shared/loading';
 
 const nameValidator: ValidatorFn = control => {
   const name = String(control.value).trim();
@@ -26,15 +27,17 @@ const matchingPasswords: ValidatorFn = control =>
 
 @Component({
   selector: 'app-register',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, Loading],
   templateUrl: './register.html',
-  styleUrl: './register.css',
+  styleUrls: ['../../shared/auth-page.css'],
 })
 export class Register {
   private readonly auth = inject(Auth);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   readonly loading = signal(false);
+  readonly showPassword = signal(false);
+  readonly showConfirmation = signal(false);
   readonly error = signal('');
   readonly form = new FormGroup({
     name: new FormControl('', { nonNullable: true, validators: [nameValidator] }),

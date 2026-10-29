@@ -1,25 +1,40 @@
-:host { display: block; color: #202725; font-family: Arial, Helvetica, sans-serif; letter-spacing: 0; }
-main { max-width: 1080px; margin: 32px auto; padding: 0 16px; }
-nav { margin-bottom: 24px; }
-h1 { font-size: 28px; overflow-wrap: anywhere; }
-header { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; }
-a { color: #2167ba; }
-table { width: 100%; table-layout: fixed; border-collapse: collapse; text-align: left; margin-top: 24px; }
-th, td { padding: 16px 12px; border-bottom: 1px solid #dce2de; overflow-wrap: anywhere; }
-th:nth-child(2), td:nth-child(2) { width: 85px; }
-th:last-child, td:last-child { width: 180px; }
-.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; min-height: 42px; }
-thead { background: #f2f5f3; }
-.error { color: #a12b32; }
-button { padding: 10px 16px; border: 1px solid #276644; border-radius: 4px; background: #276644; color: white; font: inherit; cursor: pointer; }
-button.delete { background: white; color: #a12b32; border-color: #a12b32; min-width: 100px; }
-button:disabled { cursor: not-allowed; opacity: .6; }
-a:focus-visible, button:focus-visible { outline: 2px solid #2167ba; outline-offset: 3px; }
-@media (max-width: 600px) {
-  h1 { font-size: 24px; }
-  main { padding: 0 8px; }
-  th, td { padding: 12px 6px; }
-  thead th { font-size: 14px; }
-  th:nth-child(2), td:nth-child(2) { width: 85px; }
-  th:last-child, td:last-child { width: 106px; }
-}
+:host { display:block; --loading-color:#f0f6ff; }
+main { min-height:calc(100svh - var(--nav-height)); box-sizing:border-box; padding:38px clamp(20px,4vw,64px) 64px; color:#f4f8ff; background:linear-gradient(100deg,#04182de8,#071c35b8 60%,#071c3575),url('/images/teams-locker-room.png') center/cover; }
+.page-content { max-width:1320px; margin:auto; }
+a { color:inherit; text-decoration:none; }
+nav { display:flex; flex-wrap:wrap; gap:24px; }
+.back-link::before { content:'←'; margin-right:12px; }
+h1 { font-size:clamp(34px,4vw,52px); margin:8px 0 12px; line-height:1.15; }
+h2 { overflow-wrap:anywhere; }
+.eyebrow { letter-spacing:.16em; font-size:12px; color:#bfd6ef; }
+button,.primary { display:inline-flex; justify-content:center; align-items:center; padding:14px 22px; border:1px solid transparent; border-radius:7px; background:#075aff; color:white; font:inherit; font-weight:600; cursor:pointer; transition:background .18s,transform .18s; }
+button:hover:not(:disabled),.primary:hover { background:#2373ff; transform:translateY(-2px); }
+button:disabled,[aria-disabled="true"] { opacity:.5; cursor:not-allowed; }
+a:focus-visible,button:focus-visible,input:focus-visible { outline:3px solid #72c9ff; outline-offset:4px; }
+.error { padding:16px; border:1px solid #f3a5ae; border-radius:7px; color:#ffe3e7; background:#4b1729ed; line-height:1.6; }
+svg { fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; width:24px; height:24px; }
+@media(prefers-reduced-motion:reduce) { *,*::before { transition:none!important; } }
+.page-heading { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:24px; margin:40px 0 30px; }
+.tournament-name { margin:0; color:#d0dff1; font-size:21px; overflow-wrap:anywhere; }
+.team-summary { display:flex; gap:20px; flex-wrap:wrap; align-items:center; margin-bottom:24px; }
+.team-summary p { margin:0; }
+.team-summary strong { font-size:25px; }
+.team-summary span { font-size:14px; border-left:1px solid #7c98b5; padding-left:20px; color:#d5e6f9; }
+.notice { background:#0c2742e6; border-left:3px solid #74b7ff; padding:14px 18px; margin:0 0 24px; line-height:1.6; font-size:14px; }
+.notice p { margin:0; }
+.team-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(min(100%,250px),1fr)); gap:20px; list-style:none; padding:0; margin:0; }
+.team-card { min-width:0; background:#eff6fff0; border:1px solid #ffffff80; border-radius:10px; padding:24px; color:#09234a; box-shadow:0 8px 28px #00112624; transition:transform .18s; }
+.team-card:hover { transform:translateY(-3px); }
+.team-icon { display:grid; place-items:center; width:52px; height:52px; border-radius:12px; background:#d4e6fc; color:#1b5cb9; }
+.team-icon svg { width:32px; height:32px; }
+.team-card h2 { margin:20px 0 14px; font-size:22px; }
+.players { display:flex; align-items:center; gap:10px; color:#49607e; font-size:15px; }
+.player-count { font-weight:400; }
+.actions { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-top:24px; padding-top:16px; border-top:1px solid #bccfe2; }
+.actions a { padding:10px 16px; border-radius:5px; background:#dceaff; color:#074bbd; font-weight:600; }
+button.delete { padding:10px 12px; background:transparent; color:#a72f42; border-color:#c974844d; font-size:14px; }
+button.delete:hover:not(:disabled) { background:#fbe0e5; }
+.empty-state { max-width:650px; margin:35px auto; padding:40px 24px; text-align:center; background:#0a203ae6; border:1px solid #6483a6; border-radius:10px; }
+.empty-state > svg { width:56px; height:56px; color:#a6ceff; }
+.empty-state p { color:#ccdef2; line-height:1.6; }
+@media(max-width:600px) { .page-heading { margin-top:28px; } .team-card { padding:22px; } }

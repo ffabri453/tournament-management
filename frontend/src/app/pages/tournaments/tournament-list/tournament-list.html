@@ -1,65 +1,81 @@
-<main>
-  <header>
-    <h1>Torneos</h1>
-    @if (auth.user()) {
-      <a routerLink="/tournaments/new">Crear torneo</a>
-    } @else {
-      <a routerLink="/login" [queryParams]="{ returnUrl: '/tournaments/new' }">Crear torneo</a>
-    }
-    @if (!isLoading() && !errorMessage()) {
-      <span class="total">{{ tournaments().length }} en total</span>
-    }
-  </header>
-
-  <section aria-label="Listado de torneos" [attr.aria-busy]="isLoading()">
-    @if (isLoading()) {
-      <p class="message" role="status">Cargando torneos...</p>
-    } @else if (errorMessage()) {
-      <div class="message error">
-        <p role="alert">{{ errorMessage() }}</p>
-        <button type="button" (click)="loadTournaments()">Reintentar</button>
+<main class="tournaments-page">
+  <div class="page-content">
+    <a class="back-link" routerLink="/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M20 12H4m7-7-7 7 7 7"/></svg>Volver al inicio</a>
+    <header class="page-heading">
+      <div>
+        <h1>Torneos creados</h1>
+        @if (!isLoading() && !errorMessage()) {
+          <p class="total">{{ tournaments().length }} en total</p>
+        }
       </div>
-    } @else if (tournaments().length === 0) {
-      <p class="message" role="status">No hay torneos registrados.</p>
-    } @else {
-      <div class="table-scroll" role="region" aria-label="Tabla de torneos" tabindex="0">
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">Nombre</th>
-              <th scope="col">Localidad</th>
-              <th scope="col">Estado</th>
-              <th scope="col">Modalidad</th>
-              <th scope="col">Capacidad m&aacute;xima</th>
-              <th scope="col">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (tournament of tournaments(); track tournament.id) {
-              <tr>
-                <th scope="row">{{ tournament.name }}</th>
-                <td>{{ tournament.location }}</td>
-                <td><span class="status" [attr.data-status]="tournament.status">{{ statusLabels[tournament.status] }}</span></td>
-                <td>{{ modalityLabels[tournament.modality] }}</td>
-                <td>{{ tournament.max_teams }} equipos</td>
-                <td>
-                  <a class="detail-link" [routerLink]="['/tournaments', tournament.id]" [attr.aria-label]="'Ver detalle de ' + tournament.name">Ver detalle</a>
-                  @if (canManage(tournament)) {
-                    <a [routerLink]="['/tournaments', tournament.id, 'edit']" [attr.aria-label]="'Editar ' + tournament.name">Editar</a>
-                    <button type="button" (click)="deleteTournament(tournament)"
-                      [disabled]="deletingIds().has(tournament.id) || tournament.status !== 'open'"
-                      [attr.aria-label]="'Eliminar ' + tournament.name">
-                      {{ deletingIds().has(tournament.id) ? 'Eliminando…' : 'Eliminar' }}
-                    </button>
-                    @if (tournament.status !== 'open') { <small>Sólo se pueden eliminar torneos abiertos sin partidos finalizados.</small> }
-                    @if (deleteErrors().get(tournament.id); as deleteError) { <p role="alert">{{ deleteError }}</p> }
-                  }
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </div>
-    }
-  </section>
+      <a class="primary create-link" data-ball-feedback
+        [routerLink]="auth.user() ? '/tournaments/new' : '/login'"
+        [queryParams]="auth.user() ? null : { returnUrl: '/tournaments/new' }">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M12 4v16M4 12h16"/></svg>Crear torneo
+      </a>
+    </header>
+    <section aria-label="Listado de torneos" [attr.aria-busy]="isLoading()">
+      @if (isLoading()) {
+        <div class="message"><app-loading label="Cargando torneos..." /></div>
+      } @else if (errorMessage()) {
+        <div class="message error">
+          <p role="alert">{{ errorMessage() }}</p>
+          <button class="primary" type="button" (click)="loadTournaments()">Reintentar</button>
+        </div>
+      } @else if (tournaments().length === 0) {
+        <div class="message empty">
+          <app-football-icon aria-hidden="true" />
+          <p role="status">No hay torneos registrados.</p>
+          <p>Cuando se cree el primero, aparecerá acá.</p>
+        </div>
+      } @else {
+        <div class="tournament-grid">
+          @for (tournament of tournaments(); track tournament.id) {
+            <article class="tournament-card" [attr.aria-labelledby]="'tournament-' + tournament.id">
+              <div class="card-heading">
+                <h2 [id]="'tournament-' + tournament.id">{{ tournament.name }}</h2>
+                @if (canManage(tournament)) {
+                  <details class="card-menu" #menu (keydown.escape)="closeMenu(menu)">
+                    <summary [attr.aria-label]="'Opciones de ' + tournament.name">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="5" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="19" r="1" fill="currentColor"/></svg>
+                    </summary>
+                    <div class="menu-content">
+                      <a [routerLink]="['/tournaments', tournament.id, 'edit']" [attr.aria-label]="'Editar ' + tournament.name">Editar</a>
+                      <button type="button" (click)="deleteTournament(tournament)"
+                        [disabled]="deletingIds().has(tournament.id) || tournament.status !== 'open'"
+                        [attr.aria-label]="'Eliminar ' + tournament.name">
+                        {{ deletingIds().has(tournament.id) ? 'Eliminando…' : 'Eliminar' }}
+                      </button>
+                      @if (tournament.status !== 'open') { <small>Sólo se pueden eliminar torneos abiertos sin partidos finalizados.</small> }
+                    </div>
+                  </details>
+                }
+              </div>
+              <span class="status" [attr.data-status]="tournament.status">{{ statusLabels[tournament.status] }}</span>
+              <dl class="tournament-info">
+                <div>
+                  <dt><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg><span class="sr-only">Localidad</span></dt>
+                  <dd>{{ tournament.location }}</dd>
+                </div>
+                <div>
+                  <dt><app-football-icon aria-hidden="true" /><span class="sr-only">Modalidad</span></dt>
+                  <dd>{{ modalityLabels[tournament.modality] }}</dd>
+                </div>
+                <div>
+                  <dt><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="9" cy="7" r="3"/><path d="M2 21v-3a7 7 0 0 1 14 0v3ZM16 4a3 3 0 0 1 0 6m2 3a6 6 0 0 1 4 5v3h-3"/></svg><span class="sr-only">Capacidad máxima</span></dt>
+                  <dd>Máx. {{ tournament.max_teams }} equipos</dd>
+                </div>
+              </dl>
+              @if (deleteErrors().get(tournament.id); as deleteError) { <p class="delete-error" role="alert">{{ deleteError }}</p> }
+              @if (deletingIds().has(tournament.id)) { <app-loading label="Eliminando torneo…" /> }
+              <footer>
+                <a class="primary detail-link" data-ball-feedback [routerLink]="['/tournaments', tournament.id]"
+                  [attr.aria-label]="'Ver detalle de ' + tournament.name">Ver detalle<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 12h16m-7-7 7 7-7 7"/></svg></a>
+              </footer>
+            </article>
+          }
+        </div>
+      }
+    </section>
+  </div>
 </main>

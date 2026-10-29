@@ -1,16 +1,16 @@
 <main>
   <nav aria-label="Navegaci&oacute;n de equipos">
     @if (tournament(); as current) {
-      <a [routerLink]="['/tournaments', current.id, 'teams']">Volver a equipos</a>
-      <a [routerLink]="['/tournaments', current.id]">Volver al torneo</a>
-    } @else { <a routerLink="/tournaments">Volver a torneos</a> }
+      <a data-ball-feedback [routerLink]="['/tournaments', current.id, 'teams']">Volver a equipos</a>
+      <a data-ball-feedback [routerLink]="['/tournaments', current.id]">Volver al torneo</a>
+    } @else { <a data-ball-feedback routerLink="/tournaments">Volver a torneos</a> }
   </nav>
   <h1>{{ isEditing() ? 'Editar equipo' : 'Agregar equipo' }}</h1>
   @if (isLoading()) {
-    <p role="status">Cargando torneo y equipos...</p>
+    <app-loading label="Cargando torneo y equipos..." />
   } @else if (loadError()) {
     <p role="alert" class="error">{{ loadError() }}</p>
-    @if (canRetry()) { <button type="button" (click)="retry()">Reintentar</button> }
+    @if (canRetry()) { <button data-ball-feedback type="button" (click)="retry()">Reintentar</button> }
   } @else if (tournament(); as current) {
     <h2>{{ current.name }}</h2>
     @if (restriction()) {
@@ -49,10 +49,10 @@
                 (change)="selectLogo($event)" aria-describedby="logo-help logo-error" />
               <small id="logo-help">PNG, JPG o WebP. Tama&ntilde;o m&aacute;ximo: 1 MB.</small>
               <div class="logo-actions">
-                <button type="button" class="secondary" (click)="removeLogo(logoInput)"
+                <button data-ball-feedback type="button" class="secondary" (click)="removeLogo(logoInput)"
                   [disabled]="!canRemoveLogo()">Quitar escudo</button>
                 @if (logoRemovalRequested() || logoFile()) {
-                  <button type="button" class="secondary" (click)="keepCurrentLogo(logoInput)">Conservar escudo actual</button>
+                  <button data-ball-feedback type="button" class="secondary" (click)="keepCurrentLogo(logoInput)">Conservar escudo actual</button>
                 }
               </div>
               @if (logoError()) { <p id="logo-error" role="alert" class="error">{{ logoError() }}</p> }
@@ -61,10 +61,10 @@
               }
             </section>
           }
-          <button type="submit" [disabled]="isSaving()">{{ isSaving() ? 'Guardando...' : 'Guardar equipo' }}</button>
+          <button data-ball-feedback type="submit" [disabled]="isSaving()">{{ isSaving() ? 'Guardando...' : 'Guardar equipo' }}</button>
         </fieldset>
-        <a [routerLink]="['/tournaments', current.id, 'teams']">Cancelar</a>
-        @if (isSaving()) { <p role="status">Guardando equipo...</p> }
+        <a data-ball-feedback [routerLink]="['/tournaments', current.id, 'teams']">Cancelar</a>
+        @if (isSaving()) { <app-loading label="Guardando equipo..." /> }
         @if (saveError()) { <p role="alert" class="error">{{ saveError() }}</p> }
       </form>
     }

@@ -130,6 +130,7 @@ describe('TournamentForm editing', () => {
     expect(component.form.controls.location.disabled).toBe(true);
     expect(component.form.controls.modality.disabled).toBe(true);
     expect(component.form.controls.max_teams.disabled).toBe(true);
+    expect(Array.from(element().querySelectorAll<HTMLInputElement>('input[type="radio"]')).every(input => input.disabled)).toBe(true);
     expect(element().textContent).toContain('Sólo se puede modificar el nombre');
     component.form.controls.name.setValue('Nuevo nombre');
     component.submit();

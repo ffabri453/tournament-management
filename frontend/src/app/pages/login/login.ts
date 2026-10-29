@@ -5,6 +5,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 import { Auth } from '../../core/services/auth';
+import { Loading } from '../../shared/loading';
 
 const backendEmail: ValidatorFn = (control) => {
   const email = String(control.value).trim().toLowerCase();
@@ -14,9 +15,9 @@ const backendEmail: ValidatorFn = (control) => {
 
 @Component({
   selector: 'app-login',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, Loading],
   templateUrl: './login.html',
-  styleUrl: './login.css',
+  styleUrls: ['../../shared/auth-page.css'],
 })
 export class Login {
   private readonly route = inject(ActivatedRoute);
@@ -24,6 +25,7 @@ export class Login {
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   readonly loading = signal(false);
+  readonly showPassword = signal(false);
   readonly error = signal('');
   readonly form = new FormGroup({
     email: new FormControl('', { nonNullable: true, validators: [backendEmail] }),

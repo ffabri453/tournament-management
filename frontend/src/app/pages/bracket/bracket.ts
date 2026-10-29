@@ -27,7 +27,7 @@ const roundsByCapacity: Record<Tournament['max_teams'], MatchRound[]> = {
 };
 
 const roundLabels: Record<MatchRound, string> = {
-  round_of_32: '32avos de final',
+  round_of_32: 'Dieciseisavos de final',
   round_of_16: 'Octavos de final',
   quarter_final: 'Cuartos de final',
   semi_final: 'Semifinales',

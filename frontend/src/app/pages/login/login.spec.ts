@@ -43,7 +43,7 @@ describe('Login', () => {
     component.submit();
     fixture.detectChanges();
     expect(login).toHaveBeenCalledExactlyOnceWith({ email: 'user@example.com', password: ' secret ' });
-    expect(fixture.nativeElement.querySelector('button').disabled).toBe(true);
+    expect(fixture.nativeElement.querySelector('button[type="submit"]').disabled).toBe(true);
     expect(fixture.nativeElement.textContent).toContain('Iniciando sesión');
     expect(fixture.nativeElement.querySelector('#password').type).toBe('password');
   });

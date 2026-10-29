@@ -1,3 +1,4 @@
+import { Loading } from '../../../shared/loading';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -32,7 +33,7 @@ const logoMaxBytes = 1024 * 1024;
 
 @Component({
   selector: 'app-team-form',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, Loading],
   templateUrl: './team-form.html',
   styleUrl: './team-form.css',
 })

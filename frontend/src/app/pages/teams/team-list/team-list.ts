@@ -1,3 +1,4 @@
+import { Loading } from '../../../shared/loading';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -12,7 +13,7 @@ import { Auth } from '../../../core/services/auth';
 
 @Component({
   selector: 'app-team-list',
-  imports: [RouterLink],
+  imports: [RouterLink, Loading],
   templateUrl: './team-list.html',
   styleUrl: './team-list.css',
 })

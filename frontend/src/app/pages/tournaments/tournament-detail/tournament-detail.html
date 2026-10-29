@@ -1,66 +1,115 @@
 <main>
-  <nav aria-label="Navegaci&oacute;n del torneo">
-    <a routerLink="/tournaments">Volver a torneos</a>
-    @if (tournament(); as current) {
-      @if (canManage()) { <a [routerLink]="['/tournaments', current.id, 'edit']">Editar torneo</a> }
-      <a [routerLink]="['/tournaments', current.id, 'teams']">Ver equipos</a>
-      <a [routerLink]="['/tournaments', current.id, 'matches']">Partidos y cuadro</a>
-    }
-  </nav>
-
-  <section aria-label="Detalle del torneo" [attr.aria-busy]="isLoading()">
-    @if (isLoading()) {
-      <h1>Detalle del torneo</h1>
-      <p class="message" role="status">Cargando torneo...</p>
-    } @else if (errorMessage()) {
-      <h1>Detalle del torneo</h1>
-      <p class="message error" role="alert">{{ errorMessage() }}</p>
-      @if (canRetry()) {
-        <button type="button" (click)="retry()">Reintentar</button>
+  <div class="detail-content">
+    <nav class="top-actions" aria-label="Navegación del torneo">
+      <a class="back-link" routerLink="/tournaments">Volver a torneos</a>
+      @if (tournament(); as current) {
+        @if (canManage()) { <a class="edit-link" [routerLink]="['/tournaments', current.id, 'edit']" data-ball-feedback>Editar torneo</a> }
       }
-    } @else if (tournament(); as current) {
-      <h1>{{ current.name }}</h1>
-      <dl>
-        <div><dt>Localidad</dt><dd>{{ current.location }}</dd></div>
-        <div><dt>Modalidad</dt><dd>{{ modalityLabels[current.modality] }}</dd></div>
-        <div><dt>Estado</dt><dd>{{ statusLabels[current.status] }}</dd></div>
-        <div><dt>Capacidad m&aacute;xima</dt><dd>{{ current.max_teams }} equipos</dd></div>
-        <div><dt>Formato</dt><dd>Eliminaci&oacute;n directa</dd></div>
-        <div><dt>Reglamento</dt><dd>{{ ruleLabels[current.rules] ?? current.rules }}</dd></div>
-        <div><dt>Fecha de creaci&oacute;n</dt><dd>{{ current.created_at | date:'dd/MM/yyyy HH:mm' }}</dd></div>
-        @if (current.status === 'finished' && current.champion_team_id !== null) {
-          <div>
-            <dt>Campe&oacute;n</dt>
-            <dd>
-              @if (isChampionLoading()) {
-                <span role="status">Consultando nombre...</span>
-              } @else if (championName()) {
-                {{ championName() }}
-              } @else {
-                <span class="error" role="alert">{{ championError() }}</span>
-              }
-            </dd>
-          </div>
-        }
-      </dl>
-      @if (canManage() && current.status === 'open') {
-        <form class="start-form" [formGroup]="startForm" (ngSubmit)="startTournament()" [attr.aria-busy]="isStarting()">
-          <h2>Iniciar torneo</h2>
-          <p>Se requieren exactamente {{ current.max_teams }} equipos v&aacute;lidos y ning&uacute;n partido previo.</p>
-          <fieldset [disabled]="isStarting() || needsRefresh()">
-            <label for="match-date">Fecha y hora de la primera ronda (Argentina)</label>
-            <input id="match-date" type="datetime-local" step="60" formControlName="match_date" aria-describedby="match-date-error" [attr.aria-invalid]="matchDate.touched && matchDate.invalid" />
-            @if (matchDate.touched && matchDate.invalid) {
-              <p id="match-date-error" class="error">Seleccion&aacute; una fecha y hora futuras v&aacute;lidas.</p>
+    </nav>
+    <section aria-label="Detalle del torneo" [attr.aria-busy]="isLoading()">
+      @if (isLoading()) {
+        <h1>Detalle del torneo</h1>
+        <app-loading label="Cargando torneo..." />
+      } @else if (errorMessage()) {
+        <h1>Detalle del torneo</h1>
+        <p class="message error" role="alert">{{ errorMessage() }}</p>
+        @if (canRetry()) { <button type="button" (click)="retry()">Reintentar</button> }
+      } @else if (tournament(); as current) {
+        <header class="tournament-heading">
+          <span class="eyebrow">ELIMINACIÓN DIRECTA</span>
+          <h1>{{ current.name }}</h1>
+          <span class="status" [attr.data-status]="current.status">{{ statusLabels[current.status] }}</span>
+          <p class="intro">
+            @switch (current.status) {
+              @case ('open') { El torneo todavía no se inició. Conocé sus equipos y toda la información. }
+              @case ('in_progress') { El torneo está en marcha. Seguí los resultados y el camino hacia la final. }
+              @case ('finished') { La competencia terminó. Reviví los resultados y el recorrido del campeón. }
             }
-            <button type="submit" [disabled]="isStarting() || needsRefresh()">{{ isStarting() ? 'Iniciando...' : 'Iniciar torneo' }}</button>
-          </fieldset>
-          @if (isStarting()) { <p role="status">Iniciando torneo...</p> }
-        </form>
+          </p>
+        </header>
+        <div class="detail-layout">
+          <div class="information">
+            <h2>Información del torneo</h2>
+            <dl class="facts">
+              <div><dt>Localidad</dt><dd>{{ current.location }}</dd></div>
+              <div><dt>Modalidad</dt><dd>{{ modalityLabels[current.modality] }}</dd></div>
+              <div><dt>Capacidad máxima</dt><dd>{{ current.max_teams }} equipos</dd></div>
+              <div><dt>Formato</dt><dd>Eliminación directa</dd></div>
+              <div><dt>Reglamento</dt><dd>{{ ruleLabels[current.rules] ?? current.rules }}</dd></div>
+              <div><dt>Fecha de creación</dt><dd>{{ current.created_at | date:'dd/MM/yyyy HH:mm' }}</dd></div>
+            </dl>
+            <nav class="tournament-links" aria-label="Explorar torneo">
+              <a [routerLink]="['/tournaments', current.id, 'teams']" aria-label="Ver equipos" data-ball-feedback>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="7" r="3"/><path d="M2 21v-3a7 7 0 0 1 14 0v3M16 4a3 3 0 0 1 0 6m2 4a5 5 0 0 1 4 5v2"/></svg>
+                <strong>Ver equipos</strong><span>Los participantes del torneo</span><span class="arrow" aria-hidden="true">↗</span>
+              </a>
+              <a [routerLink]="['/tournaments', current.id, 'matches']" aria-label="Partidos y cuadro" data-ball-feedback>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M12 4v16M2 9h4v6H2m20-6h-4v6h4"/><circle cx="12" cy="12" r="3"/></svg>
+                <strong>Partidos y cuadro</strong><span>Fechas, marcadores y resultados</span><span class="arrow" aria-hidden="true">↗</span>
+              </a>
+              <a [routerLink]="['/tournaments', current.id, 'bracket']" aria-label="Ver cuadro" data-ball-feedback>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v5h6v8H3v5M21 3v5h-6v8h6v5M9 12h6"/></svg>
+                <strong>Ver cuadro</strong><span>Los cruces de cada ronda</span><span class="arrow" aria-hidden="true">↗</span>
+              </a>
+            </nav>
+          </div>
+          <aside class="tournament-moment" aria-label="Estado del torneo">
+            @if (current.status === 'finished' && current.champion_team_id !== null) {
+              <div class="champion-panel">
+                <svg class="cup" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10v6a5 5 0 0 1-10 0V3Zm0 2H3v3a4 4 0 0 0 5 4m9-7h4v3a4 4 0 0 1-5 4m-4 2v6m-5 1h10"/></svg>
+                <h2>¡CAMPEONES!</h2>
+                <dl><div><dt>Campeón</dt><dd>
+                  @if (isChampionLoading()) {
+                    <app-loading label="Consultando nombre..." />
+                  } @else if (championName()) {
+                    {{ championName() }}
+                  } @else {
+                    <span class="error" role="alert">{{ championError() }}</span>
+                  }
+                </dd></div></dl>
+                @if (championName()) { <p>«Salir campeón es la gloria».<br><span>— Alejandro Sabella</span></p> }
+              </div>
+            } @else if (current.status === 'in_progress') {
+              <div class="stage-panel">
+
+                <h2>Torneo iniciado</h2>
+                <p>Los equipos ya están en competencia. Consultá los encuentros y sus resultados.</p>
+                <a [routerLink]="['/tournaments', current.id, 'matches']" data-ball-feedback>Ver partidos <span aria-hidden="true">→</span></a>
+              </div>
+            } @else if (current.status === 'open') {
+              <div class="stage-panel">
+                <h2>Antes del primer partido</h2>
+                <p>El torneo comienza con {{ current.max_teams }} equipos. Cada cruce define quién sigue en competencia.</p>
+                <a [routerLink]="['/tournaments', current.id, 'teams']" data-ball-feedback>Consultar equipos <span aria-hidden="true">→</span></a>
+              </div>
+            }
+          </aside>
+        </div>
+        @if (canManage() && current.status === 'open') {
+          <form class="start-form" [formGroup]="startForm" (ngSubmit)="startTournament()" [attr.aria-busy]="isStarting()">
+            <div>
+              <h2>Iniciar torneo</h2>
+              <p>Se requieren exactamente {{ current.max_teams }} equipos válidos y ningún partido previo.</p>
+              <p class="quote">«La Copa es para disfrutarla. No todos pueden jugarla».<br>— Joffre Guerrón</p>
+            </div>
+            <div>
+              <fieldset [disabled]="isStarting() || needsRefresh()">
+                <label for="match-date">Fecha y hora de la primera ronda (Argentina)</label>
+                <input id="match-date" type="datetime-local" step="60" formControlName="match_date" aria-describedby="start-warning match-date-error" [attr.aria-invalid]="matchDate.touched && matchDate.invalid" />
+                @if (matchDate.touched && matchDate.invalid) {
+                  <p id="match-date-error" class="error">Seleccioná una fecha y hora futuras válidas.</p>
+                }
+                <p id="start-warning" class="warning">Al iniciar se generan los partidos y ya no se pueden agregar equipos.</p>
+                <button type="submit" data-ball-feedback [disabled]="isStarting() || needsRefresh()">{{ isStarting() ? 'Iniciando...' : 'Iniciar torneo' }}</button>
+              </fieldset>
+              @if (isStarting()) { <app-loading label="Iniciando torneo..." /> }
+            </div>
+          </form>
+        }
+        @if (startError()) { <p role="alert" class="message error">{{ startError() }}</p> }
+        @if (needsRefresh()) { <button type="button" (click)="refreshTournament()">Actualizar torneo</button> }
+        @if (startSuccess()) { <p role="status" class="message success">{{ startSuccess() }}</p> }
       }
-      @if (startError()) { <p role="alert" class="error">{{ startError() }}</p> }
-      @if (needsRefresh()) { <button type="button" (click)="refreshTournament()">Actualizar torneo</button> }
-      @if (startSuccess()) { <p role="status">{{ startSuccess() }}</p> }
-    }
-  </section>
+    </section>
+  </div>
 </main>

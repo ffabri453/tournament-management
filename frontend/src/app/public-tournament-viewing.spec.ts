@@ -145,6 +145,8 @@ describe('Public tournament viewing', () => {
       const component = await harness.navigateByUrl(`/tournaments/7/${route}`, MatchList);
       publicGet('/api/tournaments/7/bracket', bracket);
       harness.detectChanges();
+      expect(harness.routeNativeElement?.querySelector<HTMLElement>('#bracket-panel')?.hidden).toBe(route !== 'bracket');
+      expect(harness.routeNativeElement?.querySelector<HTMLElement>('#matches-panel')?.hidden).toBe(route !== 'matches');
       expect(harness.routeNativeElement?.textContent).toContain('2 - 1');
       expect(harness.routeNativeElement?.textContent).toContain('Equipo Beta');
       expect(harness.routeNativeElement?.textContent).not.toMatch(/Cargar resultado|Editar resultado|Guardar resultado|Generar siguiente ronda/);
@@ -249,7 +251,8 @@ describe('Public tournament viewing', () => {
     expect(element.textContent?.includes('Cerrar sesión')).toBe(accepted);
     expect(Boolean(element.querySelector('a[href="/login"]'))).toBe(!accepted);
     expect(Boolean(element.querySelector('a[href="/register"]'))).toBe(!accepted);
-    expect(element.querySelector('a[href="/tournaments"]')).toBeTruthy();
+    expect(element.querySelector('a.brand[href="/"]')).toBeTruthy();
+    expect(element.querySelector('nav a[href="/tournaments"]')).toBeNull();
     if (!accepted) expect(TestBed.inject(Auth).token()).toBeNull();
   });
 });

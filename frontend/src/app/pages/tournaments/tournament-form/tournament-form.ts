@@ -8,6 +8,7 @@ import { TournamentService } from '../../../core/services/tournament.service';
 import { Tournament } from '../../../models/tournament';
 import { Auth } from '../../../core/services/auth';
 import { canManageTournament } from '../../../core/tournament-access';
+import { Loading } from '../../../shared/loading';
 
 const validName: ValidatorFn = (control) => {
   const value: unknown = control.value;
@@ -29,7 +30,7 @@ const rulesByModality: Record<Tournament['modality'], string> = {
 
 @Component({
   selector: 'app-tournament-form',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, Loading],
   templateUrl: './tournament-form.html',
   styleUrl: './tournament-form.css',
 })

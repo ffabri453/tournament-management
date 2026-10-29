@@ -10,6 +10,7 @@ import { TournamentService } from '../../../core/services/tournament.service';
 import { Tournament } from '../../../models/tournament';
 import { canManageTournament } from '../../../core/tournament-access';
 import { Auth } from '../../../core/services/auth';
+import { Loading } from '../../../shared/loading';
 
 const futureMatchDate: ValidatorFn = control => {
   const value: unknown = control.value;
@@ -25,7 +26,7 @@ const futureMatchDate: ValidatorFn = control => {
 
 @Component({
   selector: 'app-tournament-detail',
-  imports: [DatePipe, RouterLink, ReactiveFormsModule],
+  imports: [DatePipe, RouterLink, ReactiveFormsModule, Loading],
   templateUrl: './tournament-detail.html',
   styleUrl: './tournament-detail.css',
 })

@@ -7,10 +7,12 @@ import { TournamentService } from '../../../core/services/tournament.service';
 import { Tournament } from '../../../models/tournament';
 import { canManageTournament } from '../../../core/tournament-access';
 import { Auth } from '../../../core/services/auth';
+import { Loading } from '../../../shared/loading';
+import { FootballIcon } from '../../../shared/football-icon';
 
 @Component({
   selector: 'app-tournament-list',
-  imports: [RouterLink],
+  imports: [RouterLink, Loading, FootballIcon],
   templateUrl: './tournament-list.html',
   styleUrl: './tournament-list.css',
 })
@@ -38,6 +40,11 @@ export class TournamentList implements OnInit {
 
   ngOnInit(): void {
     this.loadTournaments();
+  }
+
+  protected closeMenu(menu: HTMLDetailsElement): void {
+    menu.open = false;
+    menu.querySelector('summary')?.focus();
   }
 
   protected loadTournaments(): void {

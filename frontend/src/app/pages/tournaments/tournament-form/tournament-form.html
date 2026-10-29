@@ -1,44 +1,69 @@
-<main>
-  <h1>{{ isEditing() ? 'Editar torneo' : 'Crear torneo' }}</h1>
-  @if (isLoading()) {
-    <p role="status">Cargando torneo…</p>
-  }
-  @if (auth.user() && !isLoading() && !loadFailed()) {
-  <form [formGroup]="form" (ngSubmit)="submit()" [attr.aria-busy]="isSaving()">
-    <fieldset [disabled]="isSaving()">
-      <label for="name">Nombre</label>
-      <input id="name" formControlName="name" aria-describedby="name-help" />
-      <small id="name-help">Hasta 100 caracteres. No puede contener solamente un número.</small>
-      @if (form.controls.name.touched && form.controls.name.invalid) {
-        <p class="error">Ingresá un nombre válido, de 1 a 100 caracteres y no exclusivamente numérico.</p>
-      }
-      <label for="location">Localidad</label>
-      <select id="location" formControlName="location">
-        <option value="">Seleccioná una localidad</option>
-        @for (location of locations; track location) { <option [value]="location">{{ location }}</option> }
-      </select>
-      @if (form.controls.location.touched && form.controls.location.invalid) { <p class="error">Seleccioná una localidad válida.</p> }
-      <label for="modality">Modalidad</label>
-      <select id="modality" formControlName="modality">
-        <option value="">Seleccioná una modalidad</option>
-        @for (modality of modalities; track modality) { <option [value]="modality">Fútbol {{ modality.replace('futbol_', '') }}</option> }
-      </select>
-      @if (form.controls.modality.touched && form.controls.modality.invalid) { <p class="error">Seleccioná una modalidad válida.</p> }
-      <label for="capacity">Cantidad máxima de equipos</label>
-      <select id="capacity" formControlName="max_teams">
-        <option [ngValue]="null">Seleccioná una capacidad</option>
-        @for (capacity of capacities; track capacity) { <option [ngValue]="capacity">{{ capacity }}</option> }
-      </select>
-      @if (form.controls.max_teams.touched && form.controls.max_teams.invalid) { <p class="error">Seleccioná una capacidad válida.</p> }
-      <p>Formato: eliminación directa. El reglamento se asigna según la modalidad.</p>
-      @if (structureLocked()) { <p>El torneo ya fue iniciado. Sólo se puede modificar el nombre.</p> }
-      <button type="submit" [disabled]="isSaving()">{{ isSaving() ? (isEditing() ? 'Guardando…' : 'Creando…') : (isEditing() ? 'Guardar cambios' : 'Crear') }}</button>
-    </fieldset>
-    <a routerLink="/tournaments">Cancelar</a>
-    @if (isSaving()) { <p role="status">Guardando torneo…</p> }
-  </form>
-  } @else {
-    <a routerLink="/tournaments">Volver a torneos</a>
-  }
-  @if (errorMessage()) { <p role="alert" class="error">{{ errorMessage() }}</p> }
+<main class="form-page">
+  <div class="form-content">
+    <a class="back-link" [routerLink]="isEditing() ? '/tournaments' : '/'">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20 12H4m7-7-7 7 7 7"/></svg>
+      {{ isEditing() ? 'Volver a torneos' : 'Volver al inicio' }}
+    </a>
+    <h1>{{ isEditing() ? 'Editar torneo' : 'Crear torneo' }}</h1>
+    @if (isLoading()) { <app-loading label="Cargando torneo…" /> }
+    @if (auth.user() && !isLoading() && !loadFailed()) {
+      <form [formGroup]="form" (ngSubmit)="submit()" [attr.aria-busy]="isSaving()">
+        <fieldset class="form-fields" [disabled]="isSaving()">
+          <legend class="sr-only">Datos del torneo</legend>
+          <div class="field">
+            <label for="name">Nombre del torneo</label>
+            <input id="name" formControlName="name" placeholder="Ej. Copa de primavera" aria-describedby="name-help name-error"
+              [attr.aria-invalid]="form.controls.name.touched && form.controls.name.invalid" />
+            <small id="name-help">Hasta 100 caracteres. No puede contener solamente un número.</small>
+            @if (form.controls.name.touched && form.controls.name.invalid) {
+              <p class="error" id="name-error">Ingresá un nombre válido, de 1 a 100 caracteres y no exclusivamente numérico.</p>
+            }
+          </div>
+          <div class="field">
+            <label for="location">Localidad</label>
+            <select id="location" formControlName="location" aria-describedby="location-error"
+              [attr.aria-invalid]="form.controls.location.touched && form.controls.location.invalid">
+              <option value="">Seleccionar localidad</option>
+              @for (location of locations; track location) { <option [value]="location">{{ location }}</option> }
+            </select>
+            @if (form.controls.location.touched && form.controls.location.invalid) { <p class="error" id="location-error">Seleccioná una localidad válida.</p> }
+          </div>
+          <fieldset class="option-group modality" aria-describedby="modality-error">
+            <legend>Modalidad</legend>
+            <div class="options modality-options">
+              @for (modality of modalities; track modality) {
+                <label class="modality-option">
+                  <input type="radio" formControlName="modality" [value]="modality" />
+                  <span>Fútbol {{ modality.replace('futbol_', '') }}<span class="check" aria-hidden="true">✓</span></span>
+                </label>
+              }
+            </div>
+            @if (form.controls.modality.touched && form.controls.modality.invalid) { <p class="error" id="modality-error">Seleccioná una modalidad válida.</p> }
+          </fieldset>
+          <fieldset class="option-group capacity" aria-describedby="capacity-error">
+            <legend>Máximo de equipos</legend>
+            <div class="options capacity-options">
+              @for (capacity of capacities; track capacity) {
+                <label><input type="radio" formControlName="max_teams" [value]="capacity" /><span>{{ capacity }}</span></label>
+              }
+            </div>
+            @if (form.controls.max_teams.touched && form.controls.max_teams.invalid) { <p class="error" id="capacity-error">Seleccioná una capacidad válida.</p> }
+          </fieldset>
+          <p class="format-note">Formato: eliminación directa. El reglamento se asigna según la modalidad.</p>
+          @if (structureLocked()) { <p class="locked-note" role="status">El torneo ya fue iniciado. Sólo se puede modificar el nombre.</p> }
+          <div class="form-actions">
+            <a class="cancel-link" routerLink="/tournaments">Cancelar</a>
+            <button class="submit" type="submit" [disabled]="isSaving()" data-ball-feedback>
+              {{ isSaving() ? (isEditing() ? 'Guardando…' : 'Creando…') : (isEditing() ? 'Guardar cambios' : 'Crear torneo') }}
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 12h16m-7-7 7 7-7 7"/></svg>
+            </button>
+          </div>
+        </fieldset>
+        @if (isSaving()) { <app-loading label="Guardando torneo…" /> }
+      </form>
+    } @else if (!isLoading() && !isEditing()) {
+      <a class="cancel-link" routerLink="/tournaments">Volver a torneos</a>
+    }
+    @if (errorMessage()) { <p role="alert" class="error server-error">{{ errorMessage() }}</p> }
+  </div>
 </main>

@@ -120,27 +120,67 @@ describe('MatchList unified screen', () => {
     expect(element.querySelector('.screen-state')?.getAttribute('aria-busy')).toBe('true');
     http.expectOne('/api/tournaments/7/bracket').flush(bracket());
     fixture.detectChanges();
-    expect(element.querySelector('h1')?.textContent).toBe('Partidos y cuadro de Copa Regional');
+    expect(element.querySelector('h1')?.textContent).toBe('Partidos y resultados');
     expect(element.querySelector('.screen-state')?.getAttribute('aria-busy')).toBe('false');
     http.expectNone('/api/tournaments/7');
     http.expectNone('/api/matches');
     http.expectNone('/api/teams');
   });
 
-  it('shows the connected bracket above the detailed list with complete names', () => {
+  it('keeps complete names in the match cards and the connected bracket', () => {
     load();
     expect(element.querySelector('.bracket-section app-bracket')).not.toBeNull();
     const bracketSection = element.querySelector('.bracket-section')!;
     const matchesSection = element.querySelector('.matches-section')!;
     expect(Boolean(bracketSection.compareDocumentPosition(matchesSection) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
     expect(element.querySelectorAll('app-bracket .match-card')).toHaveLength(3);
-    expect(element.querySelectorAll('tbody tr:not(.form-row)')).toHaveLength(2);
+    expect(element.querySelectorAll('.match-list > .match-item')).toHaveLength(2);
     const text = element.textContent ?? '';
     for (const name of [match.home_team!.name, match.away_team!.name, otherMatch.home_team!.name, otherMatch.away_team!.name]) {
       expect(text).toContain(name);
     }
     expect(text).not.toContain('Club Dep.');
     expect(element.querySelectorAll('app-bracket .crest-slot')).toHaveLength(6);
+  });
+
+  it('switches between matches and bracket without fetching again', () => {
+    load();
+    expect(element.querySelector<HTMLElement>('#matches-panel')?.hidden).toBe(false);
+    expect(element.querySelector<HTMLElement>('#bracket-panel')?.hidden).toBe(true);
+    element.querySelector<HTMLButtonElement>('[aria-controls="bracket-panel"]')?.click();
+    fixture.detectChanges();
+    expect(element.querySelector<HTMLElement>('#matches-panel')?.hidden).toBe(true);
+    expect(element.querySelector<HTMLElement>('#bracket-panel')?.hidden).toBe(false);
+    expect(element.querySelector('main')?.classList.contains('bracket-view')).toBe(true);
+    http.expectNone('/api/tournaments/7/bracket');
+  });
+
+  it('filters actual rounds without changing the bracket or requesting data', () => {
+    const data = bracket();
+    data.rounds.push({ round: 'final', matches: [{ ...match, id: 30, round: 'final' }] });
+    load(data);
+    const finalFilter = Array.from(element.querySelectorAll<HTMLButtonElement>('.round-filter button'))
+      .find(button => button.textContent?.trim() === 'Final')!;
+    finalFilter.click();
+    fixture.detectChanges();
+    expect(finalFilter.getAttribute('aria-pressed')).toBe('true');
+    expect(element.querySelectorAll('.match-list > .match-item')).toHaveLength(1);
+    expect(element.querySelector('.match-list')?.textContent).toContain('Partido #30');
+    expect(element.querySelectorAll('app-bracket button.match-card')).toHaveLength(3);
+    http.expectNone('/api/tournaments/7/bracket');
+  });
+
+  it('keeps the editing form visible by disabling filters and view switches', () => {
+    openResultForm();
+    for (const button of element.querySelectorAll<HTMLButtonElement>('.round-filter button, .view-switch button')) {
+      expect(button.disabled).toBe(true);
+    }
+    const cancel = Array.from(element.querySelectorAll<HTMLButtonElement>('form button')).find(button => button.textContent === 'Cancelar')!;
+    cancel.click();
+    fixture.detectChanges();
+    expect(element.querySelector('.result-editor')).toBeNull();
+    expect(element.querySelector<HTMLButtonElement>('.view-switch button')?.disabled).toBe(false);
+    http.expectNone(request => request.method !== 'GET');
   });
 
   it('selects a bracket match, highlights both views and shows its details', () => {
@@ -156,15 +196,15 @@ describe('MatchList unified screen', () => {
     expect(detail?.textContent).toContain('1 - 0');
     expect(detail?.querySelectorAll('.crest-slot')).toHaveLength(2);
     expect(element.querySelector('app-bracket .match-card.selected')).not.toBeNull();
-    expect(element.querySelectorAll('tr.selected-row')).toHaveLength(1);
+    expect(element.querySelectorAll('.match-item.selected-row')).toHaveLength(1);
   });
 
   it('shows pending future rounds without adding them to the real match list', () => {
     load();
     expect(element.querySelectorAll('app-bracket .pending')).toHaveLength(1);
     expect(element.querySelectorAll('app-bracket .pending .team-name')[0]?.textContent).toBe('Por definir');
-    expect(element.querySelectorAll('tbody tr:not(.form-row)')).toHaveLength(2);
-    expect(element.querySelector('tbody')?.textContent).not.toContain('Por definir');
+    expect(element.querySelectorAll('.match-list > .match-item')).toHaveLength(2);
+    expect(element.querySelector('.match-list')?.textContent).not.toContain('Por definir');
   });
 
   it('offers next-round generation only when every current match has a winner', () => {
@@ -219,7 +259,7 @@ describe('MatchList unified screen', () => {
     http.expectOne('/api/tournaments/7/bracket').flush(refreshed);
     fixture.detectChanges();
 
-    expect(element.querySelectorAll('tbody tr:not(.form-row)')).toHaveLength(3);
+    expect(element.querySelectorAll('.match-list > .match-item')).toHaveLength(3);
     expect(element.querySelector('app-bracket')?.textContent).toContain('Partido #30');
     expect(element.textContent).toContain('Final generada correctamente');
     expect(element.querySelector('.next-round-panel')).toBeNull();
@@ -301,7 +341,7 @@ describe('MatchList unified screen', () => {
     fixture.detectChanges();
 
     expect(element.querySelector('app-bracket .match-card.selected')?.textContent).toContain('3');
-    expect(element.querySelector('tr.selected-row .result')?.textContent).toContain('3 - 1');
+    expect(element.querySelector('.match-item.selected-row .result')?.textContent).toContain('3 - 1');
     expect(element.querySelector('.selected-match')?.textContent).toContain('3 - 1');
     expect(element.textContent).toContain('Marcador actualizado');
     expect(element.querySelector('form')).toBeNull();
@@ -325,7 +365,7 @@ describe('MatchList unified screen', () => {
     http.expectOne('/api/tournaments/7/bracket').flush(bracket([finished, otherMatch]));
     fixture.detectChanges();
     expect(element.querySelector('app-bracket .team.winner .team-name')?.textContent).toBe(match.home_team!.name);
-    expect(element.querySelector('tr.selected-row .actions')?.textContent).toContain('Resultado cerrado');
+    expect(element.querySelector('.match-item.selected-row .actions')?.textContent).toContain('Resultado cerrado');
     expect(element.textContent).toContain('partido quedó finalizado');
   });
 
@@ -386,7 +426,7 @@ describe('MatchList unified screen', () => {
     const future = { ...match, status: 'scheduled' as const, home_goals: null, away_goals: null,
       match_date: '2026-10-31T18:00:00.000Z' };
     load(bracket([future, otherMatch]));
-    const firstMatchActions = element.querySelector('tbody tr:not(.form-row) .actions');
+    const firstMatchActions = element.querySelector('.match-list > .match-item .actions');
     expect(firstMatchActions?.querySelector('button')).toBeNull();
     expect(firstMatchActions?.textContent).toContain('Disponible desde 31/10/2026');
   });
@@ -470,7 +510,7 @@ describe('MatchList unified screen', () => {
     other.tournament = { ...other.tournament, id: 8, name: 'Otra copa' };
     http.expectOne('/api/tournaments/8/bracket').flush(other);
     fixture.detectChanges();
-    expect(element.querySelector('h1')?.textContent).toBe('Partidos y cuadro de Otra copa');
+    expect(element.querySelector('.subtitle')?.textContent).toContain('Otra copa');
   });
 
   it('links back to the tournament detail', () => {

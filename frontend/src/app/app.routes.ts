@@ -8,11 +8,12 @@ import { TournamentDetail } from './pages/tournaments/tournament-detail/tourname
 import { TeamList } from './pages/teams/team-list/team-list';
 import { TeamForm } from './pages/teams/team-form/team-form';
 import { MatchList } from './pages/matches/match-list/match-list';
+import { Home } from './pages/home/home';
 
 export const routes: Routes = [
   { path: 'login', component: Login },
   { path: 'register', component: Register },
-  { path: '', redirectTo: 'tournaments', pathMatch: 'full' },
+  { path: '', component: Home, pathMatch: 'full' },
   { path: 'tournaments/new', component: TournamentForm, canActivate: [authGuard] },
   { path: 'tournaments/:id/edit', component: TournamentForm, canActivate: [authGuard] },
   { path: 'tournaments/:id/teams/new', component: TeamForm, canActivate: [authGuard] },

@@ -12,10 +12,11 @@ import { BracketMatch, TournamentBracket } from '../../../models/tournament';
 import { Bracket } from '../../bracket/bracket';
 import { canManageTournament } from '../../../core/tournament-access';
 import { Auth } from '../../../core/services/auth';
+import { Loading } from '../../../shared/loading';
 
 @Component({
   selector: 'app-match-list',
-  imports: [Bracket, DatePipe, ReactiveFormsModule, RouterLink],
+  imports: [Bracket, DatePipe, ReactiveFormsModule, RouterLink, Loading],
   templateUrl: './match-list.html',
   styleUrl: './match-list.css',
 })
@@ -33,6 +34,12 @@ export class MatchList implements OnInit {
   protected readonly tournament = computed(() => this.bracket()?.tournament ?? null);
   protected readonly matches = computed<BracketMatch[]>(() =>
     this.bracket()?.rounds.flatMap(round => round.matches) ?? []);
+  protected readonly activeView = signal<'matches' | 'bracket'>(
+    this.route.snapshot?.routeConfig?.path?.endsWith('/bracket') ? 'bracket' : 'matches');
+  protected readonly selectedRound = signal<Match['round'] | null>(null);
+  protected readonly visibleMatches = computed(() => this.matches().filter(match =>
+    this.selectedRound() === null || match.round === this.selectedRound()));
+  protected readonly tournamentStatusLabels = { open: 'Abierto', in_progress: 'En progreso', finished: 'Finalizado' };
   protected readonly currentRound = computed(() => {
     const rounds = this.bracket()?.rounds ?? [];
     return rounds.length > 0 ? rounds[rounds.length - 1]! : null;
@@ -111,6 +118,7 @@ export class MatchList implements OnInit {
         this.saveSubscription?.unsubscribe();
         this.roundSubscription?.unsubscribe();
         this.bracket.set(null);
+        this.selectedRound.set(null);
         this.selectedMatchId.set(null);
         this.errorMessage.set('');
         this.canRetry.set(false);
@@ -294,6 +302,7 @@ export class MatchList implements OnInit {
 
   private applyBracket(bracket: TournamentBracket, selectedMatchId: number | null = null): void {
     this.bracket.set(bracket);
+    if (!bracket.rounds.some(round => round.round === this.selectedRound())) this.selectedRound.set(null);
     const selectedExists = selectedMatchId !== null &&
       bracket.rounds.some(round => round.matches.some(match => match.id === selectedMatchId));
     this.selectedMatchId.set(selectedExists ? selectedMatchId : null);

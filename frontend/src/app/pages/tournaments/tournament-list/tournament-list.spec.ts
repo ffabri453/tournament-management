@@ -29,7 +29,41 @@ describe('TournamentList', () => {
     fixture.detectChanges();
   });
 
-  afterEach(() => http.verify());
+  afterEach(() => { http.verify(); vi.restoreAllMocks(); });
+
+  it.each([null, { id: 9, name: 'Otro organizador', email: 'other@example.test', role: 'organizer' as const, created_at: '2026-01-01' }])(
+    'keeps the list public without management actions for %j', user => {
+      vi.spyOn(TestBed.inject(Auth), 'user').mockReturnValue(user);
+      http.expectOne('/api/tournaments').flush([tournament]);
+      fixture.detectChanges();
+      expect(element.querySelector('.detail-link')).not.toBeNull();
+      expect(element.querySelector('.card-menu')).toBeNull();
+      expect(element.querySelector('button[aria-label^="Eliminar"]')).toBeNull();
+    },
+  );
+
+  it('shows management actions to an administrator for a tournament owned by someone else', () => {
+    vi.spyOn(TestBed.inject(Auth), 'user').mockReturnValue({
+      id: 9, name: 'Admin', email: 'admin@example.test', role: 'admin', created_at: '2026-01-01',
+    });
+    http.expectOne('/api/tournaments').flush([tournament]);
+    fixture.detectChanges();
+    expect(element.querySelector('.card-menu')).not.toBeNull();
+    expect(element.querySelector('a[aria-label^="Editar"]')).not.toBeNull();
+  });
+
+  it('opens the options disclosure and closes it with Escape, returning focus', () => {
+    http.expectOne('/api/tournaments').flush([tournament]);
+    fixture.detectChanges();
+    const menu = element.querySelector<HTMLDetailsElement>('details')!;
+    const summary = menu.querySelector('summary')!;
+    expect(menu.open).toBe(false);
+    summary.click();
+    expect(menu.open).toBe(true);
+    menu.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(menu.open).toBe(false);
+    expect(document.activeElement).toBe(summary);
+  });
 
   describe('deletion', () => {
     afterEach(() => vi.restoreAllMocks());
@@ -48,7 +82,7 @@ describe('TournamentList', () => {
       expect(confirm).toHaveBeenCalledWith(expect.stringContaining(tournament.name));
       http.expectNone((request) => request.method === 'DELETE');
       fixture.detectChanges();
-      expect(element.querySelectorAll('tbody tr')).toHaveLength(1);
+      expect(element.querySelectorAll('.tournament-card')).toHaveLength(1);
       expect(element.querySelector('[role="alert"]')).toBeNull();
     });
 
@@ -84,7 +118,7 @@ describe('TournamentList', () => {
       firstRefresh.flush([second]);
       http.expectOne('/api/tournaments').flush([]);
       fixture.detectChanges();
-      expect(element.querySelector('table')).toBeNull();
+      expect(element.querySelector('.tournament-grid')).toBeNull();
       expect(element.textContent).toContain('No hay torneos registrados.');
     });
 
@@ -111,7 +145,7 @@ describe('TournamentList', () => {
       fixture.detectChanges();
       expect(element.querySelector('[role="alert"]')?.textContent).toContain(expected);
       expect(element.textContent).not.toContain('raw database error');
-      expect(element.querySelector('tbody')?.textContent).toContain(tournament.name);
+      expect(element.querySelector('.tournament-grid')?.textContent).toContain(tournament.name);
       expect(button()?.disabled).toBe(false);
       http.expectNone('/api/tournaments');
       button()?.click();
@@ -128,7 +162,7 @@ describe('TournamentList', () => {
       http.expectOne('/api/tournaments/7').error(new ProgressEvent('error'));
       fixture.detectChanges();
       expect(element.querySelector('[role="alert"]')?.textContent).toContain('No se pudo conectar');
-      expect(element.querySelector('tbody')?.textContent).toContain(tournament.name);
+      expect(element.querySelector('.tournament-grid')?.textContent).toContain(tournament.name);
       expect(button()?.disabled).toBe(false);
     });
 
@@ -147,7 +181,7 @@ describe('TournamentList', () => {
     http.expectOne('/api/tournaments').flush([tournament]);
     fixture.detectChanges();
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
-    const link = element.querySelector<HTMLAnchorElement>('tbody a[aria-label^="Editar "]');
+    const link = element.querySelector<HTMLAnchorElement>('.tournament-card a[aria-label^="Editar "]');
     expect(link?.textContent).toBe('Editar');
     expect(link?.getAttribute('href')).toBe('/tournaments/7/edit');
     link?.click();
@@ -159,7 +193,7 @@ describe('TournamentList', () => {
     http.expectOne('/api/tournaments').flush([]);
     fixture.detectChanges();
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
-    const link = element.querySelector<HTMLAnchorElement>('a');
+    const link = element.querySelector<HTMLAnchorElement>('.create-link');
     expect(link?.textContent).toContain('Crear torneo');
     expect(link?.getAttribute('href')).toBe('/tournaments/new');
     link?.click();
@@ -171,7 +205,7 @@ describe('TournamentList', () => {
     http.expectOne('/api/tournaments').flush([tournament]);
     fixture.detectChanges();
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
-    const link = element.querySelector<HTMLAnchorElement>('tbody a[aria-label^="Ver detalle de "]');
+    const link = element.querySelector<HTMLAnchorElement>('.tournament-card a[aria-label^="Ver detalle de "]');
     expect(link?.textContent).toBe('Ver detalle');
     expect(link?.getAttribute('href')).toBe('/tournaments/7');
     link?.click();
@@ -190,7 +224,7 @@ describe('TournamentList', () => {
   it('renders the returned records and labels capacity accurately', () => {
     http.expectOne('/api/tournaments').flush([tournament]);
     fixture.detectChanges();
-    expect(element.querySelectorAll('tbody tr')).toHaveLength(1);
+    expect(element.querySelectorAll('.tournament-card')).toHaveLength(1);
     for (const value of ['Copa de prueba', 'Firmat', 'Abierto', 'Futbol 5', '16 equipos', 'Capacidad m\u00e1xima']) {
       expect(element.textContent).toContain(value);
     }
@@ -200,7 +234,7 @@ describe('TournamentList', () => {
     http.expectOne('/api/tournaments').flush([]);
     fixture.detectChanges();
     expect(element.textContent).toContain('No hay torneos registrados.');
-    expect(element.querySelector('table')).toBeNull();
+    expect(element.querySelector('.tournament-grid')).toBeNull();
   });
 
   it('shows a server error and allows retrying successfully', () => {

@@ -196,10 +196,12 @@ describe('TournamentDetail', () => {
     ['Editar torneo', '/tournaments/7/edit'],
     ['Ver equipos', '/tournaments/7/teams'],
     ['Partidos y cuadro', '/tournaments/7/matches'],
+    ['Ver cuadro', '/tournaments/7/bracket'],
   ])('navigates using %s', async (label, target) => {
     load();
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
-    const link = Array.from(element.querySelectorAll('a')).find((link) => link.textContent === label);
+    const link = Array.from(element.querySelectorAll('a')).find((link) =>
+      (link.getAttribute('aria-label') ?? link.textContent?.trim()) === label);
     expect(link?.getAttribute('href')).toBe(target);
     link?.click();
     await fixture.whenStable();

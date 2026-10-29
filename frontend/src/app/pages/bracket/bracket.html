@@ -1,4 +1,8 @@
 @if (bracket(); as current) {
+  <header class="bracket-heading">
+    <h3>{{ current.tournament.name }}</h3>
+    <p>Eliminación directa · {{ current.tournament.max_teams }} equipos</p>
+  </header>
   @if (current.tournament.champion; as champion) {
     <p class="champion"><span aria-hidden="true">★</span> Campe&oacute;n: <strong>{{ champion.name }}</strong></p>
   }
@@ -18,7 +22,7 @@
                   [class.has-next-round]="slot.hasNextRound"
                   [style.grid-row]="slot.gridRow" [style.--round-span]="slot.span">
                   @if (slot.match; as match) {
-                    <button type="button" class="match-card" [class.selected]="selectedMatchId() === match.id"
+                    <button type="button" data-ball-feedback class="match-card" [class.selected]="selectedMatchId() === match.id"
                       [class.finished]="match.status === 'finished'"
                       [attr.aria-pressed]="selectedMatchId() === match.id"
                       [attr.aria-label]="'Ver ' + match.home_team?.name + ' contra ' + match.away_team?.name"
@@ -26,7 +30,7 @@
                       <span class="match-card-header">
                         <strong>Partido #{{ match.id }}</strong>
                         @if (match.match_date) {
-                          <time [attr.datetime]="match.match_date">{{ match.match_date | date:'dd/MM/yyyy · HH:mm' }}</time>
+                          <time [attr.datetime]="match.match_date" [attr.title]="(match.match_date | date:'dd/MM/yyyy · HH:mm')">{{ match.match_date | date:'dd/MM HH:mm' }}</time>
                         }
                       </span>
                       <span class="team" [class.winner]="isWinner(match, match.home_team)"
@@ -34,7 +38,7 @@
                         @if (teamLogoUrl(match.home_team); as logoUrl) {
                           <img class="team-crest" [src]="logoUrl" alt="" />
                         } @else { <span class="crest-slot" aria-hidden="true"></span> }
-                        <span class="team-name">{{ match.home_team?.name ?? 'Equipo pendiente' }}</span>
+                        <span class="team-name" [attr.title]="match.home_team?.name">{{ match.home_team?.name ?? 'Equipo pendiente' }}</span>
                         <span class="score">
                           <span>{{ match.home_goals ?? '–' }}</span>
                           @if (match.home_penalties !== null) {
@@ -47,7 +51,7 @@
                         @if (teamLogoUrl(match.away_team); as logoUrl) {
                           <img class="team-crest" [src]="logoUrl" alt="" />
                         } @else { <span class="crest-slot" aria-hidden="true"></span> }
-                        <span class="team-name">{{ match.away_team?.name ?? 'Equipo pendiente' }}</span>
+                        <span class="team-name" [attr.title]="match.away_team?.name">{{ match.away_team?.name ?? 'Equipo pendiente' }}</span>
                         <span class="score">
                           <span>{{ match.away_goals ?? '–' }}</span>
                           @if (match.away_penalties !== null) {
