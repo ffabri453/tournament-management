@@ -3,17 +3,17 @@
     <a class="brand" routerLink="/">Torneos de fútbol</a>
     <div class="nav-actions">
       @if (isAuthPage()) {
-        <a class="session-link" routerLink="/">Inicio</a>
+        <a class="nav-link" routerLink="/">Inicio</a>
       } @else {
-      @if (!isHome() && currentPath() !== '/tournaments') { <a class="browse-link" routerLink="/tournaments">Consultar torneos</a> }
+      @if (!isHome() && currentPath() !== '/tournaments') { <a class="nav-link browse-link" routerLink="/tournaments">Consultar torneos</a> }
       @if (auth.user()) {
-        <button class="session-link" type="button" (click)="auth.logout()">Cerrar sesión</button>
+        <button class="nav-link session-link" type="button" (click)="auth.logout()">Cerrar sesión</button>
       } @else {
-        <a class="session-link" routerLink="/login" data-ball-feedback>
+        <a class="nav-link session-link" routerLink="/login" data-ball-feedback>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="7" r="4" /><path d="M3 22v-2a9 9 0 0 1 18 0v2z" /></svg>
           <span>Iniciar sesión</span>
         </a>
-        @if (!isHome()) { <a routerLink="/register">Registrarse</a> }
+        @if (!isHome()) { <a class="nav-link" routerLink="/register">Registrarse</a> }
       }
       }
     </div>

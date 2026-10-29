@@ -57,6 +57,34 @@ describe('App routing', () => {
     TestBed.inject(HttpTestingController).expectNone(() => true);
   });
 
+  it('shows the ball feedback for navigation links without requiring per-element attributes', async () => {
+    const { fixture, element } = await openHome();
+    const brand = element.querySelector<HTMLAnchorElement>('.brand')!;
+    expect(brand.hasAttribute('data-ball-feedback')).toBe(false);
+
+    brand.click();
+    fixture.detectChanges();
+    const firstKick = element.querySelector('.kick');
+    expect(firstKick).not.toBeNull();
+    expect(element.querySelectorAll('.kick')).toHaveLength(1);
+
+    brand.click();
+    fixture.detectChanges();
+    expect(element.querySelector('.kick')).not.toBe(firstKick);
+    expect(element.querySelectorAll('.kick')).toHaveLength(1);
+  });
+
+  it('does not show the ball feedback for disabled buttons', async () => {
+    const { fixture, element } = await openHome();
+    const submit = document.createElement('button');
+    submit.disabled = true;
+    element.appendChild(submit);
+
+    submit.dispatchEvent(new MouseEvent('click', { bubbles: true, button: 0 }));
+    fixture.detectChanges();
+    expect(element.querySelector('.kick')).toBeNull();
+  });
+
   it('takes a visitor from Crear torneo to login with the return destination', async () => {
     const { fixture, element } = await openHome();
     element.querySelector<HTMLAnchorElement>('app-home a.create')!.click();

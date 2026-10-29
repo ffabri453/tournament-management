@@ -49,6 +49,7 @@ export class TeamForm implements OnInit {
   private logoLoadSubscription?: Subscription;
   private storedLogoObjectUrl: string | null = null;
   private logoRequestActive = false;
+  private createdTeamForLogoRequest: Team | null = null;
 
   readonly tournament = signal<Tournament | null>(null);
   readonly isEditing = signal(false);
@@ -65,6 +66,7 @@ export class TeamForm implements OnInit {
   readonly logoRemovalRequested = signal(false);
   readonly logoImageFailed = signal(false);
   readonly invalidLogoSelection = signal(false);
+  readonly createdTeamAfterLogoFailure = signal<Team | null>(null);
   readonly canRetry = signal(false);
   private readonly teamCount = signal(0);
   private readonly serverRestriction = signal('');
@@ -110,6 +112,8 @@ export class TeamForm implements OnInit {
         this.teamCount.set(0);
         this.loadError.set('');
         this.saveError.set('');
+        this.createdTeamAfterLogoFailure.set(null);
+        this.createdTeamForLogoRequest = null;
         this.resetLogoState();
         this.serverRestriction.set('');
         this.canRetry.set(false);
@@ -213,7 +217,7 @@ export class TeamForm implements OnInit {
     input.value = '';
     this.logoFile.set(null);
     this.logoPreview.set(null);
-    this.logoRemovalRequested.set(true);
+    this.logoRemovalRequested.set(this.isEditing());
     this.logoImageFailed.set(false);
     this.invalidLogoSelection.set(false);
     this.logoError.set('');
@@ -242,13 +246,14 @@ export class TeamForm implements OnInit {
     const tournament = this.tournament();
     const team = this.selectedTeam();
     if (!tournament || this.isLoading() || this.isSaving() || this.loadError() || this.restriction() ||
-        this.invalidLogoSelection() || (this.isEditing() && !team)) return;
+        this.invalidLogoSelection() || this.createdTeamAfterLogoFailure() || (this.isEditing() && !team)) return;
     this.form.markAllAsTouched();
     if (this.form.invalid) return;
     const { name, players_count } = this.form.getRawValue();
     if (players_count === null) return;
     this.isSaving.set(true);
     this.logoRequestActive = false;
+    this.createdTeamForLogoRequest = null;
     this.saveError.set('');
     this.logoError.set('');
     const payload = {
@@ -257,7 +262,10 @@ export class TeamForm implements OnInit {
     };
     const request = team ? this.teamService.update(team.id, payload) : this.teamService.create(payload);
     this.saveSubscription = request.pipe(
-      switchMap(updatedTeam => this.saveLogo(updatedTeam).pipe(map(() => updatedTeam))),
+      switchMap(updatedTeam => {
+        if (!team && this.logoFile()) this.createdTeamForLogoRequest = updatedTeam;
+        return this.saveLogo(updatedTeam).pipe(map(() => updatedTeam));
+      }),
       takeUntilDestroyed(this.destroyRef),
     ).subscribe({
       next: () => { void this.router.navigate(['/tournaments', tournament.id, 'teams']); },
@@ -290,6 +298,8 @@ export class TeamForm implements OnInit {
     this.logoRemovalRequested.set(false);
     this.logoImageFailed.set(false);
     this.invalidLogoSelection.set(false);
+    this.createdTeamAfterLogoFailure.set(null);
+    this.createdTeamForLogoRequest = null;
   }
 
   private loadStoredLogo(team: Team | null): void {
@@ -325,6 +335,11 @@ export class TeamForm implements OnInit {
   }
 
   private handleSaveError(error: unknown): void {
+    if (this.logoRequestActive && this.createdTeamForLogoRequest) {
+      this.createdTeamAfterLogoFailure.set(this.createdTeamForLogoRequest);
+      this.logoError.set('El equipo fue creado correctamente, pero no se pudo guardar el escudo. Abrí la edición del equipo para reintentar sin crear un duplicado.');
+      return;
+    }
     if (error instanceof HttpErrorResponse && error.status === 403) {
       this.serverRestriction.set('No tenés permiso para gestionar este torneo.');
       return;

@@ -23,6 +23,8 @@ La pantalla de partidos conserva las pestanas **Partidos** y **Cuadro**. La prim
 
 Las fotografias ubicadas en `frontend/public/images` forman parte del diseno recibido. El repositorio no incluye una atribucion ni una licencia especifica para esos archivos; antes de una publicacion fuera del ambito academico, sus responsables deben confirmar su origen y permiso de uso.
 
+La interfaz usa **Inter** para textos y controles y **Barlow Condensed** para titulos y marcadores, cargadas desde Google Fonts con alternativas del sistema si el recurso externo no esta disponible. Ambas familias se distribuyen bajo SIL Open Font License: [metadatos de Inter](https://github.com/google/fonts/blob/main/ofl/inter/METADATA.pb) y [proyecto Barlow](https://github.com/jpt/barlow/blob/main/README.md).
+
 Para iniciar Angular, abrir otra terminal desde la raiz del repositorio:
 
 ```powershell

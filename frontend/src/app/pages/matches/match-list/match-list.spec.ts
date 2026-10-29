@@ -72,6 +72,13 @@ describe('MatchList unified screen', () => {
   };
 
   beforeEach(async () => {
+    sessionStorage.clear();
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true, writable: true, value: vi.fn(() => 'blob:champion-logo'),
+    });
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true, writable: true, value: vi.fn(),
+    });
     vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-11-01T12:00:00Z'));
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     params = new BehaviorSubject(convertToParamMap({ id: '7' }));
@@ -92,6 +99,7 @@ describe('MatchList unified screen', () => {
 
   afterEach(() => {
     http.verify();
+    fixture.destroy();
     vi.restoreAllMocks();
   });
 
@@ -397,8 +405,31 @@ describe('MatchList unified screen', () => {
       rounds: [{ round: 'final', matches: [completedMatch] }],
     });
     fixture.detectChanges();
-    expect(element.querySelector('.champion')?.textContent).toContain(championName);
+    const celebration = element.querySelector('.champion-banner');
+    expect(celebration?.textContent).toContain(championName);
+    expect(celebration?.textContent).toContain('La gloria se construye en equipo');
+    expect(celebration?.classList.contains('celebrating')).toBe(true);
+    expect(celebration?.querySelector('.champion-symbol svg')).not.toBeNull();
+    expect(celebration?.querySelectorAll('.confetti span')).toHaveLength(12);
+    expect(element.textContent).not.toContain('Alejandro Sabella');
     expect(element.querySelector('.next-round-panel')).toBeNull();
+  });
+
+  it('shows the champion crest when the backend reports one', () => {
+    const completed = { ...match, id: 40, round: 'final' as const, status: 'finished' as const,
+      home_goals: 2, away_goals: 0, winner_team_id: match.home_team_id, winner_team: match.home_team };
+    load({
+      tournament: { ...tournament, status: 'finished', champion_team_id: match.home_team_id,
+        champion: { id: match.home_team_id, name: match.home_team!.name, has_logo: true } },
+      rounds: [{ round: 'final', matches: [completed] }],
+    });
+    const logoRequest = http.expectOne('/api/teams/10/logo');
+    expect(logoRequest.request.method).toBe('GET');
+    logoRequest.flush(new Blob([new Uint8Array([0x89, 0x50])], { type: 'image/png' }));
+    fixture.detectChanges();
+    const crest = element.querySelector<HTMLImageElement>('.champion-crest');
+    expect(crest?.getAttribute('src')).toBe('blob:champion-logo');
+    expect(crest?.getAttribute('alt')).toBe(`Escudo de ${match.home_team!.name}`);
   });
 
   it('requires non-tied penalties before sending a finished tied result', () => {

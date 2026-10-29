@@ -15,6 +15,15 @@
     <h2>{{ current.name }}</h2>
     @if (restriction()) {
       <p role="alert" class="error">{{ restriction() }}</p>
+    } @else if (createdTeamAfterLogoFailure(); as createdTeam) {
+      <section class="creation-recovery" role="status" aria-labelledby="creation-recovery-title">
+        <h2 id="creation-recovery-title">Equipo creado</h2>
+        <p>{{ logoError() }}</p>
+        <div class="recovery-actions">
+          <a class="primary" data-ball-feedback [routerLink]="['/tournaments', current.id, 'teams', createdTeam.id, 'edit']">Editar equipo y reintentar escudo</a>
+          <a data-ball-feedback [routerLink]="['/tournaments', current.id, 'teams']">Volver a equipos</a>
+        </div>
+      </section>
     } @else {
       <form [formGroup]="form" (ngSubmit)="submit()" [attr.aria-busy]="isSaving()">
         <fieldset [disabled]="isSaving()">
@@ -32,15 +41,14 @@
           @if (form.controls.players_count.touched && form.controls.players_count.invalid) {
             <p id="players-error" class="error">Ingres&aacute; un n&uacute;mero entero entre {{ limits()!.min }} y {{ limits()!.max }}.</p>
           }
-          @if (isEditing()) {
-            <section class="logo-editor" aria-labelledby="logo-title">
+          <section class="logo-editor" aria-labelledby="logo-title">
               <h3 id="logo-title">Escudo del equipo</h3>
               <div class="logo-preview">
                 @if (logoSource(); as source) {
                   <img [src]="source" alt="Vista previa del escudo del equipo" (error)="logoLoadFailed()" />
                 } @else {
                   <span class="logo-placeholder" aria-hidden="true"></span>
-                  <span>{{ logoRemovalRequested() ? 'El escudo se quitar&aacute; al guardar.' : 'Sin escudo' }}</span>
+                  <span>{{ logoRemovalRequested() ? 'El escudo se quitar&aacute; al guardar.' : 'Sin escudo (opcional)' }}</span>
                 }
               </div>
               <label for="team-logo">Seleccionar escudo</label>
@@ -50,17 +58,16 @@
               <small id="logo-help">PNG, JPG o WebP. Tama&ntilde;o m&aacute;ximo: 1 MB.</small>
               <div class="logo-actions">
                 <button data-ball-feedback type="button" class="secondary" (click)="removeLogo(logoInput)"
-                  [disabled]="!canRemoveLogo()">Quitar escudo</button>
+                  [disabled]="!canRemoveLogo()">{{ isEditing() ? 'Quitar escudo' : 'Descartar selecci&oacute;n' }}</button>
                 @if (logoRemovalRequested() || logoFile()) {
-                  <button data-ball-feedback type="button" class="secondary" (click)="keepCurrentLogo(logoInput)">Conservar escudo actual</button>
+                  <button data-ball-feedback type="button" class="secondary" (click)="keepCurrentLogo(logoInput)">{{ isEditing() ? 'Conservar escudo actual' : 'Crear sin escudo' }}</button>
                 }
               </div>
               @if (logoError()) { <p id="logo-error" role="alert" class="error">{{ logoError() }}</p> }
               @if (structureLocked()) {
                 <small>El escudo puede modificarse aunque el torneo est&eacute; iniciado o finalizado.</small>
               }
-            </section>
-          }
+          </section>
           <button data-ball-feedback type="submit" [disabled]="isSaving()">{{ isSaving() ? 'Guardando...' : 'Guardar equipo' }}</button>
         </fieldset>
         <a data-ball-feedback [routerLink]="['/tournaments', current.id, 'teams']">Cancelar</a>
