@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, DestroyRef, inject, OnInit, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 import { RouterLink } from '@angular/router';
@@ -22,6 +22,32 @@ export class TournamentList implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
 
   protected readonly tournaments = signal<Tournament[]>([]);
+  protected readonly tournamentGroups = computed(() => {
+    const user = this.auth.user();
+    const tournaments = this.tournaments();
+    if (!user) {
+      return [{
+        id: 'public', title: 'Torneos disponibles',
+        description: 'Consultá los torneos y seguí la competencia.',
+        tournaments,
+        emptyMessage: 'No hay torneos registrados.',
+        emptyHint: 'Cuando se cree el primero, aparecerá acá.',
+      }];
+    }
+    return [{
+      id: 'mine', title: 'Mis torneos',
+      description: 'Los torneos que creaste y organizás.',
+      tournaments: tournaments.filter(tournament => tournament.organizer_id === user.id),
+      emptyMessage: 'Todavía no creaste ningún torneo.',
+      emptyHint: 'Usá Crear torneo para empezar tu próxima competencia.',
+    }, {
+      id: 'others', title: 'Otros torneos',
+      description: 'Explorá las competencias de otros organizadores.',
+      tournaments: tournaments.filter(tournament => tournament.organizer_id !== user.id),
+      emptyMessage: 'Todavía no hay otros torneos.',
+      emptyHint: 'Cuando se creen más competencias, aparecerán acá.',
+    }];
+  });
   protected readonly isLoading = signal(false);
   protected readonly errorMessage = signal('');
   protected readonly deletingIds = signal<ReadonlySet<number>>(new Set());

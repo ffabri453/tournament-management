@@ -24,6 +24,13 @@ describe('TeamList', () => {
   };
 
   beforeEach(async () => {
+    let logoId = 0;
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true, writable: true, value: vi.fn(() => `blob:team-crest-${++logoId}`),
+    });
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true, writable: true, value: vi.fn(),
+    });
     params = new BehaviorSubject(convertToParamMap({ id: '7' }));
     await TestBed.configureTestingModule({ imports: [TeamList], providers: [
       provideHttpClient(), provideHttpClientTesting(), provideRouter([]),
@@ -34,7 +41,90 @@ describe('TeamList', () => {
     fixture = TestBed.createComponent(TeamList);
     element = fixture.nativeElement as HTMLElement;
   });
-  afterEach(() => { http.verify(); vi.restoreAllMocks(); });
+  afterEach(() => { fixture.destroy(); http.verify(); vi.restoreAllMocks(); });
+
+  describe('team crests', () => {
+    it('loads only the current tournament crests and keeps a shirt icon for teams without one', () => {
+      load(tournament, [
+        { ...team, has_logo: true },
+        { ...team, id: 2, name: 'Equipo Beta', has_logo: true },
+        { ...team, id: 3, name: 'Equipo Gamma' },
+        { ...team, id: 4, tournament_id: 8, name: 'Equipo ajeno', has_logo: true },
+      ]);
+      const first = http.expectOne('/api/teams/1/logo');
+      expect(first.request.method).toBe('GET');
+      expect(first.request.responseType).toBe('blob');
+      first.flush(new Blob(['first crest'], { type: 'image/png' }));
+      http.expectOne('/api/teams/2/logo').flush(new Blob(['second crest'], { type: 'image/webp' }));
+      http.expectNone('/api/teams/3/logo');
+      http.expectNone('/api/teams/4/logo');
+      fixture.detectChanges();
+      const cards = element.querySelectorAll('.team-card');
+      expect(cards).toHaveLength(3);
+      expect(cards[0].querySelector<HTMLImageElement>('.team-crest')?.alt).toBe('Escudo de Equipo Alfa');
+      expect(cards[0].querySelector('.team-crest')?.getAttribute('src')).toBe('blob:team-crest-1');
+      expect(cards[1].querySelector('.team-crest')?.getAttribute('src')).toBe('blob:team-crest-2');
+      expect(cards[0].querySelector('.team-icon')).toBeNull();
+      expect(cards[2].querySelector('.team-icon svg')).not.toBeNull();
+      expect(cards[2].querySelector('.team-crest')).toBeNull();
+    });
+
+    it.each([404, 500])('retains the team and shirt icon when its crest request fails with %s', status => {
+      load(tournament, [{ ...team, has_logo: true }]);
+      http.expectOne('/api/teams/1/logo').flush(null, { status, statusText: 'Error' });
+      fixture.detectChanges();
+      expect(element.querySelector('.team-icon svg')).not.toBeNull();
+      expect(element.querySelector('.team-crest')).toBeNull();
+      expect(element.textContent).toContain(team.name);
+      expect(element.querySelector('[role="alert"]')).toBeNull();
+    });
+
+    it('falls back to the shirt and releases an image the browser cannot display', () => {
+      load(tournament, [{ ...team, has_logo: true }]);
+      http.expectOne('/api/teams/1/logo').flush(new Blob(['invalid image'], { type: 'image/png' }));
+      fixture.detectChanges();
+      element.querySelector('.team-crest')?.dispatchEvent(new Event('error'));
+      fixture.detectChanges();
+      expect(URL.revokeObjectURL).toHaveBeenCalledExactlyOnceWith('blob:team-crest-1');
+      expect(element.querySelector('.team-crest')).toBeNull();
+      expect(element.querySelector('.team-icon svg')).not.toBeNull();
+    });
+
+    it.each(['navigation', 'destruction'])('cancels pending crest requests on %s', action => {
+      load(tournament, [{ ...team, has_logo: true }]);
+      const request = http.expectOne('/api/teams/1/logo');
+      if (action === 'navigation') {
+        params.next(convertToParamMap({ id: '8' }));
+        http.expectOne('/api/tournaments/8').flush({ ...tournament, id: 8 });
+        http.expectOne('/api/teams').flush({ data: [] });
+      } else {
+        fixture.destroy();
+      }
+      expect(request.cancelled).toBe(true);
+      expect(URL.createObjectURL).not.toHaveBeenCalled();
+    });
+
+    it('releases loaded crests and updates the card after a logo is removed', () => {
+      load(tournament, [{ ...team, has_logo: true }]);
+      http.expectOne('/api/teams/1/logo').flush(new Blob(['crest'], { type: 'image/png' }));
+      fixture.detectChanges();
+      fixture.componentInstance['refreshTeams']();
+      expect(URL.revokeObjectURL).toHaveBeenCalledExactlyOnceWith('blob:team-crest-1');
+      http.expectOne('/api/tournaments/7').flush(tournament);
+      http.expectOne('/api/teams').flush({ data: [team] });
+      fixture.detectChanges();
+      expect(element.querySelector('.team-crest')).toBeNull();
+      expect(element.querySelector('.team-icon svg')).not.toBeNull();
+      http.expectNone('/api/teams/1/logo');
+    });
+
+    it('releases loaded crests when leaving the list', () => {
+      load(tournament, [{ ...team, has_logo: true }]);
+      http.expectOne('/api/teams/1/logo').flush(new Blob(['crest'], { type: 'image/png' }));
+      fixture.destroy();
+      expect(URL.revokeObjectURL).toHaveBeenCalledExactlyOnceWith('blob:team-crest-1');
+    });
+  });
 
   it('should create and remain loading until the tournament and teams arrive', () => {
     fixture.detectChanges();

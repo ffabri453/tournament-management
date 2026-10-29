@@ -27,6 +27,7 @@ svg { fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; st
 .team-card:hover { transform:translateY(-3px); }
 .team-icon { display:grid; place-items:center; width:52px; height:52px; border-radius:12px; background:#d4e6fc; color:#1b5cb9; }
 .team-icon svg { width:32px; height:32px; }
+.team-crest { display:block; width:52px; height:52px; padding:4px; border-radius:12px; background:#fff; object-fit:contain; }
 .team-card h2 { margin:20px 0 14px; font-size:22px; }
 .players { display:flex; align-items:center; gap:10px; color:#49607e; font-size:15px; }
 .player-count { font-weight:400; }

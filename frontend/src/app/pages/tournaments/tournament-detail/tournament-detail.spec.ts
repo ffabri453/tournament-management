@@ -20,6 +20,7 @@ describe('TournamentDetail', () => {
   };
   const championTeam = {
     id: 42, tournament_id: 7, name: 'Club Atl\u00e9tico Campe\u00f3n Regional', players_count: 14,
+    has_logo: false,
     created_at: '2026-10-02T13:00:00.000Z',
   };
   const load = (value = tournament) => {
@@ -29,6 +30,12 @@ describe('TournamentDetail', () => {
   };
 
   beforeEach(async () => {
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true, writable: true, value: vi.fn(() => 'blob:champion-crest'),
+    });
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true, writable: true, value: vi.fn(),
+    });
     params = new BehaviorSubject(convertToParamMap({ id: '7' }));
     await TestBed.configureTestingModule({
       imports: [TournamentDetail],
@@ -41,7 +48,7 @@ describe('TournamentDetail', () => {
     element = fixture.nativeElement as HTMLElement;
   });
 
-  afterEach(() => { http.verify(); vi.restoreAllMocks(); });
+  afterEach(() => { fixture.destroy(); http.verify(); vi.restoreAllMocks(); });
 
   it('creates the component and loads the route ID through the existing service', () => {
     const getById = vi.spyOn(TestBed.inject(TournamentService), 'getById');
@@ -81,6 +88,66 @@ describe('TournamentDetail', () => {
     fixture.detectChanges();
     expect(element.textContent).toContain(championTeam.name);
     expect(element.textContent).not.toContain('Consultando nombre');
+    expect(element.querySelector('.champion-crest')).toBeNull();
+    http.expectNone('/api/teams/42/logo');
+  });
+
+  it('shows the uploaded champion crest without delaying the name while the logo loads', () => {
+    load({ ...tournament, status: 'finished', champion_team_id: 42 });
+    http.expectOne('/api/teams/42').flush({ data: { ...championTeam, has_logo: true } });
+    fixture.detectChanges();
+    expect(element.querySelector('.champion-panel')?.textContent).toContain(championTeam.name);
+    expect(element.querySelector('.champion-crest')).toBeNull();
+    const request = http.expectOne('/api/teams/42/logo');
+    expect(request.request.method).toBe('GET');
+    expect(request.request.responseType).toBe('blob');
+    request.flush(new Blob(['crest'], { type: 'image/png' }));
+    fixture.detectChanges();
+    const crest = element.querySelector<HTMLImageElement>('.champion-panel .champion-crest');
+    expect(crest?.getAttribute('src')).toBe('blob:champion-crest');
+    expect(crest?.alt).toBe(`Escudo de ${championTeam.name}`);
+  });
+
+  it.each([404, 500])('keeps the champion panel without a broken image when the logo request fails with %s', status => {
+    load({ ...tournament, status: 'finished', champion_team_id: 42 });
+    http.expectOne('/api/teams/42').flush({ data: { ...championTeam, has_logo: true } });
+    http.expectOne('/api/teams/42/logo').flush(null, { status, statusText: 'Error' });
+    fixture.detectChanges();
+    expect(element.querySelector('.champion-panel')?.textContent).toContain(championTeam.name);
+    expect(element.querySelector('.champion-crest')).toBeNull();
+    expect(element.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  it('cancels a pending crest request when navigating to another tournament', () => {
+    load({ ...tournament, status: 'finished', champion_team_id: 42 });
+    http.expectOne('/api/teams/42').flush({ data: { ...championTeam, has_logo: true } });
+    const request = http.expectOne('/api/teams/42/logo');
+    params.next(convertToParamMap({ id: '8' }));
+    expect(request.cancelled).toBe(true);
+    http.expectOne('/api/tournaments/8').flush({ ...tournament, id: 8 });
+    fixture.detectChanges();
+    expect(element.querySelector('.champion-panel')).toBeNull();
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+  });
+
+  it.each(['navigation', 'destruction', 'image error'])('releases the champion image on %s', action => {
+    load({ ...tournament, status: 'finished', champion_team_id: 42 });
+    http.expectOne('/api/teams/42').flush({ data: { ...championTeam, has_logo: true } });
+    http.expectOne('/api/teams/42/logo').flush(new Blob(['crest'], { type: 'image/png' }));
+    fixture.detectChanges();
+    if (action === 'navigation') {
+      params.next(convertToParamMap({ id: '8' }));
+      http.expectOne('/api/tournaments/8').flush({ ...tournament, id: 8 });
+    } else if (action === 'destruction') {
+      fixture.destroy();
+    } else {
+      element.querySelector('.champion-crest')?.dispatchEvent(new Event('error'));
+    }
+    expect(URL.revokeObjectURL).toHaveBeenCalledExactlyOnceWith('blob:champion-crest');
+    if (action !== 'destruction') {
+      fixture.detectChanges();
+      expect(element.querySelector('.champion-crest')).toBeNull();
+    }
   });
 
   it('does not request or show a champion unless the tournament is finished', () => {

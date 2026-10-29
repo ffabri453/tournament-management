@@ -31,6 +31,9 @@ svg { fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; st
 .champion-panel { border-color:#bda361; color:#f2d58b; }
 .champion-panel dt { color:inherit; }
 .champion-panel dd { font-size:25px; font-weight:700; }
+.champion-team { display:flex; align-items:center; gap:18px; }
+.champion-team dl { min-width:0; }
+.champion-crest { width:80px; height:80px; flex-shrink:0; padding:6px; border:1px solid #bda361; border-radius:10px; background:#f7f9fc; object-fit:contain; }
 
 .cup { width:45px; height:45px; }
 .start-form { margin-top:38px; padding:28px; border:1px solid #466585; border-radius:10px; background:#0a2138ed; display:grid; grid-template-columns:1fr 1fr; gap:32px; }

@@ -170,12 +170,15 @@ describe('Bracket', () => {
     expect(selected).toHaveBeenCalledExactlyOnceWith(1);
   });
 
-  it('shows the champion name returned by the backend', () => {
-    const bracket = response(4, [{ round: 'final', matches: [match(3, 'final', true)] }]);
+  it('keeps the final winner highlighted without a repeated champion announcement', () => {
+    const final = match(3, 'final', true);
+    const bracket = response(4, [{ round: 'final', matches: [final] }]);
     bracket.tournament = { ...bracket.tournament, status: 'finished', champion_team_id: 5,
-      champion: { id: 5, name: 'Club Social y Deportivo Campeón Nacional', has_logo: false } };
+      champion: final.winner_team };
     render(bracket);
-    expect(element.querySelector('.champion')?.textContent).toContain('Club Social y Deportivo Campeón Nacional');
+    expect(element.querySelector('.champion')).toBeNull();
+    expect(element.querySelector('.team.winner .team-name')?.textContent).toBe(final.home_team!.name);
+    expect(element.querySelector('.team.winner .score')?.textContent?.trim()).toBe('2');
   });
 
   it('shows an empty state when the backend returns no rounds', () => {

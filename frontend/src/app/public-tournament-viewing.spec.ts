@@ -114,24 +114,37 @@ describe('Public tournament viewing', () => {
     http.expectNone('/api/auth/me');
   });
 
-  it('shows the champion name in public tournament detail', async () => {
+  it.each([false, true])('shows the champion and optional crest in public tournament detail (has_logo=%s)', async has_logo => {
     const harness = await RouterTestingHarness.create();
     await harness.navigateByUrl('/tournaments/7', TournamentDetail);
     publicGet('/api/tournaments/7', { ...tournament, status: 'finished', champion_team_id: 1 });
-    publicGet('/api/teams/1', { data: team });
+    publicGet('/api/teams/1', { data: { ...team, has_logo } });
+    if (has_logo) {
+      const logo = http.expectOne('/api/teams/1/logo');
+      expect(logo.request.headers.has('Authorization')).toBe(false);
+      logo.flush(new Blob(['crest'], { type: 'image/png' }));
+    }
     harness.detectChanges();
     expect(harness.routeNativeElement?.textContent).toContain('Campeón');
     expect(harness.routeNativeElement?.textContent).toContain(team.name);
+    expect(Boolean(harness.routeNativeElement?.querySelector('.champion-crest'))).toBe(has_logo);
     expect(harness.routeNativeElement?.querySelector('form')).toBeNull();
   });
 
-  it('shows only the tournament teams and no create, edit or delete controls', async () => {
+  it.each([false, true])('shows only the tournament teams and their optional crests without management controls (has_logo=%s)', async has_logo => {
     const harness = await RouterTestingHarness.create();
     const component = await harness.navigateByUrl('/tournaments/7/teams', TeamList);
     publicGet('/api/tournaments/7', tournament);
-    publicGet('/api/teams', { data: [team, { ...team, id: 99, tournament_id: 8, name: 'Equipo ajeno' }] });
+    publicGet('/api/teams', { data: [{ ...team, has_logo }, { ...team, id: 99, tournament_id: 8, name: 'Equipo ajeno', has_logo: true }] });
+    if (has_logo) {
+      const logo = http.expectOne('/api/teams/1/logo');
+      expect(logo.request.headers.has('Authorization')).toBe(false);
+      logo.flush(new Blob(['crest'], { type: 'image/png' }));
+    }
+    http.expectNone('/api/teams/99/logo');
     harness.detectChanges();
     expect(harness.routeNativeElement?.textContent).toContain(team.name);
+    expect(Boolean(harness.routeNativeElement?.querySelector('.team-crest'))).toBe(has_logo);
     expect(harness.routeNativeElement?.textContent).not.toContain('Equipo ajeno');
     expect(harness.routeNativeElement?.textContent).not.toMatch(/Agregar equipo|Editar|Eliminar/);
     expect(harness.routeNativeElement?.querySelector('button')).toBeNull();
@@ -192,16 +205,18 @@ describe('Public tournament viewing', () => {
     http.expectNone(request => request.method !== 'GET');
   });
 
-  it('shows the stored champion and final result in the public bracket', async () => {
+  it.each(['matches', 'bracket'])('shows one champion announcement and the final result in the public %s view', async view => {
     const harness = await RouterTestingHarness.create();
-    await harness.navigateByUrl('/tournaments/7/bracket', MatchList);
+    await harness.navigateByUrl(`/tournaments/7/${view}`, MatchList);
     publicGet('/api/tournaments/7/bracket', {
       tournament: { ...tournament, status: 'finished', champion_team_id: 1, champion },
       rounds: [{ round: 'final', matches: [{ ...match, round: 'final', status: 'finished',
         winner_team_id: 1, winner_team: champion }] }],
     });
     harness.detectChanges();
-    expect(harness.routeNativeElement?.querySelector('.champion')?.textContent).toContain(team.name);
+    expect(harness.routeNativeElement?.querySelectorAll('.champion-banner')).toHaveLength(1);
+    expect(harness.routeNativeElement?.querySelector('#champion-title')?.textContent).toBe(team.name);
+    expect(harness.routeNativeElement?.querySelector('app-bracket .champion')).toBeNull();
     expect(harness.routeNativeElement?.textContent).toContain('2 - 1');
     expect(harness.routeNativeElement?.querySelector('form')).toBeNull();
   });

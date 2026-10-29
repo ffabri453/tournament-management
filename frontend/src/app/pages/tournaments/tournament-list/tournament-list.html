@@ -22,59 +22,74 @@
           <p role="alert">{{ errorMessage() }}</p>
           <button class="primary" type="button" (click)="loadTournaments()">Reintentar</button>
         </div>
-      } @else if (tournaments().length === 0) {
-        <div class="message empty">
-          <app-football-icon aria-hidden="true" />
-          <p role="status">No hay torneos registrados.</p>
-          <p>Cuando se cree el primero, aparecerá acá.</p>
-        </div>
       } @else {
-        <div class="tournament-grid">
-          @for (tournament of tournaments(); track tournament.id) {
-            <article class="tournament-card" [attr.aria-labelledby]="'tournament-' + tournament.id">
-              <div class="card-heading">
-                <h2 [id]="'tournament-' + tournament.id">{{ tournament.name }}</h2>
-                @if (canManage(tournament)) {
-                  <details class="card-menu" #menu (keydown.escape)="closeMenu(menu)">
-                    <summary [attr.aria-label]="'Opciones de ' + tournament.name">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="5" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="19" r="1" fill="currentColor"/></svg>
-                    </summary>
-                    <div class="menu-content">
-                      <a [routerLink]="['/tournaments', tournament.id, 'edit']" [attr.aria-label]="'Editar ' + tournament.name">Editar</a>
-                      <button type="button" (click)="deleteTournament(tournament)"
-                        [disabled]="deletingIds().has(tournament.id) || tournament.status !== 'open'"
-                        [attr.aria-label]="'Eliminar ' + tournament.name">
-                        {{ deletingIds().has(tournament.id) ? 'Eliminando…' : 'Eliminar' }}
-                      </button>
-                      @if (tournament.status !== 'open') { <small>Sólo se pueden eliminar torneos abiertos sin partidos finalizados.</small> }
+        @for (group of tournamentGroups(); track group.id) {
+          <section class="tournament-group" [attr.aria-labelledby]="'group-' + group.id">
+            <header class="group-heading">
+              <div class="group-title-row">
+                <h2 [id]="'group-' + group.id">{{ group.title }}</h2>
+                <span class="group-count">{{ group.tournaments.length }}<span class="sr-only"> {{ group.tournaments.length === 1 ? 'torneo' : 'torneos' }}</span></span>
+              </div>
+              <p>{{ group.description }}</p>
+            </header>
+            @if (group.tournaments.length === 0) {
+              <div class="message group-empty" role="status">
+                <app-football-icon aria-hidden="true" />
+                <div>
+                  <p class="empty-title">{{ group.emptyMessage }}</p>
+                  <p class="empty-hint">{{ group.emptyHint }}</p>
+                </div>
+              </div>
+            } @else {
+              <div class="tournament-grid">
+                @for (tournament of group.tournaments; track tournament.id) {
+                  <article class="tournament-card" [attr.aria-labelledby]="'tournament-' + tournament.id">
+                    <div class="card-heading">
+                      <h3 [id]="'tournament-' + tournament.id">{{ tournament.name }}</h3>
+                      @if (canManage(tournament)) {
+                        <details class="card-menu" #menu (keydown.escape)="closeMenu(menu)">
+                          <summary [attr.aria-label]="'Opciones de ' + tournament.name">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="5" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="19" r="1" fill="currentColor"/></svg>
+                          </summary>
+                          <div class="menu-content">
+                            <a [routerLink]="['/tournaments', tournament.id, 'edit']" [attr.aria-label]="'Editar ' + tournament.name">Editar</a>
+                            <button type="button" (click)="deleteTournament(tournament)"
+                              [disabled]="deletingIds().has(tournament.id) || tournament.status !== 'open'"
+                              [attr.aria-label]="'Eliminar ' + tournament.name">
+                              {{ deletingIds().has(tournament.id) ? 'Eliminando…' : 'Eliminar' }}
+                            </button>
+                            @if (tournament.status !== 'open') { <small>Sólo se pueden eliminar torneos abiertos sin partidos finalizados.</small> }
+                          </div>
+                        </details>
+                      }
                     </div>
-                  </details>
+                    <span class="status" [attr.data-status]="tournament.status">{{ statusLabels[tournament.status] }}</span>
+                    <dl class="tournament-info">
+                      <div>
+                        <dt><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg><span class="sr-only">Localidad</span></dt>
+                        <dd>{{ tournament.location }}</dd>
+                      </div>
+                      <div>
+                        <dt><app-football-icon aria-hidden="true" /><span class="sr-only">Modalidad</span></dt>
+                        <dd>{{ modalityLabels[tournament.modality] }}</dd>
+                      </div>
+                      <div>
+                        <dt><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="9" cy="7" r="3"/><path d="M2 21v-3a7 7 0 0 1 14 0v3ZM16 4a3 3 0 0 1 0 6m2 3a6 6 0 0 1 4 5v3h-3"/></svg><span class="sr-only">Capacidad máxima</span></dt>
+                        <dd>Máx. {{ tournament.max_teams }} equipos</dd>
+                      </div>
+                    </dl>
+                    @if (deleteErrors().get(tournament.id); as deleteError) { <p class="delete-error" role="alert">{{ deleteError }}</p> }
+                    @if (deletingIds().has(tournament.id)) { <app-loading label="Eliminando torneo…" /> }
+                    <footer>
+                      <a class="primary detail-link" data-ball-feedback [routerLink]="['/tournaments', tournament.id]"
+                        [attr.aria-label]="'Ver detalle de ' + tournament.name">Ver detalle<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 12h16m-7-7 7 7-7 7"/></svg></a>
+                    </footer>
+                  </article>
                 }
               </div>
-              <span class="status" [attr.data-status]="tournament.status">{{ statusLabels[tournament.status] }}</span>
-              <dl class="tournament-info">
-                <div>
-                  <dt><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg><span class="sr-only">Localidad</span></dt>
-                  <dd>{{ tournament.location }}</dd>
-                </div>
-                <div>
-                  <dt><app-football-icon aria-hidden="true" /><span class="sr-only">Modalidad</span></dt>
-                  <dd>{{ modalityLabels[tournament.modality] }}</dd>
-                </div>
-                <div>
-                  <dt><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="9" cy="7" r="3"/><path d="M2 21v-3a7 7 0 0 1 14 0v3ZM16 4a3 3 0 0 1 0 6m2 3a6 6 0 0 1 4 5v3h-3"/></svg><span class="sr-only">Capacidad máxima</span></dt>
-                  <dd>Máx. {{ tournament.max_teams }} equipos</dd>
-                </div>
-              </dl>
-              @if (deleteErrors().get(tournament.id); as deleteError) { <p class="delete-error" role="alert">{{ deleteError }}</p> }
-              @if (deletingIds().has(tournament.id)) { <app-loading label="Eliminando torneo…" /> }
-              <footer>
-                <a class="primary detail-link" data-ball-feedback [routerLink]="['/tournaments', tournament.id]"
-                  [attr.aria-label]="'Ver detalle de ' + tournament.name">Ver detalle<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 12h16m-7-7 7 7-7 7"/></svg></a>
-              </footer>
-            </article>
-          }
-        </div>
+            }
+          </section>
+        }
       }
     </section>
   </div>

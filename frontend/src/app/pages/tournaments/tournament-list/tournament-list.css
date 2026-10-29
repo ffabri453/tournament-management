@@ -10,11 +10,17 @@ h1 { font-size: clamp(32px, 3.3vw, 46px); line-height: 1.15; margin: 0; }
 .primary:hover { background: #0757ce; transform: translateY(-2px); }
 
 .create-link { font-size: 19px; min-height: 58px; box-sizing: border-box; }
+.tournament-group + .tournament-group { margin-top: 42px; }
+.group-heading { margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #7592b966; color: #fff; }
+.group-title-row { display: flex; align-items: center; gap: 12px; }
+.group-heading h2 { margin: 0; font-size: clamp(28px, 2.5vw, 34px); line-height: 1.15; }
+.group-heading p { margin: 8px 0 0; color: #dae5f5; font-size: 14px; }
+.group-count { display: inline-flex; align-items: center; justify-content: center; min-width: 32px; padding: 3px 10px; border: 1px solid #4e91ef80; border-radius: 20px; background: #0064f533; color: #e1edff; font-size: 14px; font-weight: 600; }
 .tournament-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; }
 .tournament-card { position: relative; display: flex; flex-direction: column; min-height: 306px; padding: 26px; box-sizing: border-box; border-radius: 10px; background: #f0f5ffeb; }
 .tournament-card:has(.card-menu[open]) { z-index: 2; }
 .card-heading { display: flex; align-items: start; justify-content: space-between; gap: 8px; }
-h2 { margin: 0 0 12px; font-size: 22px; line-height: 1.25; overflow-wrap: anywhere; }
+.card-heading h3 { margin: 0 0 12px; font-size: 22px; line-height: 1.25; overflow-wrap: anywhere; }
 .status { align-self: start; border-radius: 20px; padding: 5px 12px; font-size: 14px; font-weight: 600; background: #bac9dd; }
 .status[data-status="open"] { background: #9aebba; color: #063b27; }
 .status[data-status="in_progress"] { background: #ffd373; color: #4e3200; }
@@ -37,6 +43,10 @@ summary:hover { background: #d2e2f7; }
 .menu-content small { display: block; padding: 8px 12px; line-height: 1.4; }
 .delete-error { padding: 12px; color: #8b162c; background: #ffe9ee; border-radius: 4px; line-height: 1.4; }
 .message { padding: 30px; border-radius: 10px; background: #f0f5ffeb; max-width: 580px; margin: 40px auto; text-align: center; line-height: 1.5; }
+.group-empty { display: flex; align-items: center; gap: 16px; max-width: none; margin: 0; padding: 24px; border: 1px dashed #7592b9; background: #08234bcc; color: #dae5f5; text-align: left; }
+.group-empty app-football-icon { flex-shrink: 0; width: 40px; height: 40px; }
+.empty-title { margin: 0; color: #fff; font-weight: 600; }
+.empty-hint { margin: 6px 0 0; font-size: 14px; }
 .error p { color: #8b162c; }
 
 a:focus-visible, button:focus-visible, summary:focus-visible { outline: 3px solid #48a8ff; outline-offset: 4px; }
@@ -50,6 +60,8 @@ a:focus-visible, button:focus-visible, summary:focus-visible { outline: 3px soli
   .page-heading { align-items: flex-start; flex-direction: column; margin: 20px 0 24px; gap: 18px; }
   .create-link { min-height: 50px; font-size: 17px; }
   .tournament-grid { grid-template-columns: minmax(0, 1fr); }
+  .tournament-group + .tournament-group { margin-top: 32px; }
+  .group-empty { align-items: flex-start; padding: 20px; }
 
   .detail-link { width: 100%; box-sizing: border-box; }
 }

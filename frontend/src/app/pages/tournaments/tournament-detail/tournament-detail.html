@@ -54,15 +54,21 @@
               <div class="champion-panel">
                 <svg class="cup" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10v6a5 5 0 0 1-10 0V3Zm0 2H3v3a4 4 0 0 0 5 4m9-7h4v3a4 4 0 0 1-5 4m-4 2v6m-5 1h10"/></svg>
                 <h2>¡CAMPEONES!</h2>
-                <dl><div><dt>Campeón</dt><dd>
-                  @if (isChampionLoading()) {
-                    <app-loading label="Consultando nombre..." />
-                  } @else if (championName()) {
-                    {{ championName() }}
-                  } @else {
-                    <span class="error" role="alert">{{ championError() }}</span>
+                <div class="champion-team">
+                  @if (championLogoUrl(); as logoUrl) {
+                    <img class="champion-crest" [src]="logoUrl" [alt]="'Escudo de ' + championName()"
+                      width="80" height="80" (error)="clearChampionLogo()" />
                   }
-                </dd></div></dl>
+                  <dl><div><dt>Campeón</dt><dd>
+                    @if (isChampionLoading()) {
+                      <app-loading label="Consultando nombre..." />
+                    } @else if (championName()) {
+                      {{ championName() }}
+                    } @else {
+                      <span class="error" role="alert">{{ championError() }}</span>
+                    }
+                  </dd></div></dl>
+                </div>
                 @if (championName()) { <p>La gloria se construye en equipo.</p> }
               </div>
             </aside>

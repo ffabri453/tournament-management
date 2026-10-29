@@ -25,9 +25,11 @@ export class TeamList implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   private readonly reload = new Subject<void>();
   private deleteSubscription?: Subscription;
+  private logoSubscription = new Subscription();
 
   protected readonly tournament = signal<Tournament | null>(null);
   protected readonly teams = signal<Team[]>([]);
+  protected readonly logoUrls = signal<Record<number, string>>({});
   protected readonly isLoading = signal(false);
   protected readonly errorMessage = signal('');
   protected readonly canRetry = signal(false);
@@ -38,10 +40,15 @@ export class TeamList implements OnInit {
     return tournament !== null && tournament.status === 'open' && this.teams().length < tournament.max_teams;
   });
 
+  constructor() {
+    this.destroyRef.onDestroy(() => this.clearTeamLogos());
+  }
+
   ngOnInit(): void {
     combineLatest([this.route.paramMap, this.reload.pipe(startWith(undefined))]).pipe(
       switchMap(([params]) => {
         this.deleteSubscription?.unsubscribe();
+        this.clearTeamLogos();
         this.deleteError.set('');
         this.tournament.set(null);
         this.teams.set([]);
@@ -75,7 +82,39 @@ export class TeamList implements OnInit {
     ).subscribe(({ tournament, teams }) => {
       this.tournament.set(tournament);
       this.teams.set(teams);
+      this.loadTeamLogos(teams);
     });
+  }
+
+  protected hideTeamLogo(teamId: number): void {
+    const url = this.logoUrls()[teamId];
+    if (!url) return;
+    URL.revokeObjectURL(url);
+    this.logoUrls.update(urls => {
+      const updated = { ...urls };
+      delete updated[teamId];
+      return updated;
+    });
+  }
+
+  private loadTeamLogos(teams: Team[]): void {
+    this.logoSubscription = new Subscription();
+    for (const team of teams) {
+      if (!team.has_logo) continue;
+      this.logoSubscription.add(this.teamService.getLogo(team.id).subscribe({
+        next: blob => {
+          const url = URL.createObjectURL(blob);
+          this.logoUrls.update(urls => ({ ...urls, [team.id]: url }));
+        },
+        error: () => undefined,
+      }));
+    }
+  }
+
+  private clearTeamLogos(): void {
+    this.logoSubscription.unsubscribe();
+    for (const url of Object.values(this.logoUrls())) URL.revokeObjectURL(url);
+    this.logoUrls.set({});
   }
 
   protected retry(): void {

@@ -39,6 +39,7 @@ export class TournamentDetail implements OnInit {
   private readonly reload = new Subject<void>();
   private startSubscription?: Subscription;
   private championSubscription?: Subscription;
+  private championLogoSubscription?: Subscription;
 
   protected readonly tournament = signal<Tournament | null>(null);
   protected readonly isLoading = signal(false);
@@ -49,6 +50,7 @@ export class TournamentDetail implements OnInit {
   protected readonly startSuccess = signal('');
   protected readonly needsRefresh = signal(false);
   protected readonly championName = signal('');
+  protected readonly championLogoUrl = signal<string | null>(null);
   protected readonly isChampionLoading = signal(false);
   protected readonly championError = signal('');
   readonly matchDate = new FormControl('', { nonNullable: true, validators: [Validators.required, futureMatchDate] });
@@ -65,12 +67,17 @@ export class TournamentDetail implements OnInit {
     official_rules_football_11: 'Reglamento oficial de f\u00fatbol 11',
   };
 
+  constructor() {
+    this.destroyRef.onDestroy(() => this.clearChampionLogo());
+  }
+
   ngOnInit(): void {
     // Un cambio de ID o un reintento cancela la consulta anterior.
     combineLatest([this.route.paramMap, this.reload.pipe(startWith(undefined))]).pipe(
       switchMap(([params]) => {
         this.startSubscription?.unsubscribe();
         this.championSubscription?.unsubscribe();
+        this.clearChampionLogo();
         this.startError.set('');
         this.startSuccess.set('');
         this.needsRefresh.set(false);
@@ -147,6 +154,7 @@ export class TournamentDetail implements OnInit {
 
   private loadChampion(tournament: Tournament): void {
     this.championSubscription?.unsubscribe();
+    this.clearChampionLogo();
     this.championName.set('');
     this.championError.set('');
     this.isChampionLoading.set(false);
@@ -163,9 +171,25 @@ export class TournamentDetail implements OnInit {
           return;
         }
         this.championName.set(team.name);
+        if (team.has_logo) {
+          this.championLogoSubscription = this.teamService.getLogo(team.id).pipe(
+            takeUntilDestroyed(this.destroyRef),
+          ).subscribe({
+            next: blob => this.championLogoUrl.set(URL.createObjectURL(blob)),
+            error: () => undefined,
+          });
+        }
       },
       error: () => this.championError.set('No se pudo recuperar el nombre del equipo campe\u00f3n.'),
     });
+  }
+
+  protected clearChampionLogo(): void {
+    this.championLogoSubscription?.unsubscribe();
+    this.championLogoSubscription = undefined;
+    const url = this.championLogoUrl();
+    if (url) URL.revokeObjectURL(url);
+    this.championLogoUrl.set(null);
   }
 
   private setStartError(error: unknown): void {

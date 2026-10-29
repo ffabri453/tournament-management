@@ -1,6 +1,8 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { signal, WritableSignal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { AuthenticatedUser } from '../../../models/auth';
 import { Tournament } from '../../../models/tournament';
 import { TournamentList } from './tournament-list';
 import { provideRouter, Router } from '@angular/router';
@@ -10,6 +12,11 @@ describe('TournamentList', () => {
   let fixture: ComponentFixture<TournamentList>;
   let http: HttpTestingController;
   let element: HTMLElement;
+  let currentUser: WritableSignal<AuthenticatedUser | null>;
+  const organizer: AuthenticatedUser = {
+    id: 1, name: 'Organizador', email: 'owner@example.test', role: 'organizer', created_at: '2026-01-01',
+  };
+  const group = (id: string) => element.querySelector<HTMLElement>(`section[aria-labelledby="group-${id}"]`);
   const tournament: Tournament = { organizer_id: 1,
     id: 7, name: 'Copa de prueba', location: 'Firmat',
     rules: 'official_rules_football_5', format: 'knockout', modality: 'futbol_5',
@@ -18,10 +25,11 @@ describe('TournamentList', () => {
   };
 
   beforeEach(async () => {
+    currentUser = signal<AuthenticatedUser | null>(organizer);
     await TestBed.configureTestingModule({
       imports: [TournamentList],
       providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([]),
-        { provide: Auth, useValue: { user: () => ({ id: 1, role: 'organizer' }) } }],
+        { provide: Auth, useValue: { user: currentUser } }],
     }).compileComponents();
     http = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(TournamentList);
@@ -33,7 +41,7 @@ describe('TournamentList', () => {
 
   it.each([null, { id: 9, name: 'Otro organizador', email: 'other@example.test', role: 'organizer' as const, created_at: '2026-01-01' }])(
     'keeps the list public without management actions for %j', user => {
-      vi.spyOn(TestBed.inject(Auth), 'user').mockReturnValue(user);
+      currentUser.set(user);
       http.expectOne('/api/tournaments').flush([tournament]);
       fixture.detectChanges();
       expect(element.querySelector('.detail-link')).not.toBeNull();
@@ -43,13 +51,74 @@ describe('TournamentList', () => {
   );
 
   it('shows management actions to an administrator for a tournament owned by someone else', () => {
-    vi.spyOn(TestBed.inject(Auth), 'user').mockReturnValue({
+    currentUser.set({
       id: 9, name: 'Admin', email: 'admin@example.test', role: 'admin', created_at: '2026-01-01',
     });
     http.expectOne('/api/tournaments').flush([tournament]);
     fixture.detectChanges();
     expect(element.querySelector('.card-menu')).not.toBeNull();
     expect(element.querySelector('a[aria-label^="Editar"]')).not.toBeNull();
+    expect(group('mine')?.querySelector('.tournament-card')).toBeNull();
+    expect(group('others')?.querySelector('.tournament-card')?.textContent).toContain(tournament.name);
+  });
+
+  describe('ownership groups', () => {
+    const other: Tournament = { ...tournament, id: 8, organizer_id: 2, name: 'Copa visitante', status: 'in_progress' };
+    const legacy: Tournament = { ...tournament, id: 9, organizer_id: null, name: 'Copa histórica', status: 'finished', champion_team_id: 10 };
+    const cardNames = (id: string) => Array.from(group(id)?.querySelectorAll('.card-heading h3') ?? [], card => card.textContent);
+
+    it('separates owned tournaments from other owners and legacy tournaments without hiding any status', () => {
+      http.expectOne('/api/tournaments').flush([other, tournament, legacy]);
+      fixture.detectChanges();
+      expect(cardNames('mine')).toEqual([tournament.name]);
+      expect(cardNames('others')).toEqual([other.name, legacy.name]);
+      expect(group('mine')?.querySelector('.group-count')?.textContent?.trim()).toBe('1 torneo');
+      expect(group('others')?.querySelector('.group-count')?.textContent?.trim()).toBe('2 torneos');
+      expect(element.querySelectorAll('.tournament-card')).toHaveLength(3);
+      expect(group('others')?.querySelector('.card-menu')).toBeNull();
+    });
+
+    it('keeps all tournaments together for visitors with links to their public details', () => {
+      currentUser.set(null);
+      http.expectOne('/api/tournaments').flush([tournament, other, legacy]);
+      fixture.detectChanges();
+      expect(element.querySelectorAll('.tournament-group')).toHaveLength(1);
+      expect(cardNames('public')).toEqual([tournament.name, other.name, legacy.name]);
+      expect(group('mine')).toBeNull();
+      expect(group('public')?.querySelectorAll('.detail-link')).toHaveLength(3);
+      expect(element.querySelector('.card-menu')).toBeNull();
+    });
+
+    it('regroups the loaded list when the session is restored, changes account or is cleared', () => {
+      currentUser.set(null);
+      http.expectOne('/api/tournaments').flush([tournament, other, legacy]);
+      fixture.detectChanges();
+      expect(cardNames('public')).toHaveLength(3);
+      currentUser.set(organizer);
+      fixture.detectChanges();
+      expect(cardNames('mine')).toEqual([tournament.name]);
+      expect(cardNames('others')).toEqual([other.name, legacy.name]);
+      currentUser.set({ ...organizer, id: 2 });
+      fixture.detectChanges();
+      expect(cardNames('mine')).toEqual([other.name]);
+      expect(cardNames('others')).toEqual([tournament.name, legacy.name]);
+      currentUser.set(null);
+      fixture.detectChanges();
+      expect(group('mine')).toBeNull();
+      expect(cardNames('public')).toHaveLength(3);
+      http.expectNone('/api/tournaments');
+    });
+
+    it.each([
+      ['mine', [other], 'Todavía no creaste ningún torneo.'],
+      ['others', [tournament], 'Todavía no hay otros torneos.'],
+    ] as const)('shows an empty state for %s without hiding the populated group', (id, values, message) => {
+      http.expectOne('/api/tournaments').flush(values);
+      fixture.detectChanges();
+      expect(group(id)?.querySelector('[role="status"]')?.textContent).toContain(message);
+      expect(group(id)?.querySelector('.tournament-grid')).toBeNull();
+      expect(element.querySelectorAll('.tournament-card')).toHaveLength(1);
+    });
   });
 
   it('opens the options disclosure and closes it with Escape, returning focus', () => {
@@ -119,7 +188,8 @@ describe('TournamentList', () => {
       http.expectOne('/api/tournaments').flush([]);
       fixture.detectChanges();
       expect(element.querySelector('.tournament-grid')).toBeNull();
-      expect(element.textContent).toContain('No hay torneos registrados.');
+      expect(group('mine')?.textContent).toContain('Todavía no creaste ningún torneo.');
+      expect(group('others')?.textContent).toContain('Todavía no hay otros torneos.');
     });
 
     it.each(['in_progress', 'finished'] as const)('disables deletion for %s tournaments', (status) => {
@@ -230,10 +300,19 @@ describe('TournamentList', () => {
     }
   });
 
-  it('shows an empty state without a table', () => {
+  it('shows both empty groups when the signed-in list has no tournaments', () => {
     http.expectOne('/api/tournaments').flush([]);
     fixture.detectChanges();
-    expect(element.textContent).toContain('No hay torneos registrados.');
+    expect(group('mine')?.textContent).toContain('Todavía no creaste ningún torneo.');
+    expect(group('others')?.textContent).toContain('Todavía no hay otros torneos.');
+    expect(element.querySelector('.tournament-grid')).toBeNull();
+  });
+
+  it('shows the public empty state when no tournaments have been created', () => {
+    currentUser.set(null);
+    http.expectOne('/api/tournaments').flush([]);
+    fixture.detectChanges();
+    expect(group('public')?.textContent).toContain('No hay torneos registrados.');
     expect(element.querySelector('.tournament-grid')).toBeNull();
   });
 
