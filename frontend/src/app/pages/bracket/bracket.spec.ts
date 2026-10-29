@@ -128,6 +128,18 @@ describe('Bracket', () => {
     expect(firstCard?.textContent).toContain('Club Deportivo Regional del Norte 1');
   });
 
+  it('does not reload logos when only the selected match changes', () => {
+    const logoMatch = match(1, 'semi_final');
+    logoMatch.home_team = { ...logoMatch.home_team!, has_logo: true };
+    const currentBracket = response(4, [{ round: 'semi_final', matches: [logoMatch, match(2, 'semi_final')] }]);
+    render(currentBracket);
+    http.expectOne('/api/teams/1/logo').flush(new Blob([new Uint8Array([0x89, 0x50])], { type: 'image/png' }));
+    fixture.componentRef.setInput('selectedMatchId', 2);
+    fixture.detectChanges();
+    http.expectNone('/api/teams/1/logo');
+    expect(element.querySelectorAll('button.match-card')[1]?.classList.contains('selected')).toBe(true);
+  });
+
   it('shows the real match ID and scheduled date in the compact header', () => {
     const scheduled = match(27, 'semi_final');
     render(response(4, [{ round: 'semi_final', matches: [scheduled] }]));

@@ -1,11 +1,11 @@
 :host { display: block; }
-.site-header { background: #031a39; color: #fff; }
+.site-header { position:relative; z-index:20; background:var(--color-navy); color:#fff; }
 nav { min-height: var(--nav-height); display: flex; align-items: center; justify-content: space-between; gap: 24px; max-width: 1440px; margin: auto; padding: 12px clamp(24px, 3.7vw, 64px); box-sizing: border-box; }
 a { color: inherit; text-decoration: none; }
-.brand { font-size: clamp(24px, 2.8vw, 42px); font-weight: 800; letter-spacing: -.03em; line-height: 1.1; }
-.nav-actions { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 24px; font-size: 16px; }
-.session-link { display: inline-flex; align-items: center; gap: 14px; font-size: 19px; border: 0; background: none; color: inherit; padding: 8px 0; cursor: pointer; }
-.session-link svg { width: 28px; height: 28px; flex-shrink: 0; }
+.brand { font-size:clamp(27px,2.8vw,42px); font-weight:800; letter-spacing:.01em; line-height:1; }
+.nav-actions { display:flex; align-items:center; flex-wrap:wrap; justify-content:flex-end; gap:8px 16px; }
+.nav-link { display:inline-flex; align-items:center; justify-content:center; gap:10px; min-height:44px; box-sizing:border-box; border:0; border-radius:5px; background:none; color:inherit; padding:9px 10px; font-size:16px; font-weight:600; line-height:1.2; cursor:pointer; white-space:nowrap; }
+.session-link svg { width:24px; height:24px; flex-shrink:0; }
 a:hover, button:hover { color: #83e0ff; }
 a:focus-visible, button:focus-visible { outline: 2px solid #83e0ff; outline-offset: 6px; border-radius: 3px; }
 .kick { position: fixed; z-index: 1000; pointer-events: none; margin: -16px 0 0 -16px; animation: ball-kick 300ms ease-out both; }
@@ -18,20 +18,20 @@ a:focus-visible, button:focus-visible { outline: 2px solid #83e0ff; outline-offs
 }
 @media (max-width: 900px) {
   nav { gap: 16px; }
-  .nav-actions { gap: 12px; font-size: 14px; }
-  .session-link { font-size: 16px; gap: 8px; }
+  .nav-actions { gap:6px 8px; }
+  .nav-link { font-size:15px; gap:8px; }
 }
 @media (max-width: 600px) {
-  nav { padding: 16px 20px; flex-wrap: wrap; }
-  .brand { font-size: 23px; }
-  .nav-actions { gap: 12px; }
-  .session-link { font-size: 14px; }
-  .session-link svg { width: 20px; height: 20px; }
-  .browse-link { display: none; }
+  nav { padding:14px 20px; flex-direction:column; align-items:flex-start; gap:8px; }
+  .brand { font-size:26px; }
+  .nav-actions { width:100%; justify-content:flex-start; }
+  .nav-link { flex:1 1 auto; padding-inline:8px; font-size:15px; }
+  .session-link svg { width:20px; height:20px; }
 }
 @media (max-width: 380px) {
-  .brand { font-size: 21px; }
-  nav { padding-inline: 16px; gap: 8px; }
-  .session-link { gap: 5px; font-size: 13px; }
+  .brand { font-size:24px; }
+  nav { padding-inline:16px; }
+  .nav-actions { align-items:stretch; }
+  .nav-link { white-space:normal; text-align:center; }
 }
 @media (prefers-reduced-motion: reduce) { .kick { display: none; animation: none; } }

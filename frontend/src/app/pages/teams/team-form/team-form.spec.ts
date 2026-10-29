@@ -116,6 +116,57 @@ describe('TeamForm', () => {
     http.expectNone(request => request.method === 'POST');
   });
 
+  it('offers an optional logo selector while creating a team', () => {
+    load();
+    expect(element.querySelector('#team-logo')).not.toBeNull();
+    expect(element.querySelector('.logo-preview')?.textContent).toContain('Sin escudo (opcional)');
+    expect(element.textContent).toContain('PNG, JPG o WebP');
+    expect(element.textContent).toContain('1 MB');
+  });
+
+  it('creates the team first and uploads the selected logo afterwards', () => {
+    load();
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    const file = new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], 'escudo.png', { type: 'image/png' });
+    component.logoFile.set(file);
+    component.logoPreview.set('data:image/png;base64,iVBORw0KGgo=');
+    fill();
+    component.submit();
+
+    const createRequest = http.expectOne('/api/teams');
+    expect(createRequest.request.method).toBe('POST');
+    createRequest.flush({ message: 'Team created successfully', data: team }, { status: 201, statusText: 'Created' });
+    const logoRequest = http.expectOne('/api/teams/1/logo');
+    expect(logoRequest.request.method).toBe('PUT');
+    expect(logoRequest.request.body).toBe(file);
+    expect(logoRequest.request.headers.get('Content-Type')).toBe('image/png');
+    logoRequest.flush({ message: 'Team logo updated successfully', data: { team_id: 1, has_logo: true } });
+
+    expect(navigate).toHaveBeenCalledExactlyOnceWith(['/tournaments', 7, 'teams']);
+  });
+
+  it('keeps the created team and prevents a duplicate when its logo upload fails', () => {
+    load();
+    const file = new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], 'escudo.png', { type: 'image/png' });
+    component.logoFile.set(file);
+    component.logoPreview.set('data:image/png;base64,iVBORw0KGgo=');
+    fill();
+    component.submit();
+    http.expectOne('/api/teams').flush({ message: 'Team created successfully', data: team }, { status: 201, statusText: 'Created' });
+    http.expectOne('/api/teams/1/logo').flush(
+      { message: 'Team logo must be a valid PNG, JPEG or WebP image' },
+      { status: 415, statusText: 'Unsupported Media Type' },
+    );
+    fixture.detectChanges();
+
+    expect(element.querySelector('.creation-recovery')?.textContent).toContain('El equipo fue creado correctamente');
+    expect(element.querySelector('.creation-recovery')?.textContent).toContain('sin crear un duplicado');
+    expect(element.querySelector('.creation-recovery a.primary')?.getAttribute('href')).toBe('/tournaments/7/teams/1/edit');
+    expect(element.querySelector('form')).toBeNull();
+    component.submit();
+    http.expectNone(request => request.method === 'POST' || request.method === 'PUT');
+  });
+
   it('counts only teams belonging to this tournament for capacity', () => {
     load(tournament, Array.from({ length: 5 }, (_, i) => ({ ...team, id: i + 1, tournament_id: 8 })));
     expect(component.restriction()).toBe('');

@@ -1,5 +1,5 @@
 :host { display:block; --loading-color:#f0f6ff; }
-main { min-height:calc(100svh - var(--nav-height)); box-sizing:border-box; padding:38px clamp(20px,4vw,64px) 64px; color:#f4f8ff; background:linear-gradient(100deg,#04182de8,#071c35b8 60%,#071c3575),url('/images/teams-locker-room.png') center/cover; }
+main { min-height:calc(100svh - var(--nav-height)); box-sizing:border-box; padding:38px clamp(20px,4vw,64px) 64px; color:#f4f8ff; background:linear-gradient(100deg,#04182de8,#071c35b8 60%,#071c3575),url('/images/teams-locker-room.jpg') center/cover; }
 .page-content { max-width:1320px; margin:auto; }
 a { color:inherit; text-decoration:none; }
 nav { display:flex; flex-wrap:wrap; gap:24px; }
@@ -19,6 +19,10 @@ nav { margin-bottom:42px; }
 h1 { margin-bottom:12px; }
 h2 { color:#c9ddf3; font-size:20px; font-weight:400; margin:0 0 28px; }
 form { max-width:590px; padding:28px; border:1px solid #6c88aa85; border-radius:10px; background:#081e36e8; box-shadow:0 12px 40px #02102433; }
+.creation-recovery { max-width:590px; box-sizing:border-box; padding:28px; border:1px solid #71c79a; border-radius:10px; background:#082f29ed; box-shadow:0 12px 40px #02102433; }
+.creation-recovery h2 { color:#d9ffea; font-size:26px; font-weight:700; margin-bottom:12px; }
+.creation-recovery p { color:#e4fff0; line-height:1.65; }
+.recovery-actions { display:flex; align-items:center; flex-wrap:wrap; gap:14px 22px; margin-top:24px; }
 fieldset { border:0; padding:0; display:grid; gap:12px; margin:0 0 20px; min-width:0; }
 label { font-weight:600; margin-top:8px; }
 input { box-sizing:border-box; width:100%; min-width:0; padding:13px 12px; border:1px solid #7c97b6; border-radius:5px; background:#0a2440d9; color:#fff; font:inherit; }

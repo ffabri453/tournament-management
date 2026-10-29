@@ -26,9 +26,30 @@
           <button type="button" [attr.aria-pressed]="activeView() === 'bracket'" aria-controls="bracket-panel"
             [disabled]="editingMatchId() !== null || generatingRound()" (click)="activeView.set('bracket')">Cuadro</button>
         </div>
+        @if (currentBracket.tournament.champion; as champion) {
+          <section class="champion-banner" [class.celebrating]="celebratingChampion()" aria-labelledby="champion-title">
+            @if (celebratingChampion()) {
+              <div class="confetti" aria-hidden="true">
+                @for (piece of confettiPieces; track $index) {
+                  <span [style.left.%]="piece.left" [style.animation-delay.ms]="piece.delay" [style.background-color]="piece.color"></span>
+                }
+              </div>
+            }
+            <div class="champion-symbol" aria-hidden="true">
+              <svg viewBox="0 0 48 48"><path d="M15 5h18v12a9 9 0 0 1-18 0V5Zm0 4H7v5a8 8 0 0 0 9 8m17-13h8v5a8 8 0 0 1-9 8M24 26v10m-8 7h16M19 36h10v7" /></svg>
+            </div>
+            @if (championLogoUrl(); as logoUrl) {
+              <img class="champion-crest" [src]="logoUrl" [alt]="'Escudo de ' + champion.name" />
+            }
+            <div class="champion-copy">
+              <strong>CAMPEÓN DEL TORNEO</strong>
+              <h2 id="champion-title">{{ champion.name }}</h2>
+              <p>La gloria se construye en equipo.</p>
+            </div>
+          </section>
+        }
         <section id="bracket-panel" class="bracket-section" [hidden]="activeView() !== 'bracket'" aria-labelledby="bracket-title">
           <h2 id="bracket-title">Cuadro de eliminación directa</h2>
-          <p class="quote">«Ningún jugador es tan bueno como todos juntos». — Alfredo Di Stéfano</p>
           <div class="bracket-surface">
             <app-bracket [bracket]="currentBracket" [selectedMatchId]="selectedMatchId()" (matchSelected)="selectMatch($event)" />
           </div>
@@ -53,9 +74,6 @@
 
         </section>
         <section id="matches-panel" class="matches-section" [hidden]="activeView() !== 'matches'" aria-label="Partidos y resultados">
-          @if (currentBracket.tournament.champion; as champion) {
-            <div class="champion-banner"><strong>¡CAMPEONES!</strong><h2>{{ champion.name }}</h2><p>«Salir campeón es la gloria». — Alejandro Sabella</p></div>
-          }
           @if (matches().length === 0) {
             <p class="message" role="status">Todavía no hay partidos registrados en este torneo.</p>
           } @else {

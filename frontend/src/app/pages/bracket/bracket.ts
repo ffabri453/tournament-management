@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, computed, inject, input, OnChanges, OnDestroy, OnInit, output, signal } from '@angular/core';
+import { Component, computed, inject, input, OnChanges, OnDestroy, OnInit, output, signal, SimpleChanges } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { TeamService } from '../../core/services/team';
 import { MatchRound } from '../../models/match';
@@ -52,8 +52,8 @@ export class Bracket implements OnChanges, OnInit, OnDestroy {
   protected readonly columns = computed<BracketRoundColumn[]>(() => this.buildColumns(this.bracket()));
   protected readonly logoUrls = signal<Record<number, string>>({});
 
-  ngOnChanges(): void {
-    if (this.initialized) this.loadTeamLogos();
+  ngOnChanges(changes: SimpleChanges): void {
+    if (this.initialized && changes['bracket']) this.loadTeamLogos();
   }
 
   ngOnInit(): void {

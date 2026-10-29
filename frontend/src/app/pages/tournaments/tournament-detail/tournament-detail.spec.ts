@@ -194,9 +194,8 @@ describe('TournamentDetail', () => {
   it.each([
     ['Volver a torneos', '/tournaments'],
     ['Editar torneo', '/tournaments/7/edit'],
-    ['Ver equipos', '/tournaments/7/teams'],
-    ['Partidos y cuadro', '/tournaments/7/matches'],
-    ['Ver cuadro', '/tournaments/7/bracket'],
+    ['EQUIPOS', '/tournaments/7/teams'],
+    ['PARTIDOS Y CUADRO', '/tournaments/7/matches'],
   ])('navigates using %s', async (label, target) => {
     load();
     const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
@@ -206,6 +205,19 @@ describe('TournamentDetail', () => {
     link?.click();
     await fixture.whenStable();
     expect(navigate.mock.calls[0]?.[0].toString()).toBe(target);
+  });
+
+  it('keeps only the two unique tournament accesses and removes the duplicated pre-match panel', () => {
+    load();
+    const links = Array.from(element.querySelectorAll('.tournament-links a'));
+    expect(links).toHaveLength(2);
+    expect(links.map(link => link.textContent?.trim())).toEqual([
+      expect.stringContaining('EQUIPOS'),
+      expect.stringContaining('PARTIDOS Y CUADRO'),
+    ]);
+    expect(element.textContent).not.toContain('Antes del primer partido');
+    expect(element.textContent).not.toContain('Ver cuadro');
+    expect(element.querySelector('a[href="/tournaments/7/bracket"]')).toBeNull();
   });
 
   it('cancels the request on destruction', () => {

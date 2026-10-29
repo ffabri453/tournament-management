@@ -1,6 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, DestroyRef, inject, OnDestroy, OnInit, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AbstractControl, FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, ValidatorFn, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -13,6 +13,7 @@ import { Bracket } from '../../bracket/bracket';
 import { canManageTournament } from '../../../core/tournament-access';
 import { Auth } from '../../../core/services/auth';
 import { Loading } from '../../../shared/loading';
+import { TeamService } from '../../../core/services/team';
 
 @Component({
   selector: 'app-match-list',
@@ -20,15 +21,20 @@ import { Loading } from '../../../shared/loading';
   templateUrl: './match-list.html',
   styleUrl: './match-list.css',
 })
-export class MatchList implements OnInit {
+export class MatchList implements OnInit, OnDestroy {
   protected readonly auth = inject(Auth);
   private readonly route = inject(ActivatedRoute);
   private readonly matchService = inject(MatchService);
   private readonly tournamentService = inject(TournamentService);
+  private readonly teamService = inject(TeamService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly reload = new Subject<void>();
   private saveSubscription?: Subscription;
   private roundSubscription?: Subscription;
+  private championLogoSubscription?: Subscription;
+  private championLogoObjectUrl: string | null = null;
+  private championLogoTeamId: number | null = null;
+  private celebrationTimer?: ReturnType<typeof setTimeout>;
 
   protected readonly bracket = signal<TournamentBracket | null>(null);
   protected readonly tournament = computed(() => this.bracket()?.tournament ?? null);
@@ -77,6 +83,16 @@ export class MatchList implements OnInit {
   protected readonly generatingRound = signal(false);
   protected readonly roundError = signal('');
   protected readonly roundSuccess = signal('');
+  protected readonly championLogoUrl = signal<string | null>(null);
+  protected readonly celebratingChampion = signal(false);
+  protected readonly confettiPieces = [
+    { left: 5, delay: 0, color: '#e8c45f' }, { left: 12, delay: 220, color: '#5bb7ff' },
+    { left: 20, delay: 80, color: '#ffffff' }, { left: 29, delay: 360, color: '#69d49c' },
+    { left: 38, delay: 140, color: '#e8c45f' }, { left: 47, delay: 440, color: '#5bb7ff' },
+    { left: 56, delay: 40, color: '#ffffff' }, { left: 64, delay: 300, color: '#69d49c' },
+    { left: 73, delay: 180, color: '#e8c45f' }, { left: 81, delay: 520, color: '#5bb7ff' },
+    { left: 89, delay: 100, color: '#ffffff' }, { left: 95, delay: 380, color: '#69d49c' },
+  ];
   readonly nextRoundForm = new FormGroup({
     match_date: new FormControl('', {
       nonNullable: true,
@@ -148,6 +164,11 @@ export class MatchList implements OnInit {
       }),
       takeUntilDestroyed(this.destroyRef),
     ).subscribe(bracket => this.applyBracket(bracket));
+  }
+
+  ngOnDestroy(): void {
+    this.clearChampionLogo();
+    if (this.celebrationTimer) clearTimeout(this.celebrationTimer);
   }
 
   protected retry(): void {
@@ -302,10 +323,56 @@ export class MatchList implements OnInit {
 
   private applyBracket(bracket: TournamentBracket, selectedMatchId: number | null = null): void {
     this.bracket.set(bracket);
+    this.syncChampionPresentation(bracket);
     if (!bracket.rounds.some(round => round.round === this.selectedRound())) this.selectedRound.set(null);
     const selectedExists = selectedMatchId !== null &&
       bracket.rounds.some(round => round.matches.some(match => match.id === selectedMatchId));
     this.selectedMatchId.set(selectedExists ? selectedMatchId : null);
+  }
+
+  private syncChampionPresentation(bracket: TournamentBracket): void {
+    const champion = bracket.tournament.champion;
+    if (!champion) {
+      this.clearChampionLogo();
+      this.celebratingChampion.set(false);
+      return;
+    }
+
+    if (champion.id !== this.championLogoTeamId) {
+      this.clearChampionLogo();
+      this.championLogoTeamId = champion.id;
+      if (champion.has_logo) {
+        this.championLogoSubscription = this.teamService.getLogo(champion.id).subscribe({
+          next: blob => {
+            this.championLogoObjectUrl = URL.createObjectURL(blob);
+            this.championLogoUrl.set(this.championLogoObjectUrl);
+          },
+          error: () => undefined,
+        });
+      }
+    }
+
+    const celebrationKey = `champion-celebrated:${bracket.tournament.id}:${champion.id}`;
+    let wasCelebrated = false;
+    try {
+      wasCelebrated = sessionStorage.getItem(celebrationKey) === 'true';
+      if (!wasCelebrated) sessionStorage.setItem(celebrationKey, 'true');
+    } catch {
+      wasCelebrated = this.celebratingChampion();
+    }
+    if (wasCelebrated) return;
+    this.celebratingChampion.set(true);
+    if (this.celebrationTimer) clearTimeout(this.celebrationTimer);
+    this.celebrationTimer = setTimeout(() => this.celebratingChampion.set(false), 4800);
+  }
+
+  private clearChampionLogo(): void {
+    this.championLogoSubscription?.unsubscribe();
+    this.championLogoSubscription = undefined;
+    if (this.championLogoObjectUrl) URL.revokeObjectURL(this.championLogoObjectUrl);
+    this.championLogoObjectUrl = null;
+    this.championLogoTeamId = null;
+    this.championLogoUrl.set(null);
   }
 
   private closeResultForm(): void {

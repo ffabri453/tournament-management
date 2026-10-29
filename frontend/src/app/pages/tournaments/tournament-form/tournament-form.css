@@ -1,6 +1,6 @@
 :host { display: block; color: #fff; }
-.form-page { min-height: calc(100svh - var(--nav-height)); box-sizing: border-box; padding: clamp(36px, 7vh, 100px) clamp(24px, 7vw, 112px) 64px; background: linear-gradient(100deg, #031a39c9, #031a399e), url('/images/tournament-match.png') center / cover; }
-.form-content { max-width: 1320px; margin: auto; }
+.form-page { min-height:calc(100svh - var(--nav-height)); box-sizing:border-box; padding:clamp(36px,7vh,100px) clamp(24px,7vw,112px) 64px; background-color:#031a39; background-image:linear-gradient(100deg,#031a39ed 0%,#031a39ce 48%,#031a3985 100%),url('/images/tournament-match.jpg'); background-position:center; background-size:cover; background-repeat:no-repeat; }
+.form-content { position:relative; z-index:1; max-width:1320px; margin:auto; }
 .back-link { display: inline-flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; font-size: 18px; }
 svg { width: 24px; height: 24px; }
 h1 { margin: 20px 0 48px; font-size: clamp(36px, 3.8vw, 50px); }
@@ -47,6 +47,7 @@ app-loading { --loading-color: #fff; }
 @media (max-width: 850px) { .form-fields { column-gap: 30px; } .option-group { grid-column: 1 / -1; max-width: 560px; } }
 @media (max-width: 600px) {
   .form-page { padding: 28px 24px 40px; }
+  .form-page { background-image:linear-gradient(#031a39ce,#031a39ed 44%,#031a39f5 100%),url('/images/tournament-match.jpg'); background-position:58% center; }
   h1 { margin-bottom: 32px; font-size: 36px; }
   .form-fields { grid-template-columns: minmax(0, 1fr); gap: 28px; }
 

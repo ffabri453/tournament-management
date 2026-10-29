@@ -1,7 +1,7 @@
 :host { display:block; --loading-color:#e4edff; }
 [hidden] { display:none!important; }
 main { min-height:calc(100svh - var(--nav-height)); box-sizing:border-box; padding:38px clamp(20px,3.7vw,64px) 64px; color:#f6f8ff; background:linear-gradient(90deg,#031327f5 0%,#031327d6 48%,#03132740 100%),url('/images/matches-rain.jpg') center/cover fixed; }
-main.bracket-view { background-image:linear-gradient(90deg,#031327df,#031327a6),url('/images/bracket-stadium.png'); background-position:center 62%; }
+main.bracket-view { background-image:linear-gradient(90deg,#031327df,#031327a6),url('/images/bracket-stadium.jpg'); background-position:center 62%; }
 .page-content { max-width:1440px; margin:auto; }
 a { color:inherit; text-decoration:none; }
 .back-link { display:inline-flex; gap:14px; align-items:center; }
@@ -33,7 +33,7 @@ strong { overflow-wrap:anywhere; }
 .result { font-size:24px; font-weight:700; max-width:170px; }
 .winner { color:#8fe2b7; }
 .actions { margin-top:16px; }
-.unavailable,.round-help,.quote { color:#b2c8ed; font-size:14px; line-height:1.6; }
+.unavailable,.round-help { color:#b2c8ed; font-size:14px; line-height:1.6; }
 .result-editor { border-top:1px solid #3a5579; margin-top:18px; padding-top:20px; }
 form h3 { margin:0 0 20px; font-size:18px; overflow-wrap:anywhere; }
 fieldset { border:0; padding:0; margin:0; min-width:0; display:grid; gap:18px; }
@@ -54,7 +54,28 @@ input,select { box-sizing:border-box; width:100%; min-width:0; border:1px solid 
 .selected-match dl { display:flex; flex-wrap:wrap; gap:24px; }
 dt { color:#b2c8ed; font-size:13px; }
 dd { margin:6px 0 0; }
-.champion-banner { border-left:3px solid #d9b960; padding:12px 20px; background:#211d13e6; color:#f2d78e; margin-bottom:20px; }
+.champion-banner { position:relative; isolation:isolate; overflow:hidden; display:grid; grid-template-columns:auto auto minmax(0,1fr); align-items:center; gap:18px; width:min(900px,100%); min-height:128px; margin:0 0 24px; padding:20px 26px; border:1px solid #d9b960; border-left:5px solid #d9b960; border-radius:10px; background:linear-gradient(115deg,#211d13f2,#0b233be8); color:#f7df9d; box-shadow:0 12px 34px #0003; }
+.champion-banner::before { content:''; position:absolute; inset:-65% -15%; z-index:0; pointer-events:none; background:radial-gradient(ellipse at 24% 52%,#ffd86f70 0%,#e39e2530 24%,transparent 52%),radial-gradient(ellipse at 68% 48%,#5bb7ff3d 0%,transparent 48%); filter:blur(14px); transform-origin:center; animation:champion-aura 5.2s ease-in-out infinite alternate; }
+.champion-symbol,.champion-crest,.champion-copy { position:relative; z-index:2; }
+.champion-symbol { display:grid; place-items:center; width:68px; height:68px; border-radius:50%; background:#d9b9601f; }
+.champion-symbol svg { width:46px; height:46px; fill:none; stroke:#f1d274; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+.champion-crest { width:68px; height:68px; padding:5px; border:2px solid #f1d274; border-radius:12px; background:#f7f9fc; object-fit:contain; }
+.champion-copy { min-width:0; }
+.champion-copy > strong { font-family:var(--font-display); font-size:15px; letter-spacing:.11em; }
+.champion-copy h2 { margin:2px 0 4px; color:#fff7dd; font-size:clamp(26px,3vw,38px); line-height:1.05; overflow-wrap:anywhere; }
+.champion-copy p { margin:0; color:#e6d8ae; font-size:14px; }
+.confetti { position:absolute; inset:0; z-index:3; overflow:hidden; pointer-events:none; }
+.confetti span { position:absolute; top:-18px; width:8px; height:14px; opacity:0; animation:confetti-fall 3.2s cubic-bezier(.2,.75,.4,1) both; }
+.champion-banner.celebrating { animation:champion-panel-arrival 1.1s cubic-bezier(.2,.75,.25,1) both; }
+.champion-banner.celebrating .champion-symbol { animation:trophy-arrival 1.35s .18s cubic-bezier(.17,.84,.34,1.18) both; }
+.champion-banner.celebrating .champion-crest { animation:crest-glow 1.55s .38s ease-out both; }
+.champion-banner.celebrating .champion-copy { animation:champion-arrival 1.15s .42s cubic-bezier(.2,.72,.3,1) both; }
+@keyframes champion-panel-arrival { from { opacity:0; transform:translateY(18px); box-shadow:0 0 0 #e8c45f00; } to { opacity:1; transform:none; box-shadow:0 12px 34px #0003,0 0 26px #e8c45f26; } }
+@keyframes champion-aura { 0% { opacity:.55; transform:translate3d(-2%,2%,0) scale(.94) rotate(-2deg); } 50% { opacity:.82; transform:translate3d(2%,-2%,0) scale(1.05) rotate(1deg); } 100% { opacity:.64; transform:translate3d(-1%,-3%,0) scale(1.1) rotate(3deg); } }
+@keyframes trophy-arrival { from { opacity:0; transform:translateY(24px) scale(.55) rotate(-10deg); } 65% { opacity:1; transform:translateY(-3px) scale(1.06) rotate(2deg); } to { opacity:1; transform:none; } }
+@keyframes champion-arrival { from { opacity:0; transform:translateX(34px); } to { opacity:1; transform:none; } }
+@keyframes crest-glow { 0% { opacity:0; transform:scale(.68); box-shadow:0 0 0 #f1d27400; } 68% { opacity:1; transform:scale(1.06); box-shadow:0 0 28px #f1d274a6; } 100% { transform:none; box-shadow:0 0 12px #f1d27466; } }
+@keyframes confetti-fall { 0% { opacity:0; transform:translateY(-15px) rotate(0); } 12% { opacity:.9; } 100% { opacity:0; transform:translateY(165px) rotate(460deg); } }
 @media(max-width:900px) {
  .matches-section,.round-management { width:auto; }
  main { background-attachment:scroll; }
@@ -64,4 +85,17 @@ dd { margin:6px 0 0; }
  .selected-teams { flex-direction:column; }
 
 }
-@media(prefers-reduced-motion:reduce) { button { transition:none; } button:hover:not(:disabled) { transform:none; } }
+@media(max-width:600px) {
+ .champion-banner { grid-template-columns:auto minmax(0,1fr); gap:12px; padding:18px; }
+ .champion-symbol,.champion-crest { width:56px; height:56px; }
+ .champion-symbol svg { width:38px; height:38px; }
+ .champion-crest + .champion-copy { grid-column:1 / -1; }
+ .score-fields { grid-template-columns:minmax(0,1fr); }
+}
+@media(prefers-reduced-motion:reduce) {
+ button { transition:none; }
+ button:hover:not(:disabled) { transform:none; }
+ .champion-banner::before,.champion-banner.celebrating,.champion-banner.celebrating .champion-symbol,.champion-banner.celebrating .champion-crest,.champion-banner.celebrating .champion-copy,.confetti span { animation:none; }
+ .champion-banner::before { opacity:.55; transform:none; }
+ .confetti { display:none; }
+}

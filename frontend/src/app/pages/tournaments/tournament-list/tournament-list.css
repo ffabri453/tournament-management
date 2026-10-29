@@ -1,6 +1,6 @@
 :host { display: block; color: #08234b; }
-.tournaments-page { min-height: calc(100svh - var(--nav-height)); box-sizing: border-box; padding: 40px clamp(24px, 5vw, 80px) 64px; background: linear-gradient(105deg, #021a38a6, #021a3880), url('/images/tournament-crowd.png') center 48% / cover; }
-.page-content { max-width: 1440px; margin: auto; }
+.tournaments-page { min-height:calc(100svh - var(--nav-height)); box-sizing:border-box; padding:40px clamp(24px,5vw,80px) 64px; background-color:#021a38; background-image:linear-gradient(105deg,#021a38df 0%,#021a38bd 48%,#021a387a 100%),url('/images/tournament-crowd.jpg'); background-position:center 45%; background-size:cover; background-repeat:no-repeat; }
+.page-content { position:relative; z-index:1; max-width:1440px; margin:auto; }
 .back-link { display: inline-flex; align-items: center; gap: 12px; color: #fff; text-decoration: none; font-size: 17px; padding: 8px 0; }
 svg { width: 24px; height: 24px; flex-shrink: 0; }
 .page-heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin: 22px 0 30px; color: #fff; }
@@ -46,6 +46,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible { outline: 3px soli
 @media (max-width: 900px) { .tournament-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 600px) {
   .tournaments-page { padding: 24px 20px 40px; }
+  .tournaments-page { background-image:linear-gradient(#021a38c7,#021a38e9 38%,#021a38f5 100%),url('/images/tournament-crowd.jpg'); background-position:center top; }
   .page-heading { align-items: flex-start; flex-direction: column; margin: 20px 0 24px; gap: 18px; }
   .create-link { min-height: 50px; font-size: 17px; }
   .tournament-grid { grid-template-columns: minmax(0, 1fr); }
