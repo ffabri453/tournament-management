@@ -15,6 +15,14 @@ tournament-management/
 
 El backend completo esta en `backend` y la aplicacion Angular esta en `frontend`.
 
+## Interfaz web
+
+La ruta `/` muestra la pagina publica de inicio del sistema. Desde alli se puede crear un torneo —iniciando sesion cuando sea necesario— o consultar los torneos existentes. El frontend utiliza una estetica futbolistica adaptable a distintos tamanos de pantalla, con fondos fotograficos optimizados, navegacion publica y acciones de gestion visibles segun los permisos del usuario.
+
+La pantalla de partidos conserva las pestanas **Partidos** y **Cuadro**. La primera permite consultar y cargar resultados; la segunda presenta el bracket de eliminacion directa con desplazamiento horizontal, nombres completos, escudos, ganadores y rondas pendientes.
+
+Las fotografias ubicadas en `frontend/public/images` forman parte del diseno recibido. El repositorio no incluye una atribucion ni una licencia especifica para esos archivos; antes de una publicacion fuera del ambito academico, sus responsables deben confirmar su origen y permiso de uso.
+
 Para iniciar Angular, abrir otra terminal desde la raiz del repositorio:
 
 ```powershell
@@ -256,7 +264,7 @@ Angular conserva solo el token en `sessionStorage`: sobrevive a F5 dentro de la 
 
 El interceptor envia `Authorization: Bearer <token>` cuando hay credencial, solo a las rutas relativas `/api/tournaments`, `/api/teams`, `/api/matches` y `/api/auth/me`, incluidos sus recursos. Los GET publicos funcionan sin token y el backend no valida las credenciales opcionales de esas lecturas. No envia la credencial a login, registro, assets ni URLs externas. Un 401 de una peticion protegida de la sesion actual limpia la credencial y navega a `/login`.
 
-Angular permite consultar sin AuthGuard `/tournaments`, `/tournaments/:id`, `/tournaments/:id/teams`, `/tournaments/:id/matches` y `/tournaments/:id/bracket`. Las dos ultimas rutas reutilizan la misma pantalla de partidos y cuadro. `/login` y `/register` siguen publicas; `/` redirige al listado. El guard protege `/tournaments/new`, `/tournaments/:id/edit`, `/tournaments/:id/teams/new` y `/tournaments/:id/teams/:teamId/edit`: comprueba la expiracion local y valida la sesion con `/api/auth/me` antes de abrir los formularios.
+Angular permite consultar sin AuthGuard `/`, `/tournaments`, `/tournaments/:id`, `/tournaments/:id/teams`, `/tournaments/:id/matches` y `/tournaments/:id/bracket`. Las dos ultimas rutas reutilizan la misma pantalla con las pestanas Partidos y Cuadro. `/login` y `/register` siguen publicas; `/` muestra la pagina Home. El guard protege `/tournaments/new`, `/tournaments/:id/edit`, `/tournaments/:id/teams/new` y `/tournaments/:id/teams/:teamId/edit`: comprueba la expiracion local y valida la sesion con `/api/auth/me` antes de abrir los formularios.
 
 La UI muestra acciones de gestion solo para el propietario o un admin despues de validar la sesion. Sin usuario muestra datos, resultados, seleccion de partidos y campeon. El enlace Crear torneo dirige al visitante a `/login?returnUrl=%2Ftournaments%2Fnew`; despues de ingresar abre el formulario de creacion. No permite modificar sin sesion. Al recargar, la aplicacion restaura la sesion mediante `/api/auth/me` si existe un token local vigente. Esta validacion inicial es opcional para la consulta publica: ante un error limpia la sesion y conserva la pantalla publica, sin redirigir a login.
 

@@ -1,7 +1,7 @@
 :host { display:block; --loading-color:#e4edff; }
 [hidden] { display:none!important; }
 main { min-height:calc(100svh - var(--nav-height)); box-sizing:border-box; padding:38px clamp(20px,3.7vw,64px) 64px; color:#f6f8ff; background:linear-gradient(90deg,#031327f5 0%,#031327d6 48%,#03132740 100%),url('/images/matches-rain.jpg') center/cover fixed; }
-main.bracket-view { background-image:linear-gradient(90deg,#031327df,#031327a6),url('/images/bracket-stadium.png'); background-position:center 62%; }
+main.bracket-view { background-image:linear-gradient(90deg,#031327df,#031327a6),url('/images/bracket-stadium.jpg'); background-position:center 62%; }
 .page-content { max-width:1440px; margin:auto; }
 a { color:inherit; text-decoration:none; }
 .back-link { display:inline-flex; gap:14px; align-items:center; }

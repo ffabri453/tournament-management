@@ -1,5 +1,5 @@
 :host { display: block; color: #08234b; }
-.tournaments-page { min-height: calc(100svh - var(--nav-height)); box-sizing: border-box; padding: 40px clamp(24px, 5vw, 80px) 64px; background: linear-gradient(105deg, #021a38a6, #021a3880), url('/images/tournament-crowd.png') center 48% / cover; }
+.tournaments-page { min-height: calc(100svh - var(--nav-height)); box-sizing: border-box; padding: 40px clamp(24px, 5vw, 80px) 64px; background: linear-gradient(105deg, #021a38a6, #021a3880), url('/images/tournament-crowd.jpg') center 48% / cover; }
 .page-content { max-width: 1440px; margin: auto; }
 .back-link { display: inline-flex; align-items: center; gap: 12px; color: #fff; text-decoration: none; font-size: 17px; padding: 8px 0; }
 svg { width: 24px; height: 24px; flex-shrink: 0; }

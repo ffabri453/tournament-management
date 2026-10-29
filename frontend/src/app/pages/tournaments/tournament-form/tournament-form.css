@@ -1,5 +1,5 @@
 :host { display: block; color: #fff; }
-.form-page { min-height: calc(100svh - var(--nav-height)); box-sizing: border-box; padding: clamp(36px, 7vh, 100px) clamp(24px, 7vw, 112px) 64px; background: linear-gradient(100deg, #031a39c9, #031a399e), url('/images/tournament-match.png') center / cover; }
+.form-page { min-height: calc(100svh - var(--nav-height)); box-sizing: border-box; padding: clamp(36px, 7vh, 100px) clamp(24px, 7vw, 112px) 64px; background: linear-gradient(100deg, #031a39c9, #031a399e), url('/images/tournament-match.jpg') center / cover; }
 .form-content { max-width: 1320px; margin: auto; }
 .back-link { display: inline-flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; font-size: 18px; }
 svg { width: 24px; height: 24px; }
