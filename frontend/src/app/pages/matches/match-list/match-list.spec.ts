@@ -415,6 +415,24 @@ describe('MatchList unified screen', () => {
     expect(element.querySelector('.next-round-panel')).toBeNull();
   });
 
+  it('keeps celebrating after the previous timeout and on a return visit', () => {
+    vi.useFakeTimers();
+    try {
+      sessionStorage.setItem('champion-celebrated:7:10', 'true');
+      load({
+        tournament: { ...tournament, status: 'finished', champion_team_id: 10,
+          champion: { id: 10, name: 'Campeón persistente', has_logo: false } },
+        rounds: [{ round: 'final', matches: [{ ...match, round: 'final', status: 'finished' }] }],
+      });
+      vi.advanceTimersByTime(10000);
+      fixture.detectChanges();
+      expect(element.querySelector('.champion-banner.celebrating')).not.toBeNull();
+      expect(element.querySelectorAll('.confetti span')).toHaveLength(12);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('shows the champion crest when the backend reports one', () => {
     const completed = { ...match, id: 40, round: 'final' as const, status: 'finished' as const,
       home_goals: 2, away_goals: 0, winner_team_id: match.home_team_id, winner_team: match.home_team };
@@ -542,6 +560,62 @@ describe('MatchList unified screen', () => {
     http.expectOne('/api/tournaments/8/bracket').flush(other);
     fixture.detectChanges();
     expect(element.querySelector('.subtitle')?.textContent).toContain('Otra copa');
+  });
+
+  const openSchedule = () => {
+    element.querySelector<HTMLButtonElement>('button[aria-label^="Cambiar horario"]')?.click();
+    fixture.detectChanges();
+  };
+
+  it('reschedules only the chosen match in Argentina time and reloads the bracket', () => {
+    load(bracket([match, { ...otherMatch, match_date: '2026-11-02T18:30:00Z' }]));
+    openSchedule();
+    expect(fixture.componentInstance.scheduleForm.controls.match_date.value).toBe('2026-11-02T15:30');
+    fixture.componentInstance.scheduleForm.setValue({ match_date: '2026-11-03T19:45' });
+    submitResult();
+    const request = http.expectOne('/api/matches/21');
+    expect(request.request.method).toBe('PUT');
+    expect(request.request.body).toEqual({
+      tournament_id: 7, home_team_id: 12, away_team_id: 13,
+      match_date: '2026-11-03 19:45', location: otherMatch.location, round: 'semi_final',
+      status: 'scheduled', home_goals: null, away_goals: null, home_penalties: null, away_penalties: null,
+    });
+    const updated = { ...otherMatch, match_date: '2026-11-03T22:45:00Z' };
+    request.flush({ data: updated });
+    http.expectOne('/api/tournaments/7/bracket').flush(bracket([match, updated]));
+    fixture.detectChanges();
+    expect(element.textContent).toContain('Horario actualizado');
+    expect(element.querySelector('form')).toBeNull();
+    http.expectNone('/api/matches/20');
+  });
+
+  it.each(['2026-10-01T12:00', '2027-02-30T12:00', ''])('rejects an invalid schedule %s without updating a match', date => {
+    load(); openSchedule();
+    fixture.componentInstance.scheduleForm.setValue({ match_date: date });
+    submitResult();
+    http.expectNone(request => request.method === 'PUT');
+    expect(element.textContent).toContain('Elegí una fecha y hora futuras válidas.');
+  });
+
+  it.each([null, { id: 99, role: 'organizer' as const }])('hides schedule editing from a visitor or another organizer', user => {
+    vi.spyOn(TestBed.inject(Auth), 'user').mockReturnValue(user as ReturnType<Auth['user']>);
+    load();
+    expect(element.querySelector('button[aria-label^="Cambiar horario"]')).toBeNull();
+  });
+
+  it('does not offer schedule editing for live or finished matches', () => {
+    load(bracket([match, { ...otherMatch, status: 'finished' }]));
+    expect(element.querySelector('button[aria-label^="Cambiar horario"]')).toBeNull();
+  });
+
+  it('keeps the schedule input and requests a refresh after a concurrent change', () => {
+    load(); openSchedule();
+    fixture.componentInstance.scheduleForm.setValue({ match_date: '2026-11-03T19:45' });
+    submitResult();
+    http.expectOne('/api/matches/21').flush({ message: 'A finished match cannot be modified' }, { status: 409, statusText: 'Conflict' });
+    fixture.detectChanges();
+    expect(element.textContent).toContain('ya fue finalizado');
+    expect(element.querySelector('fieldset')?.disabled).toBe(true);
   });
 
   it('links back to the tournament detail', () => {

@@ -36,6 +36,7 @@ const roundLabels: Record<MatchRound, string> = {
 
 @Component({
   selector: 'app-bracket',
+  host: { '[attr.data-capacity]': 'bracket().tournament.max_teams' },
   imports: [DatePipe],
   templateUrl: './bracket.html',
   styleUrl: './bracket.css',

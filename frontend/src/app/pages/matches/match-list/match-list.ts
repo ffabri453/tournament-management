@@ -34,7 +34,6 @@ export class MatchList implements OnInit, OnDestroy {
   private championLogoSubscription?: Subscription;
   private championLogoObjectUrl: string | null = null;
   private championLogoTeamId: number | null = null;
-  private celebrationTimer?: ReturnType<typeof setTimeout>;
 
   protected readonly bracket = signal<TournamentBracket | null>(null);
   protected readonly tournament = computed(() => this.bracket()?.tournament ?? null);
@@ -98,6 +97,10 @@ export class MatchList implements OnInit, OnDestroy {
       nonNullable: true,
       validators: [Validators.required, futureLocalDate],
     }),
+  });
+  protected readonly schedulingMatchId = signal<number | null>(null);
+  readonly scheduleForm = new FormGroup({
+    match_date: new FormControl('', { nonNullable: true, validators: [Validators.required, futureLocalDate] }),
   });
   readonly resultForm = new FormGroup({
     home_goals: new FormControl<number | null>(null, {
@@ -168,7 +171,6 @@ export class MatchList implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.clearChampionLogo();
-    if (this.celebrationTimer) clearTimeout(this.celebrationTimer);
   }
 
   protected retry(): void {
@@ -195,6 +197,59 @@ export class MatchList implements OnInit, OnDestroy {
       : regularResult;
   }
 
+  protected canReschedule(match: Match): boolean {
+    return this.canManage() && this.tournament()?.status === 'in_progress' && match.status === 'scheduled';
+  }
+
+  protected openScheduleForm(match: BracketMatch): void {
+    if (!this.canReschedule(match) || this.savingMatchId() !== null || this.generatingRound() || this.needsRefresh()) return;
+    this.closeResultForm();
+    this.saveSuccess.set('');
+    this.schedulingMatchId.set(match.id);
+    // El backend interpreta las fechas sin zona como hora de Argentina (UTC-3).
+    const date = new Date(Date.parse(match.match_date) - 3 * 60 * 60 * 1000);
+    this.scheduleForm.reset({ match_date: date.toISOString().slice(0, 16) });
+  }
+
+  protected saveSchedule(): void {
+    const match = this.matches().find(item => item.id === this.schedulingMatchId());
+    if (!match || !this.canReschedule(match) || this.savingMatchId() !== null || this.generatingRound() || this.needsRefresh()) return;
+    this.scheduleForm.markAllAsTouched();
+    this.scheduleForm.updateValueAndValidity();
+    if (this.scheduleForm.invalid) return;
+    const payload: UpdateMatchRequest = {
+      tournament_id: match.tournament_id, home_team_id: match.home_team_id, away_team_id: match.away_team_id,
+      match_date: this.scheduleForm.controls.match_date.value.replace('T', ' '),
+      location: match.location, round: match.round, status: 'scheduled',
+      home_goals: null, away_goals: null, home_penalties: null, away_penalties: null,
+    };
+    this.savingMatchId.set(match.id);
+    this.saveError.set('');
+    this.saveSuccess.set('');
+    this.saveSubscription = this.matchService.update(match.id, payload).pipe(
+      switchMap(() => this.tournamentService.getBracket(match.tournament_id).pipe(
+        catchError(() => {
+          this.saveError.set('El horario se guardó, pero no se pudo actualizar la pantalla. Actualizá los partidos.');
+          this.needsRefresh.set(true);
+          return EMPTY;
+        }),
+      )),
+      takeUntilDestroyed(this.destroyRef),
+      finalize(() => this.savingMatchId.set(null)),
+    ).subscribe({
+      next: bracket => {
+        this.applyBracket(bracket, match.id);
+        this.closeResultForm();
+        this.saveSuccess.set('Horario actualizado. Los demás partidos conservan su fecha.');
+      },
+      error: (error: unknown) => {
+        if (error instanceof HttpErrorResponse && error.status === 400) {
+          this.saveError.set('No se pudo guardar el horario. Elegí una fecha futura válida de Argentina.');
+        } else this.setSaveError(error);
+      },
+    });
+  }
+
   protected canEditResult(match: Match): boolean {
     const tournament = this.tournament();
     return this.canManage() && tournament !== null && tournament.status !== 'finished' && match.status !== 'finished' &&
@@ -203,6 +258,7 @@ export class MatchList implements OnInit, OnDestroy {
 
   protected openResultForm(match: BracketMatch): void {
     if (!this.canEditResult(match) || this.savingMatchId() !== null || this.generatingRound() || this.needsRefresh()) return;
+    this.schedulingMatchId.set(null);
     this.selectedMatchId.set(match.id);
     this.editingMatchId.set(match.id);
     this.saveError.set('');
@@ -352,18 +408,7 @@ export class MatchList implements OnInit, OnDestroy {
       }
     }
 
-    const celebrationKey = `champion-celebrated:${bracket.tournament.id}:${champion.id}`;
-    let wasCelebrated = false;
-    try {
-      wasCelebrated = sessionStorage.getItem(celebrationKey) === 'true';
-      if (!wasCelebrated) sessionStorage.setItem(celebrationKey, 'true');
-    } catch {
-      wasCelebrated = this.celebratingChampion();
-    }
-    if (wasCelebrated) return;
     this.celebratingChampion.set(true);
-    if (this.celebrationTimer) clearTimeout(this.celebrationTimer);
-    this.celebrationTimer = setTimeout(() => this.celebratingChampion.set(false), 4800);
   }
 
   private clearChampionLogo(): void {
@@ -376,6 +421,8 @@ export class MatchList implements OnInit, OnDestroy {
   }
 
   private closeResultForm(): void {
+    this.schedulingMatchId.set(null);
+    this.scheduleForm.reset();
     this.editingMatchId.set(null);
     this.saveError.set('');
     this.resultForm.reset();
@@ -502,8 +549,10 @@ const integerValue: ValidatorFn = (control: AbstractControl): ValidationErrors |
 
 const futureLocalDate: ValidatorFn = (control: AbstractControl): ValidationErrors | null => {
   if (typeof control.value !== 'string' || control.value === '') return null;
-  const timestamp = new Date(control.value).getTime();
-  return Number.isFinite(timestamp) && timestamp > Date.now() ? null : { futureDate: true };
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(control.value) || control.value.startsWith('0000')) return { futureDate: true };
+  const timestamp = Date.parse(`${control.value}:00-03:00`);
+  const sameDate = Number.isFinite(timestamp) && new Date(timestamp - 3 * 60 * 60 * 1000).toISOString().slice(0, 16) === control.value;
+  return sameDate && timestamp > Date.now() ? null : { futureDate: true };
 };
 
 const validResult: ValidatorFn = (control: AbstractControl): ValidationErrors | null => {

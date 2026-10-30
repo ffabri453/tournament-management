@@ -1,8 +1,4 @@
 @if (bracket(); as current) {
-  <header class="bracket-heading">
-    <p>Eliminación directa · {{ current.tournament.max_teams }} equipos</p>
-  </header>
-
   @if (current.rounds.length === 0) {
     <p class="message" role="status">Todav&iacute;a no hay partidos para mostrar. El cuadro se completar&aacute; cuando se inicie el torneo.</p>
   } @else {

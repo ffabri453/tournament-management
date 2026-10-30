@@ -1,11 +1,13 @@
 :host { display: block; color: #fff; }
-.form-page { min-height:calc(100svh - var(--nav-height)); box-sizing:border-box; padding:clamp(36px,7vh,100px) clamp(24px,7vw,112px) 64px; background-color:#031a39; background-image:linear-gradient(100deg,#031a39ed 0%,#031a39ce 48%,#031a3985 100%),url('/images/tournament-match.jpg'); background-position:center; background-size:cover; background-repeat:no-repeat; }
-.form-content { position:relative; z-index:1; max-width:1320px; margin:auto; }
+.form-page { position:relative; isolation:isolate; min-height:max(calc(100svh - var(--nav-height)),66.875vw); box-sizing:border-box; padding:clamp(28px,4vh,52px) clamp(24px,5vw,80px) 48px; background:#031a39; }
+.form-page::before { content:''; position:absolute; inset:0; z-index:-1; pointer-events:none; background:linear-gradient(100deg,#031a39d9,#031a39b8 48%,#031a3999),url('/images/tournament-match.jpg') center center/cover no-repeat; }
+
+.form-content { position:relative; z-index:1; max-width:1160px; margin:auto; }
 .back-link { display: inline-flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; font-size: 18px; }
 svg { width: 24px; height: 24px; }
-h1 { margin: 20px 0 48px; font-size: clamp(36px, 3.8vw, 50px); }
+h1 { margin: 20px 0 32px; font-size: clamp(36px, 3.8vw, 50px); }
 fieldset { min-width: 0; padding: 0; margin: 0; border: 0; }
-.form-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 52px; row-gap: 34px; }
+.form-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 52px; row-gap: 26px; }
 .field { display: flex; flex-direction: column; gap: 12px; }
 .field > label, legend { font-size: 21px; }
 
@@ -47,7 +49,7 @@ app-loading { --loading-color: #fff; }
 @media (max-width: 850px) { .form-fields { column-gap: 30px; } .option-group { grid-column: 1 / -1; max-width: 560px; } }
 @media (max-width: 600px) {
   .form-page { padding: 28px 24px 40px; }
-  .form-page { background-image:linear-gradient(#031a39ce,#031a39ed 44%,#031a39f5 100%),url('/images/tournament-match.jpg'); background-position:58% center; }
+  .form-page::before { background-image:linear-gradient(#031a39bf,#031a39d4 44%,#031a39df),url('/images/tournament-match.jpg'); background-position:center; }
   h1 { margin-bottom: 32px; font-size: 36px; }
   .form-fields { grid-template-columns: minmax(0, 1fr); gap: 28px; }
 
@@ -59,3 +61,6 @@ app-loading { --loading-color: #fff; }
 
 }
 @media (prefers-reduced-motion: reduce) { .submit { transition: none; } .submit:hover:not(:disabled) { transform: none; } }
+
+.form-content { text-shadow:0 2px 4px #001022; }
+input::placeholder { color:#e0e7f0; }

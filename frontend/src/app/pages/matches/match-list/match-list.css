@@ -65,7 +65,7 @@ dd { margin:6px 0 0; }
 .champion-copy h2 { margin:2px 0 4px; color:#fff7dd; font-size:clamp(26px,3vw,38px); line-height:1.05; overflow-wrap:anywhere; }
 .champion-copy p { margin:0; color:#e6d8ae; font-size:14px; }
 .confetti { position:absolute; inset:0; z-index:3; overflow:hidden; pointer-events:none; }
-.confetti span { position:absolute; top:-18px; width:8px; height:14px; opacity:0; animation:confetti-fall 3.2s cubic-bezier(.2,.75,.4,1) both; }
+.confetti span { position:absolute; top:-18px; width:8px; height:14px; opacity:0; animation:confetti-fall 4.8s linear infinite; }
 .champion-banner.celebrating { animation:champion-panel-arrival 1.1s cubic-bezier(.2,.75,.25,1) both; }
 .champion-banner.celebrating .champion-symbol { animation:trophy-arrival 1.35s .18s cubic-bezier(.17,.84,.34,1.18) both; }
 .champion-banner.celebrating .champion-crest { animation:crest-glow 1.55s .38s ease-out both; }

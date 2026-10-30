@@ -177,6 +177,7 @@ describe('Bracket', () => {
       champion: final.winner_team };
     render(bracket);
     expect(element.querySelector('.champion')).toBeNull();
+    expect(element.querySelector('.bracket-heading')).toBeNull();
     expect(element.querySelector('.team.winner .team-name')?.textContent).toBe(final.home_team!.name);
     expect(element.querySelector('.team.winner .score')?.textContent?.trim()).toBe('2');
   });

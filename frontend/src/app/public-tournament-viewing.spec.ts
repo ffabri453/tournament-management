@@ -114,21 +114,14 @@ describe('Public tournament viewing', () => {
     http.expectNone('/api/auth/me');
   });
 
-  it.each([false, true])('shows the champion and optional crest in public tournament detail (has_logo=%s)', async has_logo => {
+  it('keeps the finished tournament public without duplicating its champion', async () => {
     const harness = await RouterTestingHarness.create();
     await harness.navigateByUrl('/tournaments/7', TournamentDetail);
     publicGet('/api/tournaments/7', { ...tournament, status: 'finished', champion_team_id: 1 });
-    publicGet('/api/teams/1', { data: { ...team, has_logo } });
-    if (has_logo) {
-      const logo = http.expectOne('/api/teams/1/logo');
-      expect(logo.request.headers.has('Authorization')).toBe(false);
-      logo.flush(new Blob(['crest'], { type: 'image/png' }));
-    }
     harness.detectChanges();
-    expect(harness.routeNativeElement?.textContent).toContain('Campeón');
-    expect(harness.routeNativeElement?.textContent).toContain(team.name);
-    expect(Boolean(harness.routeNativeElement?.querySelector('.champion-crest'))).toBe(has_logo);
-    expect(harness.routeNativeElement?.querySelector('form')).toBeNull();
+    expect(harness.routeNativeElement?.textContent).toContain('Finalizado');
+    expect(harness.routeNativeElement?.querySelector('.champion-panel')).toBeNull();
+    http.expectNone('/api/teams/1');
   });
 
   it.each([false, true])('shows only the tournament teams and their optional crests without management controls (has_logo=%s)', async has_logo => {

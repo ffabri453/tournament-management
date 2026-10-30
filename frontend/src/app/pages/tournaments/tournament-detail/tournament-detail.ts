@@ -5,7 +5,6 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule, ValidatorFn, Validators } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { catchError, combineLatest, EMPTY, finalize, startWith, Subject, Subscription, switchMap } from 'rxjs';
-import { TeamService } from '../../../core/services/team';
 import { TournamentService } from '../../../core/services/tournament.service';
 import { Tournament } from '../../../models/tournament';
 import { canManageTournament } from '../../../core/tournament-access';
@@ -34,12 +33,9 @@ export class TournamentDetail implements OnInit {
   protected readonly auth = inject(Auth);
   private readonly route = inject(ActivatedRoute);
   private readonly tournamentService = inject(TournamentService);
-  private readonly teamService = inject(TeamService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly reload = new Subject<void>();
   private startSubscription?: Subscription;
-  private championSubscription?: Subscription;
-  private championLogoSubscription?: Subscription;
 
   protected readonly tournament = signal<Tournament | null>(null);
   protected readonly isLoading = signal(false);
@@ -49,10 +45,6 @@ export class TournamentDetail implements OnInit {
   protected readonly startError = signal('');
   protected readonly startSuccess = signal('');
   protected readonly needsRefresh = signal(false);
-  protected readonly championName = signal('');
-  protected readonly championLogoUrl = signal<string | null>(null);
-  protected readonly isChampionLoading = signal(false);
-  protected readonly championError = signal('');
   readonly matchDate = new FormControl('', { nonNullable: true, validators: [Validators.required, futureMatchDate] });
   readonly startForm = new FormGroup({ match_date: this.matchDate });
   protected readonly statusLabels: Record<Tournament['status'], string> = {
@@ -67,17 +59,12 @@ export class TournamentDetail implements OnInit {
     official_rules_football_11: 'Reglamento oficial de f\u00fatbol 11',
   };
 
-  constructor() {
-    this.destroyRef.onDestroy(() => this.clearChampionLogo());
-  }
 
   ngOnInit(): void {
     // Un cambio de ID o un reintento cancela la consulta anterior.
     combineLatest([this.route.paramMap, this.reload.pipe(startWith(undefined))]).pipe(
       switchMap(([params]) => {
         this.startSubscription?.unsubscribe();
-        this.championSubscription?.unsubscribe();
-        this.clearChampionLogo();
         this.startError.set('');
         this.startSuccess.set('');
         this.needsRefresh.set(false);
@@ -85,9 +72,6 @@ export class TournamentDetail implements OnInit {
         this.tournament.set(null);
         this.errorMessage.set('');
         this.canRetry.set(false);
-        this.championName.set('');
-        this.isChampionLoading.set(false);
-        this.championError.set('');
         const rawId = params.get('id');
         const id = Number(rawId);
         if (rawId === null || !/^\d+$/.test(rawId) || !Number.isInteger(id) || id <= 0 || id > 2147483647) {
@@ -107,7 +91,6 @@ export class TournamentDetail implements OnInit {
       takeUntilDestroyed(this.destroyRef),
     ).subscribe((tournament) => {
       this.tournament.set(tournament);
-      this.loadChampion(tournament);
     });
   }
 
@@ -141,7 +124,6 @@ export class TournamentDetail implements OnInit {
     ).subscribe({
       next: updatedTournament => {
         this.tournament.set(updatedTournament);
-        this.loadChampion(updatedTournament);
         this.startSuccess.set('Torneo iniciado. Se generaron los partidos de la primera ronda.');
       },
       error: (error: unknown) => this.setStartError(error),
@@ -150,46 +132,6 @@ export class TournamentDetail implements OnInit {
 
   protected canManage(): boolean {
     return canManageTournament(this.auth.user(), this.tournament());
-  }
-
-  private loadChampion(tournament: Tournament): void {
-    this.championSubscription?.unsubscribe();
-    this.clearChampionLogo();
-    this.championName.set('');
-    this.championError.set('');
-    this.isChampionLoading.set(false);
-    if (tournament.status !== 'finished' || tournament.champion_team_id === null) return;
-
-    this.isChampionLoading.set(true);
-    this.championSubscription = this.teamService.getById(tournament.champion_team_id).pipe(
-      takeUntilDestroyed(this.destroyRef),
-      finalize(() => this.isChampionLoading.set(false)),
-    ).subscribe({
-      next: team => {
-        if (team.tournament_id !== tournament.id || team.name.trim() === '') {
-          this.championError.set('No se pudo recuperar el nombre del equipo campe\u00f3n.');
-          return;
-        }
-        this.championName.set(team.name);
-        if (team.has_logo) {
-          this.championLogoSubscription = this.teamService.getLogo(team.id).pipe(
-            takeUntilDestroyed(this.destroyRef),
-          ).subscribe({
-            next: blob => this.championLogoUrl.set(URL.createObjectURL(blob)),
-            error: () => undefined,
-          });
-        }
-      },
-      error: () => this.championError.set('No se pudo recuperar el nombre del equipo campe\u00f3n.'),
-    });
-  }
-
-  protected clearChampionLogo(): void {
-    this.championLogoSubscription?.unsubscribe();
-    this.championLogoSubscription = undefined;
-    const url = this.championLogoUrl();
-    if (url) URL.revokeObjectURL(url);
-    this.championLogoUrl.set(null);
   }
 
   private setStartError(error: unknown): void {

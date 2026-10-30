@@ -114,6 +114,27 @@
                       }
                     </div>
                   }
+                  @if (canReschedule(match) && schedulingMatchId() !== match.id) {
+                    <button class="secondary" type="button" data-ball-feedback (click)="openScheduleForm(match)"
+                      [disabled]="savingMatchId() !== null || generatingRound() || needsRefresh()"
+                      [attr.aria-label]="'Cambiar horario de ' + teamName(match.home_team_id) + ' contra ' + teamName(match.away_team_id)">Cambiar horario</button>
+                  }
+                  @if (canManage() && schedulingMatchId() === match.id) {
+                    <div class="result-editor"><form [formGroup]="scheduleForm" (ngSubmit)="saveSchedule()" [attr.aria-busy]="savingMatchId() === match.id">
+                      <fieldset [disabled]="savingMatchId() !== null || needsRefresh()">
+                        <label [for]="'schedule-' + match.id">Fecha y hora del partido (Argentina)
+                          <input [id]="'schedule-' + match.id" type="datetime-local" step="60" formControlName="match_date" />
+                        </label>
+                        @if (scheduleForm.touched && scheduleForm.invalid) { <p class="error" role="alert">Elegí una fecha y hora futuras válidas.</p> }
+                        @if (saveError()) { <p class="error" role="alert">{{ saveError() }}</p> }
+                        <div class="form-actions">
+                          <button type="submit" data-ball-feedback>Guardar horario</button>
+                          <button type="button" class="secondary" (click)="cancelResultForm()">Cancelar</button>
+                        </div>
+                      </fieldset>
+                      @if (savingMatchId() === match.id) { <app-loading label="Guardando horario..." /> }
+                    </form></div>
+                  }
                   @if (canManage() && editingMatchId() === match.id) {
                     <div class="result-editor"><form [formGroup]="resultForm" (ngSubmit)="saveResult()" [attr.aria-busy]="savingMatchId() === match.id">
                           <h3>Resultado: {{ teamName(match.home_team_id) }} vs. {{ teamName(match.away_team_id) }}</h3>
