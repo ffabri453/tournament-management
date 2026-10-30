@@ -138,4 +138,51 @@ describe('TournamentForm editing', () => {
     expect(request.request.body).toEqual({ name: 'Nuevo nombre' });
     request.flush({}, { status: 500, statusText: 'Error' });
   });
+  it('deletes an open tournament only after confirmation and prevents duplicate requests', () => {
+    load();
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    component.deleteTournament();
+    component.deleteTournament();
+    component.submit();
+    const request = http.expectOne('/api/tournaments/5');
+    expect(request.request.method).toBe('DELETE');
+    request.flush({ message: 'Deleted' });
+    expect(navigate).toHaveBeenCalledWith(['/tournaments']);
+    vi.restoreAllMocks();
+  });
+
+  it('does not delete when the user cancels', () => {
+    load();
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    component.deleteTournament();
+    http.expectNone('/api/tournaments/5');
+    vi.restoreAllMocks();
+  });
+
+  it.each(['in_progress', 'finished'] as const)('prevents deletion of a %s tournament', status => {
+    load({ ...tournament, status });
+    expect(element().querySelector('.delete-button')).toBeNull();
+    component.deleteTournament();
+    http.expectNone('/api/tournaments/5');
+  });
+
+  it('shows a conflict when the tournament was started before deletion', () => {
+    load();
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    component.deleteTournament();
+    http.expectOne('/api/tournaments/5').flush({}, { status:409, statusText:'Conflict' });
+    fixture.detectChanges();
+    expect(element().textContent).toContain('No se puede eliminar un torneo iniciado');
+    expect(component.isDeleting()).toBe(false);
+    vi.restoreAllMocks();
+  });
+
+  it('does not allow another organizer to delete the tournament', () => {
+    load({ ...tournament, organizer_id:99 });
+    expect(component.canDelete()).toBe(false);
+    component.deleteTournament();
+    http.expectNone('/api/tournaments/5');
+  });
+
 });

@@ -50,6 +50,8 @@ export class TournamentForm implements OnInit {
   readonly modalities: readonly Tournament['modality'][] = ['futbol_5', 'futbol_7', 'futbol_11'];
   readonly capacities: readonly Tournament['max_teams'][] = [4, 8, 16, 32];
   readonly isSaving = signal(false);
+  readonly isDeleting = signal(false);
+  readonly deleteError = signal('');
   readonly errorMessage = signal('');
   readonly form = new FormGroup({
     name: new FormControl('', { nonNullable: true, validators: [Validators.required, validName] }),
@@ -112,7 +114,7 @@ export class TournamentForm implements OnInit {
 
   submit(): void {
     if (!this.auth.user() || (this.isEditing() && !canManageTournament(this.auth.user(), this.currentTournament))) return;
-    if (this.isSaving() || this.isLoading() || this.loadFailed() ||
+    if (this.isSaving() || this.isDeleting() || this.isLoading() || this.loadFailed() ||
         (this.isEditing() && this.tournamentId === null)) return;
     this.form.markAllAsTouched();
     if (this.form.invalid) return;
@@ -133,6 +135,31 @@ export class TournamentForm implements OnInit {
       error: (error: unknown) => {
         this.isSaving.set(false);
         this.errorMessage.set(this.getErrorMessage(error));
+      },
+    });
+  }
+
+  canDelete(): boolean {
+    return this.isEditing() && !this.isLoading() && !this.loadFailed() &&
+      this.currentTournament?.status === 'open' &&
+      canManageTournament(this.auth.user(), this.currentTournament);
+  }
+
+  deleteTournament(): void {
+    const tournament = this.currentTournament;
+    if (!tournament || !this.canDelete() || this.isSaving() || this.isDeleting()) return;
+    if (!window.confirm(`¿Eliminar "${tournament.name}"? También se eliminarán sus equipos y partidos asociados. Esta acción no se puede deshacer.`)) return;
+    this.isDeleting.set(true);
+    this.deleteError.set('');
+    this.tournamentService.delete(tournament.id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: () => { void this.router.navigate(['/tournaments']); },
+      error: (error: unknown) => {
+        this.isDeleting.set(false);
+        this.deleteError.set(error instanceof HttpErrorResponse && error.status === 409
+          ? 'No se puede eliminar un torneo iniciado o con partidos finalizados. Volvé al listado para actualizar su estado.'
+          : error instanceof HttpErrorResponse && error.status === 403
+            ? 'No tenés permiso para eliminar este torneo.'
+            : 'No se pudo eliminar el torneo. Volvé al listado para comprobar su estado antes de intentar nuevamente.');
       },
     });
   }

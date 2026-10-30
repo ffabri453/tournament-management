@@ -1,44 +1,45 @@
-:host { display: block; color: #fff; }
-.form-page { position:relative; isolation:isolate; min-height:max(calc(100svh - var(--nav-height)),66.875vw); box-sizing:border-box; padding:clamp(28px,4vh,52px) clamp(24px,5vw,80px) 48px; background:#031a39; }
-.form-page::before { content:''; position:absolute; inset:0; z-index:-1; pointer-events:none; background:linear-gradient(100deg,#031a39d9,#031a39b8 48%,#031a3999),url('/images/tournament-match.jpg') center center/cover no-repeat; }
+:host { display:block; color:#fff; font-family:var(--font-body); }
+.form-page { position:relative; isolation:isolate; min-height:calc(100svh - var(--nav-height)); box-sizing:border-box; padding:20px clamp(24px,4vw,64px) 24px; background:#031a39; }
+/* The landscape image fills wide screens without magnifying the portrait photo. */
+.form-page::before { content:''; position:fixed; inset:var(--nav-height) 0 0; z-index:-1; pointer-events:none; background:linear-gradient(100deg,#031a39d9,#031a39c4 48%,#031a39a8),url('/images/tournament-ball-boot-wide.png') center/cover no-repeat; }
 
-.form-content { position:relative; z-index:1; max-width:1160px; margin:auto; }
-.back-link { display: inline-flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; font-size: 18px; }
+.form-content { position:relative; z-index:1; max-width:1400px; margin:auto; }
+.back-link { display: inline-flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; font-size: 16px; }
 svg { width: 24px; height: 24px; }
-h1 { margin: 20px 0 32px; font-size: clamp(36px, 3.8vw, 50px); }
+h1 { margin:10px 0 0; font-family:var(--font-display); font-size:48px; font-weight:800; font-style:italic; letter-spacing:-.035em; line-height:1.08; }
 fieldset { min-width: 0; padding: 0; margin: 0; border: 0; }
-.form-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 52px; row-gap: 26px; }
-.field { display: flex; flex-direction: column; gap: 12px; }
-.field > label, legend { font-size: 21px; }
+.form-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap:44px; row-gap:20px; }
+.field { display: flex; flex-direction: column; gap:6px; }
+.field > label, legend { font-size:20px; font-weight:600; }
 
-.field input, select { width: 100%; box-sizing: border-box; padding: 8px 0 14px; color: #fff; font-size: 22px; background: transparent; border: 0; border-bottom: 1px solid #c6d3e4; }
+.field input, select { width: 100%; box-sizing: border-box; padding:6px 0 8px; min-height:44px; color: #fff; font-size:20px; background: transparent; border: 0; border-bottom: 1px solid #c6d3e4; }
 input::placeholder { color: #bac6d7; }
 select { color-scheme: dark; }
 option { color: #fff; background: #102b4b; }
-small, .format-note { color: #d1dbe8; font-size: 14px; line-height: 1.5; }
-.option-group { grid-column: 1; }
-legend { padding: 0; margin-bottom: 16px; }
+small, .format-note { color: #d1dbe8; font-size:12px; line-height:1.5; }
+.option-group { grid-column: 1 / -1; }
+legend { padding: 0; margin-bottom:6px; }
 .options { display: flex; gap: 22px; }
 .modality-options { gap: 20px; }
 .modality-option { position: relative; flex: 1; }
 .modality-option input { position: absolute; opacity: 0; width: 1px; height: 1px; }
-.modality-option > span { display: flex; justify-content: center; gap: 8px; padding: 12px 4px 14px; border-bottom: 1px solid #c6d3e4; font-size: 22px; }
+.modality-option > span { display: flex; justify-content: center; gap: 8px; padding:8px 4px 9px; min-height:44px; box-sizing:border-box; border-bottom: 1px solid #c6d3e4; font-size:20px; }
 .check { display: none; }
-.modality-option input:checked + span { color: #69b6ff; border-bottom: 3px solid #258cff; padding-bottom: 12px; font-weight: 700; }
+.modality-option input:checked + span { color: #69b6ff; border-bottom: 3px solid #258cff; padding-bottom:7px; font-weight: 700; }
 .modality-option input:checked + span .check { display: inline; }
 .modality-option input:focus-visible + span { outline: 2px solid #82caff; outline-offset: 4px; }
 .capacity-options { justify-content: space-between; flex-wrap: wrap; gap: 16px; }
 .capacity-options input:checked { border-color: #258cff; background: radial-gradient(#258cff 45%, transparent 50%); }
-.capacity-options label { display: flex; align-items: center; gap: 12px; min-height: 44px; font-size: 22px; }
-.capacity-options input { width: 26px; height: 26px; margin: 0; appearance: none; border: 2px solid #dae5f4; border-radius: 50%; background: transparent; }
+.capacity-options label { display: flex; align-items: center; gap: 12px; min-height: 44px; font-size:20px; }
+.capacity-options input { width:22px; height:22px; margin: 0; appearance: none; border: 2px solid #dae5f4; border-radius: 50%; background: transparent; }
 input:disabled, select:disabled, .modality-option input:disabled + span { opacity: .65; cursor: not-allowed; }
 .field input:focus, select:focus { outline: 2px solid #82caff; outline-offset: 4px; }
 .format-note { grid-column: 1 / -1; margin: 0; }
-.locked-note { grid-column: 1 / -1; padding: 14px; border-left: 3px solid #79baff; background: #092c50bf; margin: 0; line-height: 1.5; }
-.form-actions { grid-column: 1 / -1; display: flex; align-items: center; gap: 40px; }
-.cancel-link { color: #fff; font-size: 21px; padding: 14px; text-underline-offset: 6px; text-decoration: none; }
+.locked-note { grid-column: 1 / -1; padding:6px 10px; font-size:13px; border-left: 3px solid #79baff; background: #092c50bf; margin: 0; line-height: 1.5; }
+.form-actions { grid-column: 1 / -1; display: flex; align-items: center; justify-content:space-between; gap:16px; margin-top:4px; flex-wrap:wrap; }
+.cancel-link { color: #fff; font-size:16px; padding:10px 0; text-underline-offset: 6px; text-decoration: none; }
 
-.submit { display: inline-flex; justify-content: center; align-items: center; gap: 24px; padding: 18px 32px; border: 0; border-radius: 8px; background: #0064f5; color: #fff; font-size: 22px; transition: background-color 160ms ease, transform 160ms ease; }
+.submit { display: inline-flex; justify-content: center; align-items: center; gap:12px; padding:12px 28px; min-height:44px; margin-left:auto; order:2; border: 0; border-radius: 8px; background: #0064f5; color: #fff; font-size:20px; transition: background-color 160ms ease, transform 160ms ease; }
 .submit:hover:not(:disabled) { background: #0757ce; transform: translateY(-2px); }
 .submit:disabled { opacity: .65; cursor: wait; }
 a:focus-visible, button:focus-visible, input[type="radio"]:focus-visible { outline: 3px solid #82caff; outline-offset: 4px; }
@@ -46,21 +47,33 @@ a:focus-visible, button:focus-visible, input[type="radio"]:focus-visible { outli
 
 app-loading { --loading-color: #fff; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-@media (max-width: 850px) { .form-fields { column-gap: 30px; } .option-group { grid-column: 1 / -1; max-width: 560px; } }
+@media (max-width: 850px) { .form-fields { column-gap: 30px; } .option-group { grid-column: 1 / -1; } }
 @media (max-width: 600px) {
-  .form-page { padding: 28px 24px 40px; }
-  .form-page::before { background-image:linear-gradient(#031a39bf,#031a39d4 44%,#031a39df),url('/images/tournament-match.jpg'); background-position:center; }
-  h1 { margin-bottom: 32px; font-size: 36px; }
-  .form-fields { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+  .form-page { padding:16px 20px 24px; }
+  .form-page::before { background-image:linear-gradient(#031a39d9,#031a39c4 44%,#031a39cc),url('/images/tournament-ball-boot-wide.png'); background-position:55% center; }
+  h1 { font-size:32px; }
+  .form-fields { grid-template-columns:minmax(0,1fr); gap:14px; }
 
-  .field input, select, .modality-option > span, .capacity-options label { font-size: 19px; }
+  .field input, select, .modality-option > span, .capacity-options label { font-size:16px; }
   .modality-options { gap: 12px; }
   .modality-option > span { gap: 4px; }
-  .form-actions { gap: 18px; flex-wrap: wrap; }
-  .submit { padding: 16px 22px; font-size: 20px; }
+  .form-actions { gap:12px; }
+  .submit { padding:10px 16px; font-size:16px; }
 
 }
 @media (prefers-reduced-motion: reduce) { .submit { transition: none; } .submit:hover:not(:disabled) { transform: none; } }
 
 .form-content { text-shadow:0 2px 4px #001022; }
 input::placeholder { color:#e0e7f0; }
+
+.delete-section { margin-top:8px; }
+.delete-section p { margin:0; font-size:12px; line-height:1.5; }
+.delete-button { order:1; min-height:44px; padding:10px 14px; font-size:14px; border:1px solid #ffb6b6; border-radius:7px; background:#861d30; color:#fff; cursor:pointer; }
+.delete-button:hover:not(:disabled) { background:#a3243b; }
+.delete-button:disabled { opacity:.6; cursor:wait; }
+
+form { max-width:1080px; margin:24px auto 0; }
+.capacity-options { max-width:530px; }
+@media(max-width:600px) { form { margin-top:16px; } .form-actions { margin-top:0; } }
+
+@media (min-width:601px) and (max-height:760px) { .form-fields { row-gap:14px; } form { margin-top:20px; } }

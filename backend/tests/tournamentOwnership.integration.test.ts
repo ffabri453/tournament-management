@@ -10,7 +10,7 @@ import pool from '../src/config/db';
 import { issueToken } from '../src/auth/token';
 
 // Opt-in: uses real PostgreSQL in a unique schema, never the application's data.
-test('ownership through HTTP, JWT and PostgreSQL', { skip: process.env.RUN_DB_TESTS !== '1' }, async () => {
+test('ownership through HTTP, JWT and PostgreSQL', { skip: process.env.RUN_DB_TESTS !== '1' }, async (t) => {
   const schema = `ownership_test_${randomBytes(8).toString('hex')}`;
   const db = new Pool({ ...pool.options, password: pool.options.password,
     options: `-c search_path=${schema}`, connectionTimeoutMillis: 5000 });
@@ -117,6 +117,69 @@ test('ownership through HTTP, JWT and PostgreSQL', { skip: process.env.RUN_DB_TE
     await request('GET', `/tournaments/${cup.id}/bracket`, 0);
     await request('GET', '/matches', 0);
     await request('DELETE', `/tournaments/${cup.id}`, 3, undefined, 409);
+    await t.test('deleting an open tournament cascades to its teams and scheduled matches', async () => {
+      const disposable = await request('POST', '/tournaments', 1, { ...input, name: 'Deletion Cup' }, 201);
+      const ids: number[] = [];
+      for (const name of ['Delete Alpha', 'Delete Beta']) {
+        ids.push((await request('POST', '/api/teams', 1, { tournament_id: disposable.id, name, players_count: 7 }, 201)).data.id);
+      }
+      await request('POST', '/matches', 1, { ...matchInput, tournament_id: disposable.id,
+        home_team_id: ids[0], away_team_id: ids[1] }, 201);
+      await request('DELETE', `/tournaments/${disposable.id}`, 0, undefined, 401);
+      await request('DELETE', `/tournaments/${disposable.id}`, 2, undefined, 403);
+      await request('DELETE', `/tournaments/${disposable.id}`, 1);
+      await request('GET', `/tournaments/${disposable.id}`, 0, undefined, 404);
+      assert.equal((await db.query('SELECT id FROM teams WHERE tournament_id=$1', [disposable.id])).rowCount, 0);
+      assert.equal((await db.query('SELECT id FROM matches WHERE tournament_id=$1', [disposable.id])).rowCount, 0);
+    });
+
+    for (const capacity of [4, 8, 16, 32]) {
+      await t.test(`independent schedules and full knockout flow for ${capacity} teams`, async () => {
+        const competition = await request('POST', '/tournaments', 1, {
+          ...input, name: `Schedule Cup ${capacity}`, max_teams: capacity,
+        }, 201);
+        for (let index = 0; index < capacity; index++) {
+          await request('POST', '/api/teams', 1, { tournament_id: competition.id,
+            name: `Schedule Team ${index + 1}`, players_count: 7 }, 201);
+        }
+        let round = (await request('POST', `/tournaments/${competition.id}/start`, 1, date, 201)).data;
+        await request('DELETE', `/tournaments/${competition.id}`, 3, undefined, 409);
+        let expectedMatches = capacity / 2;
+        let checked = 0;
+        while (true) {
+          assert.equal(round.matches.length, expectedMatches);
+          for (const game of round.matches) {
+            const payload = { tournament_id: competition.id, home_team_id: game.home_team_id,
+              away_team_id: game.away_team_id, round: game.round, location: game.location,
+              match_date: `2099-03-${String(checked + 1).padStart(2, '0')} 19:45`,
+              status: 'scheduled', home_goals: null, away_goals: null, home_penalties: null, away_penalties: null };
+            const othersBefore = (await db.query('SELECT * FROM matches WHERE tournament_id=$1 AND id<>$2 ORDER BY id', [competition.id, game.id])).rows;
+            await request('PUT', `/matches/${game.id}`, 0, payload, 401);
+            await request('PUT', `/matches/${game.id}`, 2, payload, 403);
+            await request('PUT', `/matches/${game.id}`, 1, { ...payload, match_date: '2020-01-01 12:00' }, 400);
+            const updated = (await request('PUT', `/matches/${game.id}`, checked % 2 === 0 ? 1 : 3, payload)).data;
+            assert.equal(new Date(updated.match_date).toISOString(), `2099-03-${String(checked + 1).padStart(2, '0')}T22:45:00.000Z`);
+            assert.deepEqual((await db.query('SELECT * FROM matches WHERE tournament_id=$1 AND id<>$2 ORDER BY id', [competition.id, game.id])).rows, othersBefore);
+            const publicBracket = await request('GET', `/tournaments/${competition.id}/bracket`, 0);
+            const persisted = publicBracket.rounds.flatMap((item: { matches: { id: number; match_date: string }[] }) => item.matches).find((item: { id: number }) => item.id === game.id);
+            assert.equal(persisted.match_date, updated.match_date);
+
+            await request('PUT', `/matches/${game.id}`, 1, { ...payload,
+              status: 'finished', match_date: '2026-01-01 12:00', home_goals: 2, away_goals: 1 });
+            await request('PUT', `/matches/${game.id}`, 3, payload, 409);
+            checked++;
+          }
+          if (expectedMatches === 1) break;
+          round = (await request('POST', `/tournaments/${competition.id}/next-round`, 1, date, 201)).data;
+          expectedMatches /= 2;
+        }
+        const completed = await request('GET', `/tournaments/${competition.id}`, 0);
+        assert.equal(completed.status, 'finished');
+        assert.ok(completed.champion_team_id);
+        assert.equal(checked, capacity - 1);
+        await request('DELETE', `/tournaments/${competition.id}`, 3, undefined, 409);
+      });
+    }
     await db.query("UPDATE users SET role='organizer' WHERE id=3");
     await request('PUT', '/tournaments/1', 3, { name: 'Demoted admin' }, 403);
     await request('DELETE', `/tournaments/${other.id}`, 2);

@@ -7,8 +7,8 @@
     <h1>{{ isEditing() ? 'Editar torneo' : 'Crear torneo' }}</h1>
     @if (isLoading()) { <app-loading label="Cargando torneo…" /> }
     @if (auth.user() && !isLoading() && !loadFailed()) {
-      <form [formGroup]="form" (ngSubmit)="submit()" [attr.aria-busy]="isSaving()">
-        <fieldset class="form-fields" [disabled]="isSaving()">
+      <form [formGroup]="form" (ngSubmit)="submit()" [attr.aria-busy]="isSaving() || isDeleting()">
+        <fieldset class="form-fields" [disabled]="isSaving() || isDeleting()">
           <legend class="sr-only">Datos del torneo</legend>
           <div class="field">
             <label for="name">Nombre del torneo</label>
@@ -53,13 +53,27 @@
           @if (structureLocked()) { <p class="locked-note" role="status">El torneo ya fue iniciado. Sólo se puede modificar el nombre.</p> }
           <div class="form-actions">
             <a class="cancel-link" routerLink="/tournaments">Cancelar</a>
-            <button class="submit" type="submit" [disabled]="isSaving()" data-ball-feedback>
+            <button class="submit" type="submit" [disabled]="isSaving() || isDeleting()" data-ball-feedback>
               {{ isSaving() ? (isEditing() ? 'Guardando…' : 'Creando…') : (isEditing() ? 'Guardar cambios' : 'Crear torneo') }}
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 12h16m-7-7 7 7-7 7"/></svg>
             </button>
+            @if (canDelete()) {
+              <button type="button" class="delete-button" (click)="deleteTournament()" [disabled]="isSaving() || isDeleting()">Eliminar torneo</button>
+            }
           </div>
         </fieldset>
         @if (isSaving()) { <app-loading label="Guardando torneo…" /> }
+        @if (isEditing()) {
+          <div class="delete-section">
+            @if (canDelete()) {
+              <p>Se eliminarán también sus equipos y partidos asociados.</p>
+            } @else if (structureLocked()) {
+              <p>Los torneos iniciados o finalizados no se pueden eliminar.</p>
+            }
+            @if (isDeleting()) { <app-loading label="Eliminando torneo…" /> }
+            @if (deleteError()) { <p class="error" role="alert">{{ deleteError() }}</p> }
+          </div>
+        }
       </form>
     } @else if (!isLoading() && !isEditing()) {
       <a class="cancel-link" routerLink="/tournaments">Volver a torneos</a>
