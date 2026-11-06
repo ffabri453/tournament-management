@@ -173,7 +173,7 @@ La prueba crea y elimina un esquema temporal unico: no escribe en las tablas de 
 
 ## Pruebas con Bruno
 
-La coleccion `backend/bruno` contiene 20 solicitudes en ingles, organizadas en `auth`, `tournaments`, `teams` y `match`: los 15 endpoints CRUD, `Start tournament`, `Next round`, `GET tournament bracket`, `Register` y `Login`. Abrir la coleccion desde `backend/bruno`.
+La coleccion `backend/bruno` contiene las 20 solicitudes de la API y un workflow, organizados en `workflow`, `auth`, `tournaments`, `teams` y `match`: los 15 endpoints CRUD, `Start tournament`, `Next round`, `GET tournament bracket`, `Register`, `Login` y `Run full tournament flow`. Abrir la coleccion desde `backend/bruno`.
 
 `Register` genera un email `@example.test` unico para la ejecucion y guarda las credenciales ficticias como variables temporales. `Login` reutiliza esas variables y, si responde `200`, guarda `access_token` como `accessToken`. Las operaciones protegidas envian ese valor como Bearer token; las lecturas publicas y Register/Login mantienen `auth: none`.
 
@@ -189,13 +189,21 @@ Para probar el flujo completo de cuatro equipos, enviar individualmente en este 
 8. `match / Update match`, una vez, para finalizar la final.
 9. `tournaments / Get tournament by ID` y `tournaments / GET tournament bracket`, para consultar el estado `finished` y el campeon.
 
+### Extension Bruno de VS Code
+
+La extension Bruno 6.0.0 de VS Code ejecuta correctamente los scripts, pero no conserva entre dos envios manuales las variables de runtime modificadas por el request anterior. Por eso, despues de ejecutar `Register` por separado, `Login` puede enviar `{{userEmail}}` sin resolver y recibir `400 Invalid login data`. El mismo limite afectaria despues a `accessToken` y a los IDs dinamicos.
+
+En esa extension, seleccionar primero el entorno correcto y ejecutar solamente `workflow / Run full tournament flow`. Ese request usa `bru.sendRequest()` para encadenar Register, Login, creacion del torneo, cuatro equipos, semifinales, final y consulta del bracket dentro de una unica ejecucion, manteniendo credenciales, JWT e IDs solo en memoria. La respuesta final debe ser `200`, con el torneo en `finished`, un campeon y tres partidos finalizados. Por seguridad, el workflow exige un entorno con `baseUrl` y rechaza el puerto local `3000`; aun asi, no debe ejecutarse contra una URL cuya base de datos de destino no haya sido verificada previamente.
+
+El recorrido individual de nueve pasos sigue disponible en Bruno Desktop y en clientes que conserven variables de runtime entre requests. No copiar el JWT a archivos ni guardarlo como variable versionada.
+
 Las URLs individuales usan `tournamentId`, `teamId` y `matchId`; no dependen de IDs fijos. Los scripts obtienen esos valores exclusivamente de respuestas exitosas. `Update match` usa un resultado de ejemplo 2-1 y una fecha un minuto en el pasado para simular un partido jugado; podes editar los goles y agregar penales si hay empate.
 
 `List tournaments`, `Get tournament by ID`, `GET tournament bracket`, `List teams`, `Get team` y `List matches` son publicas. `Get match by ID` y todas las mutaciones requieren el token obtenido en Login, de acuerdo con las rutas actuales del backend.
 
-`Create match` es solo para probar el CRUD manual en un torneo abierto separado; no forma parte del recorrido automatico generado por `Start tournament`. Los DELETE son pruebas manuales opcionales y respetan las restricciones del historial. No ejecutar toda la coleccion como una suite: las carpetas agrupan recursos, pero el flujo intercala solicitudes de distintas carpetas y requiere repetir `Create team` y `Update match`.
+`Create match` es solo para probar el CRUD manual en un torneo abierto separado; no forma parte del recorrido automatico generado por `Start tournament`. Los DELETE son pruebas manuales opcionales y respetan las restricciones del historial. No ejecutar toda la coleccion como una suite: usar el workflow una vez o seguir el recorrido individual, pero no ambos sobre el mismo torneo.
 
-El servidor predeterminado es `http://localhost:3000`; se puede cambiar con la variable de entorno Bruno `baseUrl`. Las variables de runtime se pierden al cerrar o reiniciar Bruno. Para repetir el recorrido completo, comenzar otra vez en `Register`, seguir con `Login` y crear un torneo nuevo.
+El servidor predeterminado es `http://localhost:3000`; se puede cambiar con la variable de entorno Bruno `baseUrl`. Las variables de runtime se pierden al cerrar o reiniciar Bruno. Para repetir el recorrido individual en Bruno Desktop, comenzar otra vez en `Register`; en la extension de VS Code, volver a ejecutar el workflow con el entorno de prueba seleccionado.
 
 ## Scripts
 

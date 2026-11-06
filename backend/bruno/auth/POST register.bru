@@ -26,5 +26,5 @@ body:json {
 script:pre-request {
   const authRunId = Date.now() + "-" + Math.floor(Math.random() * 100000);
   bru.setVar("userEmail", "organizer." + authRunId + "@example.test");
-  bru.setVar("userPassword", "ClaveSegura123");
+  bru.setVar("userPassword", "Tm!" + authRunId + "Aa");
 }
