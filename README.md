@@ -173,25 +173,29 @@ La prueba crea y elimina un esquema temporal unico: no escribe en las tablas de 
 
 ## Pruebas con Bruno
 
-La coleccion `backend/bruno` contiene 20 solicitudes en ingles, organizadas en `tournaments`, `teams`, `match` y `auth`: los 15 endpoints CRUD, `Start tournament`, `Next round`, `GET tournament bracket`, `Register` y `Login`. Si Bruno tenia abierta la ubicacion anterior, volver a abrir la coleccion desde `backend/bruno`.
+La coleccion `backend/bruno` contiene 20 solicitudes en ingles, organizadas en `auth`, `tournaments`, `teams` y `match`: los 15 endpoints CRUD, `Start tournament`, `Next round`, `GET tournament bracket`, `Register` y `Login`. Abrir la coleccion desde `backend/bruno`.
 
-Para probar el flujo basico de cuatro equipos, enviar individualmente en este orden:
+`Register` genera un email `@example.test` unico para la ejecucion y guarda las credenciales ficticias como variables temporales. `Login` reutiliza esas variables y, si responde `200`, guarda `access_token` como `accessToken`. Las operaciones protegidas envian ese valor como Bearer token; las lecturas publicas y Register/Login mantienen `auth: none`.
 
-1. `tournaments / Create tournament`.
-2. `teams / Create team`, cuatro veces. Cada envio exitoso guarda el ID y prepara el siguiente nombre.
-3. `tournaments / Start tournament`.
-4. `match / Update match`, dos veces, para finalizar las semifinales.
-5. `tournaments / Next round`.
-6. `match / Update match`, una vez, para finalizar la final.
-7. `tournaments / Get tournament by ID`, reemplazando el `1` de la URL por el ID del torneo creado, para consultar el estado `finished` y el campeon.
+Para probar el flujo completo de cuatro equipos, enviar individualmente en este orden:
 
-Los GET individuales (`Get tournament by ID`, `Get team by ID` y `Get match by ID`) usan un ID editable directamente en la URL. Cambiar el `1` de ejemplo por el ID que se quiere consultar; no dependen del ultimo registro creado.
+1. `auth / Register`.
+2. `auth / Login`; debe responder `200` y guardar `accessToken`.
+3. `tournaments / Create tournament`; guarda `tournamentId` y reinicia las variables del recorrido deportivo.
+4. `teams / Create team`, cuatro veces. Cada respuesta guarda `teamId`, incrementa el nombre y conserva los primeros dos IDs para el CRUD manual.
+5. `tournaments / Start tournament`; guarda las semifinales y selecciona el primer `matchId` pendiente.
+6. `match / Update match`, dos veces. El primer envio finaliza la primera semifinal y selecciona la segunda; el segundo finaliza la restante.
+7. `tournaments / Next round`; crea la final y actualiza `matchId` con su ID.
+8. `match / Update match`, una vez, para finalizar la final.
+9. `tournaments / Get tournament by ID` y `tournaments / GET tournament bracket`, para consultar el estado `finished` y el campeon.
 
-Los scripts guardan los IDs y seleccionan el siguiente partido pendiente despues de un resultado exitoso. `Update match` usa un resultado de ejemplo 2-1 y una fecha un minuto en el pasado para simular un partido jugado; podes editar los goles y agregar penales si hay empate.
+Las URLs individuales usan `tournamentId`, `teamId` y `matchId`; no dependen de IDs fijos. Los scripts obtienen esos valores exclusivamente de respuestas exitosas. `Update match` usa un resultado de ejemplo 2-1 y una fecha un minuto en el pasado para simular un partido jugado; podes editar los goles y agregar penales si hay empate.
 
-`Create match` es solo para probar el CRUD manual en un torneo abierto separado; no debe ejecutarse antes de `Start tournament` en el recorrido automatico. Los DELETE son pruebas manuales opcionales y respetan las restricciones del historial. No ejecutar toda la coleccion como una suite: las carpetas agrupan recursos, no el orden del flujo.
+`List tournaments`, `Get tournament by ID`, `GET tournament bracket`, `List teams`, `Get team` y `List matches` son publicas. `Get match by ID` y todas las mutaciones requieren el token obtenido en Login, de acuerdo con las rutas actuales del backend.
 
-El servidor predeterminado es `http://localhost:3000`; se puede cambiar con la variable de entorno Bruno `baseUrl`. Para repetir el recorrido, comenzar de nuevo en `Create tournament`.
+`Create match` es solo para probar el CRUD manual en un torneo abierto separado; no forma parte del recorrido automatico generado por `Start tournament`. Los DELETE son pruebas manuales opcionales y respetan las restricciones del historial. No ejecutar toda la coleccion como una suite: las carpetas agrupan recursos, pero el flujo intercala solicitudes de distintas carpetas y requiere repetir `Create team` y `Update match`.
+
+El servidor predeterminado es `http://localhost:3000`; se puede cambiar con la variable de entorno Bruno `baseUrl`. Las variables de runtime se pierden al cerrar o reiniciar Bruno. Para repetir el recorrido completo, comenzar otra vez en `Register`, seguir con `Login` y crear un torneo nuevo.
 
 ## Scripts
 

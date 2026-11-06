@@ -5,13 +5,17 @@ meta {
 }
 
 post {
-  url: http://localhost:3000/tournaments
+  url: {{baseUrl}}/tournaments
   body: json
-  auth: none
+  auth: bearer
 }
 
 headers {
   Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
 }
 
 body:json {

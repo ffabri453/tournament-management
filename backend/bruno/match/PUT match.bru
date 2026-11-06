@@ -5,13 +5,17 @@ meta {
 }
 
 put {
-  url: http://localhost:3000/matches/1
+  url: {{baseUrl}}/matches/{{matchId}}
   body: json
-  auth: none
+  auth: bearer
 }
 
 headers {
   Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
 }
 
 body:json {
@@ -37,13 +41,13 @@ script:post-response {
       });
       bru.setVar("pendingMatches", JSON.stringify(pending));
       const selected = pending[0];
-    if (selected) {
-      bru.setVar("matchId", selected.id);
-      bru.setVar("homeTeamId", selected.home_team_id);
-      bru.setVar("awayTeamId", selected.away_team_id);
-      bru.setVar("matchLocation", selected.location);
-      bru.setVar("matchRound", selected.round);
-    }
+      if (selected) {
+        bru.setVar("matchId", selected.id);
+        bru.setVar("homeTeamId", selected.home_team_id);
+        bru.setVar("awayTeamId", selected.away_team_id);
+        bru.setVar("matchLocation", selected.location);
+        bru.setVar("matchRound", selected.round);
+      }
     }
   }
 }

@@ -5,7 +5,7 @@ meta {
 }
 
 post {
-  url: http://localhost:3000/auth/register
+  url: {{baseUrl}}/auth/register
   body: json
   auth: none
 }
@@ -16,9 +16,15 @@ headers {
 
 body:json {
   {
-    "name": "Fabrizio",
-    "email": "fabri@example.com",
-    "password": "ClaveSegura123",
+    "name": "Tournament Organizer",
+    "email": "{{userEmail}}",
+    "password": "{{userPassword}}",
     "role": "organizer"
   }
+}
+
+script:pre-request {
+  const authRunId = Date.now() + "-" + Math.floor(Math.random() * 100000);
+  bru.setVar("userEmail", "organizer." + authRunId + "@example.test");
+  bru.setVar("userPassword", "ClaveSegura123");
 }

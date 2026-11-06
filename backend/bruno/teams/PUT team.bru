@@ -5,13 +5,17 @@ meta {
 }
 
 put {
-  url: http://localhost:3000/api/teams/1
+  url: {{baseUrl}}/api/teams/{{teamId}}
   body: json
-  auth: none
+  auth: bearer
 }
 
 headers {
   Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
 }
 
 body:json {

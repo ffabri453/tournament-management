@@ -5,7 +5,11 @@ meta {
 }
 
 get {
-  url: http://localhost:3000/matches/1
+  url: {{baseUrl}}/matches/{{matchId}}
   body: none
-  auth: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
 }
