@@ -29,33 +29,128 @@ Para iniciar Angular, abrir otra terminal desde la raiz del repositorio:
 
 ```powershell
 cd frontend
-npm install
-npm start
+npm.cmd ci
+npm.cmd start
 ```
 
-## Requisitos
+## Instalacion en Windows PowerShell
 
-- Node.js
-- Docker con Docker Compose
+### Requisitos previos
 
-## Inicio rápido
+- Git.
+- Node.js con npm (los dos directorios incluyen `package-lock.json`).
+- Docker Desktop con Docker Compose.
 
-Desde la raiz del repositorio, entrar primero a la carpeta del backend. Los comandos del backend en este README se ejecutan desde alli:
+La plantilla incluye `DB_PASSWORD=1234` porque es la credencial de desarrollo local definida en Docker Compose. Es exclusiva para este entorno y no debe reutilizarse en produccion. No copies contrasenas reales ni secretos de produccion al README, a `.env.example` ni a ningun archivo versionado.
+
+### 1. Clonar la rama correspondiente
+
+Actualmente el trabajo y la verificacion previa se realizan sobre `develop`. Para revisar esa version antes de integrarla, abrir Windows PowerShell en la carpeta donde se quiera guardar el proyecto y ejecutar:
 
 ```powershell
-cd backend
+git clone --branch develop --single-branch https://github.com/ffabri453/tournament-management.git
+Set-Location .\tournament-management
+git branch --show-current
 ```
 
-1. Copiar `.env.example` como `.env` y completar las variables.
-2. Instalar dependencias con `npm install`.
-3. Iniciar PostgreSQL con `docker compose -f docker-compose/docker-compose.yml up -d`.
-4. Iniciar la API con `npm run dev`.
+El ultimo comando debe mostrar `develop`.
 
-El contenedor aplica `src/db/schema.sql` automáticamente sólo cuando PostgreSQL inicializa un volumen nuevo. No elimina ni modifica volúmenes existentes.
+La **entrega final** debe clonarse desde `main`, pero solamente despues de integrar `develop` en `main` y verificar el resultado. Este procedimiento no realiza ese merge. Cuando la integracion ya este aprobada, el comando de clonacion para la entrega sera:
 
-Si ya usabas el proyecto antes de separar las carpetas, abrir una terminal nueva en `backend` y ejecutar Docker Compose desde esa ubicacion. Se conserva el mismo nombre de proyecto y volumen de PostgreSQL; no ejecutar `down -v` ni borrar el volumen. El cambio de carpetas no requiere volver a aplicar migraciones ya instaladas.
+```powershell
+git clone --branch main --single-branch https://github.com/ffabri453/tournament-management.git
+Set-Location .\tournament-management
+git branch --show-current
+```
 
-Si ya tenés una base, aplicá las migraciones pendientes antes de iniciar la API. En particular, el flujo con campeón requiere `005_tournament_champion.sql`; encender Docker no actualiza un volumen existente.
+En ese caso, el ultimo comando debe mostrar `main`.
+
+### 2. Configurar PostgreSQL y JWT
+
+Crear el archivo local del backend a partir de la plantilla y abrirlo para revisar PostgreSQL y completar `JWT_SECRET`:
+
+```powershell
+Copy-Item .\backend\.env.example .\backend\.env
+notepad .\backend\.env
+```
+
+La configuracion debe respetar estas reglas:
+
+- `PORT`: puerto HTTP del backend; para el entorno local se usa `3000`.
+- `DB_HOST`: `127.0.0.1` cuando el backend se ejecuta en Windows y PostgreSQL en Docker.
+- `DB_PORT`: puerto publicado por Docker; por defecto, `5432`.
+- `DB_NAME`: debe coincidir con `POSTGRES_DB` de `backend/docker-compose/docker-compose.yml`.
+- `DB_USER`: debe coincidir con `POSTGRES_USER` del mismo archivo.
+- `DB_PASSWORD`: `1234` coincide con `POSTGRES_PASSWORD` de Docker Compose y se usa exclusivamente para desarrollo local. Debe reemplazarse por una credencial segura y no versionada en cualquier entorno de produccion.
+- `JWT_SECRET`: secreto aleatorio de al menos 32 bytes. No debe ser una frase de ejemplo ni reutilizar una contrasena.
+
+Para generar `JWT_SECRET` y escribirlo directamente en `backend/.env` sin mostrarlo en la consola, ejecutar una sola vez desde la raiz del repositorio, despues de copiar la plantilla:
+
+```powershell
+node -e "const fs=require('node:fs');const crypto=require('node:crypto');const p='backend/.env';const v=crypto.randomBytes(32).toString('hex');const s=fs.readFileSync(p,'utf8').replace(/^JWT_SECRET=.*$/m,'JWT_SECRET='+v);fs.writeFileSync(p,s);"
+```
+
+`backend/.env` es local y no debe agregarse a Git. Si ya existe y contiene un secreto en uso, conservarlo en lugar de ejecutar nuevamente el comando.
+
+### 3. Instalar dependencias reproducibles
+
+Desde la raiz, instalar exactamente las versiones registradas en cada lockfile:
+
+```powershell
+Set-Location .\backend
+npm.cmd ci
+Set-Location ..\frontend
+npm.cmd ci
+Set-Location ..
+```
+
+### 4. Iniciar Docker y PostgreSQL
+
+Iniciar Docker Desktop desde PowerShell (ruta predeterminada de instalacion) y esperar hasta que el motor indique que esta listo:
+
+```powershell
+Start-Process "$Env:ProgramFiles\Docker\Docker\Docker Desktop.exe"
+docker info
+```
+
+Luego iniciar PostgreSQL:
+
+```powershell
+Set-Location .\backend
+docker compose -f .\docker-compose\docker-compose.yml up -d
+docker compose -f .\docker-compose\docker-compose.yml ps
+```
+
+En una **instalacion limpia**, el volumen de PostgreSQL todavia no existe y el contenedor aplica `src/db/schema.sql` automaticamente una sola vez. No hay que ejecutar tambien las migraciones sobre esa base nueva.
+
+### 5. Iniciar el backend
+
+En la misma terminal, desde `backend`:
+
+```powershell
+npm.cmd run dev
+```
+
+La API queda disponible en `http://localhost:3000`. El arranque falla de forma intencional si `JWT_SECRET` falta o tiene menos de 32 bytes.
+
+### 6. Iniciar Angular
+
+Abrir una segunda terminal PowerShell en la raiz del repositorio:
+
+```powershell
+Set-Location .\frontend
+npm.cmd start
+```
+
+Abrir `http://localhost:4200`. Angular usa su proxy de desarrollo para comunicarse con el backend.
+
+### Instalacion limpia frente a una base existente
+
+- **Instalacion limpia:** Docker crea un volumen nuevo y ejecuta el esquema completo actual. No aplicar las migraciones incrementales despues.
+- **Base existente:** Docker conserva el volumen y no vuelve a ejecutar `schema.sql`. Crear primero un respaldo, identificar que migraciones ya fueron aplicadas y ejecutar solamente las pendientes, en orden, como se indica en [Migraciones para una base existente](#migraciones-para-una-base-existente).
+- No ejecutar `docker compose down -v`, no borrar el volumen y no recrear la base para intentar actualizarla: esas acciones eliminan datos locales.
+
+GitHub conserva el codigo y los archivos versionados, pero **no** las cuentas, roles, torneos, equipos, partidos ni resultados guardados en PostgreSQL local o en el volumen de Docker. Tampoco conserva `backend/.env`. Por eso, clonar el repositorio en otra computadora crea una instalacion sin los datos locales anteriores; para trasladarlos se necesita un respaldo de PostgreSQL gestionado por separado y de forma segura.
 
 ## Permisos de gestion
 
@@ -74,7 +169,7 @@ node --test --require ts-node/register tests/tournamentOwnership.integration.tes
 Remove-Item Env:RUN_DB_TESTS
 ```
 
-La prueba crea y elimina un esquema temporal unico: no escribe en las tablas de la aplicacion. Comprueba la migracion `008`, la consulta publica, permisos de propietario y admin, logos y el flujo hasta campeon. `npm test` la omite cuando `RUN_DB_TESTS` no vale `1`.
+La prueba crea y elimina un esquema temporal unico: no escribe en las tablas de la aplicacion. Comprueba la migracion `008`, la consulta publica, permisos de propietario y admin, logos y el flujo hasta campeon. `npm.cmd test` la omite cuando `RUN_DB_TESTS` no vale `1`.
 
 ## Pruebas con Bruno
 
@@ -100,11 +195,11 @@ El servidor predeterminado es `http://localhost:3000`; se puede cambiar con la v
 
 ## Scripts
 
-- `npm run dev`: servidor con recarga.
-- `npm run typecheck`: comprobación de TypeScript.
-- `npm test`: pruebas automatizadas de validación.
-- `npm run build`: compilación en `dist/`.
-- `npm start`: ejecución de la compilación.
+- `npm.cmd run dev`: servidor con recarga.
+- `npm.cmd run typecheck`: comprobación de TypeScript.
+- `npm.cmd test`: pruebas automatizadas de validación.
+- `npm.cmd run build`: compilación en `dist/`.
+- `npm.cmd start`: ejecución de la compilación.
 
 ## Dominio
 
@@ -205,6 +300,36 @@ El controlador usa bcrypt asincrono con costo 12 y sal aleatoria. Responde `201`
 
 En Bruno, enviar `auth / Register` a `http://localhost:3000/auth/register`. El primer envio devuelve `201`; repetir el mismo email devuelve `409`. Para crear otro usuario, cambiar el email. La contrasena de ejemplo es ficticia.
 
+Tambien se puede registrar un organizador desde Angular: abrir `http://localhost:4200/register`, completar nombre, email y contrasena, y enviar el formulario. Toda cuenta creada por este formulario o por `POST /auth/register` recibe el rol `organizer`. El backend rechaza `role: "admin"`; no existe registro publico de administradores.
+
+### Habilitar un administrador de forma controlada
+
+Primero registrar a la persona como organizador. Despues, un responsable con acceso a PostgreSQL debe verificar su email exacto y promover esa unica cuenta. Desde `backend`, ejecutar la consulta de verificacion:
+
+```powershell
+$AdminEmail = Read-Host 'Email exacto de la cuenta que se promovera'
+"SELECT id, name, email, role FROM users WHERE email = :'admin_email';" |
+  docker compose -f .\docker-compose\docker-compose.yml exec -T postgres `
+  psql -U postgres -d torneos_db -v ON_ERROR_STOP=1 -v admin_email="$AdminEmail"
+```
+
+Continuar solo si la consulta devuelve exactamente la cuenta esperada y su rol actual es `organizer`. La promocion se realiza en una transaccion y muestra la fila modificada:
+
+```powershell
+@'
+BEGIN;
+UPDATE users
+SET role = 'admin'
+WHERE email = :'admin_email' AND role = 'organizer'
+RETURNING id, name, email, role;
+COMMIT;
+'@ | docker compose -f .\docker-compose\docker-compose.yml exec -T postgres `
+  psql -U postgres -d torneos_db -v ON_ERROR_STOP=1 -v admin_email="$AdminEmail"
+Remove-Variable AdminEmail
+```
+
+El resultado debe indicar `UPDATE 1`. `UPDATE 0` significa que no se promovio ninguna cuenta y se debe revisar el email o el rol, sin ampliar la condicion SQL. Esta operacion se realiza por separado en cada base de datos: el rol no se guarda en GitHub ni viaja al clonar el repositorio.
+
 ### Login
 
 `POST /auth/login` comprueba las credenciales de un usuario existente. En Bruno, enviar `auth / Login` despues de `Register`; ambas requests usan las mismas credenciales de ejemplo:
@@ -242,14 +367,7 @@ Body o tipos invalidos: `400` con `Invalid login data` y `errors`. Errores inter
 
 ### Autenticacion persistente
 
-Antes de iniciar el backend, configurar `JWT_SECRET` en `backend/.env` con un secreto aleatorio de al menos 32 bytes. Para generarlo directamente en el archivo sin imprimirlo, ejecutar desde `backend` una sola vez (si ya existe, conservar su valor):
-
-```powershell
-node -e "const fs = require('node:fs'); const crypto = require('node:crypto'); fs.appendFileSync('.env', '\nJWT_SECRET=' + crypto.randomBytes(32).toString('hex') + '\n');"
-npm.cmd run dev
-```
-
-El servidor rechaza el arranque si falta el secreto o es demasiado corto. No guardar `.env` en Git. Las bases existentes requieren las migraciones pendientes, incluida `008` para propietarios. En otra terminal, desde `frontend`, ejecutar `npm.cmd start` y abrir `http://localhost:4200`.
+Antes de iniciar el backend, configurar `JWT_SECRET` en `backend/.env` con el procedimiento del paso 2 de la instalacion. El servidor rechaza el arranque si falta el secreto o es demasiado corto. No guardar `.env` en Git. Las bases existentes requieren las migraciones pendientes, incluida `008` para propietarios. Para iniciar ambos servicios, seguir los pasos 5 y 6 y abrir `http://localhost:4200`.
 
 Se usa `jsonwebtoken` para firmar y verificar JWT HS256 con expiracion de una hora, issuer y audience `tournament-management`. El payload contiene solo `sub` (ID de usuario) y los claims tecnicos `iat`, `exp`, `iss`, `aud`; no contiene contrasena, hash ni role. El backend consulta el rol actual en PostgreSQL en cada peticion protegida. Referencia de la biblioteca: https://github.com/auth0/node-jsonwebtoken.
 
@@ -281,7 +399,7 @@ Prueba manual:
 5. En otra terminal ejecutar `curl.exe -i -X POST http://localhost:3000/tournaments -H "Content-Type: application/json" -d "{}"` sin Authorization: debe devolver `401 Authentication required`. Comprobar tambien PUT, PATCH y DELETE de torneos, equipos y partidos. `GET http://localhost:3000/tournaments` debe devolver 200; `/auth/me` y `/db-test` sin JWT deben devolver 401.
 6. Pulsar **Cerrar sesion**: debe volver a `/login` y eliminar `tournament.accessToken` de Session Storage. Volver al listado o al bracket debe funcionar en modo visitante; las rutas de modificacion deben continuar bloqueadas.
 
-`npm test` incluye los tests unitarios del modelo sin requerir PostgreSQL. Para comprobar los constraints reales, usar una base desechable llamada `users_test`, nunca `torneos_db`:
+`npm.cmd test` incluye los tests unitarios del modelo sin requerir PostgreSQL. Para comprobar los constraints reales, usar una base desechable llamada `users_test`, nunca `torneos_db`:
 
 ```powershell
 $env:USER_TEST_DATABASE_URL = 'postgresql://USER:PASSWORD@127.0.0.1:PORT/users_test'
@@ -303,7 +421,7 @@ No se guarda un capitán como texto del equipo. Si más adelante se administran 
 
 Ejecutar solo las migraciones pendientes, en orden, desde `backend` (no desde la raiz del repositorio):
 
-Antes de aplicar una migracion, confirmar que el destino sea `torneos_db` y crear un respaldo completo en formato personalizado con `pg_dump -Fc`, guardado fuera del repositorio. No volver a ejecutar migraciones que ya esten instaladas.
+Esta seccion no corresponde a una instalacion limpia inicializada con el `schema.sql` actual. Antes de aplicar una migracion a una base existente, confirmar que el destino sea `torneos_db` y crear un respaldo completo en formato personalizado con `pg_dump -Fc`, guardado fuera del repositorio. No volver a ejecutar migraciones que ya esten instaladas.
 
 ```powershell
 Get-Content -Raw .\src\db\migrations\001_tournament_name_location_and_team_columns.sql | docker compose -f .\docker-compose\docker-compose.yml exec -T postgres psql -U postgres -d torneos_db -v ON_ERROR_STOP=1
