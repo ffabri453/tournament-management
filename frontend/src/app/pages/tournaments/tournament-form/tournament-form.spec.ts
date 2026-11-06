@@ -1,130 +1,127 @@
-import { HttpErrorResponse } from '@angular/common/http';
+import { Auth } from '../../../core/services/auth';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { Router } from '@angular/router';
-import { Subject, throwError } from 'rxjs';
 
-import { TournamentService } from '../../../core/services/tournament.service';
-import { Tournament } from '../../../models/tournament';
 import { TournamentForm } from './tournament-form';
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { FormControl } from '@angular/forms';
+import { provideRouter, Router } from '@angular/router';
 
 describe('TournamentForm', () => {
   let component: TournamentForm;
   let fixture: ComponentFixture<TournamentForm>;
-  let element: HTMLElement;
-  const tournamentService = { create: vi.fn() };
-  const router = { navigate: vi.fn() };
-  const createdTournament: Tournament = {
-    id: 1,
-    name: 'Liga regional',
-    location: 'Firmat',
-    rules: 'official_rules_football_7',
-    format: 'knockout',
-    modality: 'futbol_7',
-    max_teams: 8,
-    status: 'open',
-    champion_team_id: null,
-    created_at: '2026-10-02T12:00:00.000Z',
-  };
+  let http: HttpTestingController;
+  const fillForm = () => component.form.setValue({ name: ' Copa Regional ', location: 'Firmat', modality: 'futbol_7', max_teams: 8 });
 
   beforeEach(async () => {
-    tournamentService.create.mockReset();
-    router.navigate.mockReset();
-
     await TestBed.configureTestingModule({
       imports: [TournamentForm],
-      providers: [
-        { provide: TournamentService, useValue: tournamentService },
-        { provide: Router, useValue: router },
-      ],
+      providers: [{ provide: Auth, useValue: { user: () => ({ id: 1, role: 'organizer' }) } }, provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
     }).compileComponents();
 
     fixture = TestBed.createComponent(TournamentForm);
     component = fixture.componentInstance;
-    element = fixture.nativeElement as HTMLElement;
-    fixture.detectChanges();
+    http = TestBed.inject(HttpTestingController);
     await fixture.whenStable();
   });
+  afterEach(() => http.verify());
 
-  it('renders the reactive form fields and their available options', () => {
+  it('should create', () => {
     expect(component).toBeTruthy();
-    expect(element.querySelector('h1')?.textContent).toContain('Crear torneo');
-    expect(element.querySelector('input[formControlName="name"]')).not.toBeNull();
-    expect(element.querySelectorAll('select[formControlName="location"] option')).toHaveLength(5);
-    expect(element.querySelectorAll('select[formControlName="modality"] option')).toHaveLength(4);
-    expect(element.querySelectorAll('select[formControlName="max_teams"] option')).toHaveLength(5);
   });
 
-  it('does not submit an invalid form and marks its controls as touched', () => {
+  it('binds radio choices to backend values and keeps capacity numeric', () => {
+    const element = fixture.nativeElement as HTMLElement;
+    element.querySelectorAll<HTMLInputElement>('.modality-options input')[1].click();
+    element.querySelectorAll<HTMLInputElement>('.capacity-options input')[1].click();
+    fixture.detectChanges();
+    expect(component.form.controls.modality.value).toBe('futbol_7');
+    expect(component.form.controls.max_teams.value).toBe(8);
+    expect(element.querySelectorAll('.modality-options input:checked')).toHaveLength(1);
+    expect(element.querySelectorAll('.capacity-options input:checked')).toHaveLength(1);
+    http.expectNone('/api/tournaments');
+  });
+
+  it('does not POST an invalid form and shows validation messages', () => {
+    component.submit();
+    http.expectNone('/api/tournaments');
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Ingresá un nombre válido');
+  });
+
+  it.each(['   ', '123', '-1.5e2', 'a'.repeat(101), 'Copa\0'])('rejects invalid name %s', (name) => {
+    fillForm();
+    component.form.controls.name.setValue(name);
+    component.submit();
+    http.expectNone('/api/tournaments');
+    expect(component.form.controls.name.invalid).toBe(true);
+  });
+
+  it('validates location, modality and capacity against the domain', () => {
+    expect(component.form.controls.location.validator?.(new FormControl('Otra'))).toEqual({ option: true });
+    expect(component.form.controls.modality.validator?.(new FormControl('tenis'))).toEqual({ option: true });
+    expect(component.form.controls.max_teams.validator?.(new FormControl(6))).toEqual({ option: true });
+  });
+
+  it.each([
+    ['futbol_5', 'official_rules_football_5'],
+    ['futbol_7', 'official_rules_football_7'],
+    ['futbol_11', 'official_rules_football_11'],
+  ] as const)('POSTs a valid form with rules for %s and navigates after 201', (modality, rules) => {
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigate').mockResolvedValue(true);
+    fillForm();
+    component.form.controls.modality.setValue(modality);
+    component.submit();
+    const request = http.expectOne('/api/tournaments');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual({ name: 'Copa Regional', location: 'Firmat', modality, max_teams: 8, rules, format: 'knockout' });
+    expect(navigate).not.toHaveBeenCalled();
+    request.flush({ ...request.request.body, id: 1, status: 'open', champion_team_id: null, created_at: '2026-10-02T12:00:00.000Z' }, { status: 201, statusText: 'Created' });
+    expect(navigate).toHaveBeenCalledWith(['/tournaments']);
+  });
+
+  it('prevents duplicate submissions while saving', () => {
+    fillForm();
+    component.submit();
     component.submit();
     fixture.detectChanges();
-
-    expect(tournamentService.create).not.toHaveBeenCalled();
-    expect(component['tournamentForm'].touched).toBe(true);
-    expect(element.textContent).toContain('El nombre es obligatorio.');
-    expect(element.textContent).toContain('La localidad es obligatoria.');
-    expect(element.textContent).toContain('La modalidad es obligatoria.');
-    expect(element.textContent).toContain('La cantidad máxima de equipos es obligatoria.');
+    expect(component.isSaving()).toBe(true);
+    expect((fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('button')?.disabled).toBe(true);
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Guardando torneo');
+    http.expectOne('/api/tournaments').flush({}, { status: 500, statusText: 'Server error' });
   });
 
-  it('submits the user fields once and navigates after creation succeeds', () => {
-    const response = new Subject<Tournament>();
-    tournamentService.create.mockReturnValue(response.asObservable());
-    component['tournamentForm'].setValue({
-      name: 'Liga regional',
-      location: 'Firmat',
-      modality: 'futbol_7',
-      max_teams: 8,
-    });
-
-    fixture.detectChanges();
-    const form = element.querySelector('form') as HTMLFormElement;
-    form.dispatchEvent(new Event('submit'));
-    form.dispatchEvent(new Event('submit'));
-    fixture.detectChanges();
-
-    expect(tournamentService.create).toHaveBeenCalledOnce();
-    expect(tournamentService.create).toHaveBeenCalledWith({
-      name: 'Liga regional',
-      location: 'Firmat',
-      modality: 'futbol_7',
-      max_teams: 8,
-    });
-    expect(component['isLoading']()).toBe(true);
-    expect(element.querySelector('button[type="submit"]')?.textContent).toContain('Creando...');
-    expect((element.querySelector('button[type="submit"]') as HTMLButtonElement).disabled).toBe(true);
-
-    response.next(createdTournament);
-    response.complete();
-
-    expect(router.navigate).toHaveBeenCalledWith(['/tournaments']);
-    expect(component['isLoading']()).toBe(false);
+  it('cancels without POST', async () => {
+    const navigate = vi.spyOn(TestBed.inject(Router), 'navigateByUrl').mockResolvedValue(true);
+    (fixture.nativeElement as HTMLElement).querySelector<HTMLAnchorElement>('.cancel-link')?.click();
+    await fixture.whenStable();
+    expect(navigate.mock.calls[0]?.[0].toString()).toBe('/tournaments');
+    expect((fixture.nativeElement as HTMLElement).querySelector('.cancel-link')?.getAttribute('href')).toBe('/tournaments');
+    http.expectNone('/api/tournaments');
   });
 
-  it('stays in the form and exposes an error when creation fails', () => {
-    tournamentService.create.mockReturnValue(throwError(() => new HttpErrorResponse({
-      status: 500,
-      statusText: 'Server error',
-    })));
-    component['tournamentForm'].setValue({
-      name: 'Liga regional',
-      location: 'Rosario',
-      modality: 'futbol_11',
-      max_teams: 16,
-    });
-
+  it.each([
+    [400, { message: 'Invalid tournament data', errors: ['name is required'] }, 'no son válidos'],
+    [409, { message: 'A tournament with the same name already exists in that location' }, 'Ya existe'],
+    [503, {}, 'conectar con el servidor'],
+    [500, { message: 'raw database error' }, 'error inesperado'],
+  ])('shows a safe message for HTTP %s and allows retry', (status, body, message) => {
+    fillForm();
     component.submit();
+    http.expectOne('/api/tournaments').flush(body, { status, statusText: 'Error' });
     fixture.detectChanges();
-
-    expect(router.navigate).not.toHaveBeenCalled();
-    expect(component['errorMessage']()).toBe('No se pudo crear el torneo.');
-    expect(element.textContent).toContain('No se pudo crear el torneo.');
-    expect(component['isLoading']()).toBe(false);
+    expect(component.isSaving()).toBe(false);
+    expect((fixture.nativeElement as HTMLElement).querySelector('[role="alert"]')?.textContent).toContain(message);
+    expect(component.errorMessage()).not.toContain('raw database error');
+    component.submit();
+    http.expectOne('/api/tournaments').flush({}, { status: 500, statusText: 'Server error' });
   });
 
-  it('navigates back to the tournament list when cancel is clicked', () => {
-    (element.querySelector('button[type="button"]') as HTMLButtonElement).click();
-
-    expect(router.navigate).toHaveBeenCalledWith(['/tournaments']);
-    expect(tournamentService.create).not.toHaveBeenCalled();
+  it('shows a connection error', () => {
+    fillForm();
+    component.submit();
+    http.expectOne('/api/tournaments').error(new ProgressEvent('error'));
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).querySelector('[role="alert"]')?.textContent).toContain('conectar con el servidor');
   });
 });

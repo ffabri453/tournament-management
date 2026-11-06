@@ -1,3 +1,5 @@
+import { randomBytes } from 'node:crypto';
+import { verifyToken } from '../src/auth/token';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { Server } from 'node:http';
@@ -21,6 +23,7 @@ let server: Server;
 let baseUrl: string;
 
 before(async () => {
+  process.env.JWT_SECRET = randomBytes(32).toString('hex');
   passwordHash = await bcrypt.hash(password, 12);
   const app = express();
   app.use(express.json());
@@ -103,7 +106,7 @@ for (const [label, body] of invalidBodies) {
 }
 
 for (const role of ['organizer', 'admin']) {
-  test(`login accepts existing ${role} credentials and returns only public fields without tokens or cookies`, async () => {
+  test(`login accepts existing ${role} credentials and returns a signed token and only public user fields`, async () => {
     const query = mock.method(pool, 'query', async (sql: string, values: unknown[]) => {
       assert.match(sql.trim(), /^SELECT /);
       assert.match(sql, /FROM users/);
@@ -116,10 +119,12 @@ for (const role of ['organizer', 'admin']) {
     assert.equal(response.status, 200);
     assert.equal(response.headers.get('set-cookie'), null);
     assert.equal(response.headers.get('authorization'), null);
-    assert.deepEqual(await response.json(), {
-      message: 'Login successful',
-      data: { ...publicUser, role, created_at: publicUser.created_at.toISOString() }
-    });
+    const result = await response.json() as { access_token: string; token_type: string; expires_in: number; data: unknown };
+    assert.equal(verifyToken(result.access_token), publicUser.id);
+    assert.equal(result.token_type, 'Bearer');
+    assert.equal(result.expires_in, 3600);
+    assert.deepEqual(result.data, { ...publicUser, role, created_at: publicUser.created_at.toISOString() });
+    assert.equal(JSON.stringify(result).includes('password'), false);
     assert.equal(query.mock.callCount(), 1);
     assert.equal(hash.mock.callCount(), 0);
     assert.equal(compare.mock.callCount(), 1);

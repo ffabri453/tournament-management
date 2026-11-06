@@ -1,4 +1,5 @@
 import pool from '../config/db';
+import { assertAuthenticatedActor, assertTournamentManager, TournamentActor } from '../domain/tournamentAccess';
 import {
   DomainError,
   INITIAL_ROUND_BY_CAPACITY,
@@ -23,6 +24,7 @@ import { Team } from './teammodel';
 
 export interface Tournament {
   id: number;
+  organizer_id: number | null;
   name: string;
   location: TournamentLocation;
   rules: string;
@@ -54,7 +56,7 @@ export interface StartTournamentResult {
   matches: Match[];
 }
 
-type BracketTeam = Pick<Team, 'id' | 'name'>;
+type BracketTeam = Pick<Team, 'id' | 'name' | 'has_logo'>;
 
 export interface BracketMatch extends Match {
   home_team: BracketTeam | null;
@@ -86,10 +88,11 @@ const tournamentColumns: Record<keyof UpdateTournamentInput, string> = {
 
 const tournamentSelect = `
   id, name, location, rules, format, modality, max_teams, status,
-  champion_team_id, created_at
+  champion_team_id, organizer_id, created_at
 `;
 
-const teamSelect = 'id, tournament_id, name, players_count, created_at';
+const teamSelect = `id, tournament_id, name, players_count,
+  (logo_data IS NOT NULL) AS has_logo, created_at`;
 
 export const getInitialRound = (capacity: number): MatchRound => {
   if (!TOURNAMENT_CAPACITIES.includes(capacity as TournamentCapacity)) {
@@ -399,7 +402,11 @@ export const getAllTournaments = async (): Promise<Tournament[]> => {
 export const getTournamentBracket = async (id: number): Promise<TournamentBracket | null> => {
   const tournamentResult = await pool.query<TournamentBracket['tournament']>(
     `SELECT ${tournamentSelect},
-       (SELECT json_build_object('id', team.id, 'name', team.name)
+       (SELECT json_build_object(
+          'id', team.id,
+          'name', team.name,
+          'has_logo', team.logo_data IS NOT NULL
+        )
         FROM teams team
         WHERE team.id = tournaments.champion_team_id) AS champion
      FROM tournaments
@@ -412,13 +419,16 @@ export const getTournamentBracket = async (id: number): Promise<TournamentBracke
   const matchResult = await pool.query<BracketMatch>(
     `SELECT match_row.*,
        CASE WHEN home_team.id IS NOT NULL
-         THEN json_build_object('id', home_team.id, 'name', home_team.name)
+         THEN json_build_object('id', home_team.id, 'name', home_team.name,
+           'has_logo', home_team.logo_data IS NOT NULL)
          ELSE NULL END AS home_team,
        CASE WHEN away_team.id IS NOT NULL
-         THEN json_build_object('id', away_team.id, 'name', away_team.name)
+         THEN json_build_object('id', away_team.id, 'name', away_team.name,
+           'has_logo', away_team.logo_data IS NOT NULL)
          ELSE NULL END AS away_team,
        CASE WHEN winner_team.id IS NOT NULL
-         THEN json_build_object('id', winner_team.id, 'name', winner_team.name)
+         THEN json_build_object('id', winner_team.id, 'name', winner_team.name,
+           'has_logo', winner_team.logo_data IS NOT NULL)
          ELSE NULL END AS winner_team
      FROM matches match_row
      LEFT JOIN teams home_team ON home_team.id = match_row.home_team_id
@@ -449,7 +459,8 @@ export const getTournamentById = async (id: number): Promise<Tournament | null> 
   return result.rows[0] ?? null;
 };
 
-export const createTournament = async (tournament: CreateTournamentInput): Promise<Tournament> => {
+export const createTournament = async (tournament: CreateTournamentInput, actor: TournamentActor): Promise<Tournament> => {
+  assertAuthenticatedActor(actor);
   if (tournament.status !== 'open') {
     throw new DomainError(
       'TOURNAMENT_INITIAL_STATUS_INVALID',
@@ -458,8 +469,8 @@ export const createTournament = async (tournament: CreateTournamentInput): Promi
   }
 
   const result = await pool.query(
-    `INSERT INTO tournaments (name, location, rules, format, modality, max_teams, status)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)
+    `INSERT INTO tournaments (name, location, rules, format, modality, max_teams, status, organizer_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
      RETURNING ${tournamentSelect}`,
     [
       tournament.name,
@@ -468,7 +479,8 @@ export const createTournament = async (tournament: CreateTournamentInput): Promi
       tournament.format,
       tournament.modality,
       tournament.max_teams,
-      tournament.status
+      tournament.status,
+      actor.id
     ]
   );
 
@@ -520,7 +532,8 @@ export const validateTournamentDeletable = (
 
 export const updateTournament = async (
   id: number,
-  tournament: UpdateTournamentInput
+  tournament: UpdateTournamentInput,
+  actor: TournamentActor
 ): Promise<Tournament | null> => {
   const client = await pool.connect();
 
@@ -541,6 +554,7 @@ export const updateTournament = async (
       return null;
     }
 
+    assertTournamentManager(current.organizer_id, actor);
     // Evita modificar la estructura del torneo una vez iniciado.
     validateTournamentMutable(current, tournament);
 
@@ -623,7 +637,8 @@ export const updateTournament = async (
 
 export const startTournament = async (
   id: number,
-  input: StartTournamentInput
+  input: StartTournamentInput,
+  actor: TournamentActor
 ): Promise<StartTournamentResult> => {
   const client = await pool.connect();
   let transactionStarted = false;
@@ -646,6 +661,7 @@ export const startTournament = async (
       throw new DomainError('TOURNAMENT_NOT_FOUND', 'Tournament not found');
     }
 
+    assertTournamentManager(tournament.organizer_id, actor);
     const teamsResult = await client.query<Team>(
       `SELECT ${teamSelect}
        FROM teams
@@ -728,7 +744,8 @@ export const startTournament = async (
 
 export const advanceTournamentRound = async (
   id: number,
-  input: AdvanceTournamentRoundInput
+  input: AdvanceTournamentRoundInput,
+  actor: TournamentActor
 ): Promise<AdvanceTournamentRoundResult> => {
   const client = await pool.connect();
   let transactionStarted = false;
@@ -751,6 +768,7 @@ export const advanceTournamentRound = async (
       throw new DomainError('TOURNAMENT_NOT_FOUND', 'Tournament not found');
     }
 
+    assertTournamentManager(tournament.organizer_id, actor);
     const matchesResult = await client.query<Match>(
       `SELECT id, tournament_id, home_team_id, away_team_id, match_date, location,
               round, home_goals, away_goals, home_penalties, away_penalties,
@@ -802,7 +820,7 @@ export const advanceTournamentRound = async (
   }
 };
 
-export const deleteTournament = async (id: number): Promise<Tournament | null> => {
+export const deleteTournament = async (id: number, actor: TournamentActor): Promise<Tournament | null> => {
   const client = await pool.connect();
 
   try {
@@ -821,6 +839,7 @@ export const deleteTournament = async (id: number): Promise<Tournament | null> =
       return null;
     }
 
+    assertTournamentManager(current.organizer_id, actor);
     const historyResult = await client.query<{ exists: boolean }>(
       `SELECT EXISTS (
          SELECT 1

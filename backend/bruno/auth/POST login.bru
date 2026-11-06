@@ -5,7 +5,7 @@ meta {
 }
 
 post {
-  url: http://localhost:3000/auth/login
+  url: {{baseUrl}}/auth/login
   body: json
   auth: none
 }
@@ -16,7 +16,15 @@ headers {
 
 body:json {
   {
-    "email": "fabri@example.com",
-    "password": "ClaveSegura123"
+    "email": "{{userEmail}}",
+    "password": "{{userPassword}}"
+  }
+}
+
+script:post-response {
+  if (res.getStatus() === 200) {
+    const body = res.getBody();
+    bru.setVar("accessToken", body.access_token);
+    bru.setVar("userId", body.data.id);
   }
 }

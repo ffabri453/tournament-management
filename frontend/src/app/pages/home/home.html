@@ -1,0 +1,18 @@
+<main class="home" aria-labelledby="home-title">
+  <img class="stadium" src="/images/home-stadium-hd.jpg" alt="" fetchpriority="high" width="1920" height="1200" />
+  <div class="home-content">
+    <h1 id="home-title">“Nada es lo mismo<br /><span>sin fútbol.”</span></h1>
+    <div class="home-actions">
+      <a class="action create" data-ball-feedback
+        [routerLink]="auth.user() ? '/tournaments/new' : '/login'"
+        [queryParams]="auth.user() ? null : { returnUrl: '/tournaments/new' }">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 4v16M4 12h16" /></svg>
+        <span>Crear torneo</span>
+      </a>
+      <a class="action browse" routerLink="/tournaments" data-ball-feedback>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h1M3 12h1M3 18h1" /></svg>
+        <span>Torneos creados</span>
+      </a>
+    </div>
+  </div>
+</main>

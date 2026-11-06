@@ -1,4 +1,5 @@
 import pool from '../config/db';
+import { assertTournamentManager, TournamentActor } from '../domain/tournamentAccess';
 import {
   DomainError,
   PLAYER_LIMITS,
@@ -11,6 +12,7 @@ export interface Team {
   tournament_id: number;
   name: string;
   players_count: number;
+  has_logo: boolean;
   created_at: Date;
 }
 
@@ -20,13 +22,22 @@ export interface TeamInput {
   players_count: number;
 }
 
+export type TeamLogoMimeType = 'image/png' | 'image/jpeg' | 'image/webp';
+
+export interface TeamLogo {
+  data: Buffer;
+  mime_type: TeamLogoMimeType;
+}
+
 interface RegistrationTournament {
+  organizer_id: number | null;
   modality: TournamentModality;
   max_teams: number;
   status: TournamentStatus;
 }
 
-const teamSelect = 'id, tournament_id, name, players_count, created_at';
+const teamSelect = `id, tournament_id, name, players_count,
+  (logo_data IS NOT NULL) AS has_logo, created_at`;
 
 const validateRegistration = (
   tournament: RegistrationTournament,
@@ -104,13 +115,13 @@ export const getTeamById = async (id: number): Promise<Team | null> => {
   return result.rows[0] ?? null;
 };
 
-export const createTeam = async (team: TeamInput): Promise<Team> => {
+export const createTeam = async (team: TeamInput, actor: TournamentActor): Promise<Team> => {
   const client = await pool.connect();
 
   try {
     await client.query('BEGIN');
     const tournamentResult = await client.query<RegistrationTournament>(
-      `SELECT modality, max_teams, status
+      `SELECT modality, max_teams, status, organizer_id
        FROM tournaments
        WHERE id = $1
        FOR UPDATE`,
@@ -122,6 +133,7 @@ export const createTeam = async (team: TeamInput): Promise<Team> => {
       throw new DomainError('TOURNAMENT_NOT_FOUND', 'The tournament_id does not exist');
     }
 
+    assertTournamentManager(tournament.organizer_id, actor);
     validateRegistration(tournament, team.players_count);
 
     const countResult = await client.query<{ count: string }>(
@@ -152,7 +164,7 @@ export const createTeam = async (team: TeamInput): Promise<Team> => {
   }
 };
 
-export const updateTeam = async (id: number, team: TeamInput): Promise<Team | null> => {
+export const updateTeam = async (id: number, team: TeamInput, actor: TournamentActor): Promise<Team | null> => {
   const client = await pool.connect();
 
   try {
@@ -172,7 +184,7 @@ export const updateTeam = async (id: number, team: TeamInput): Promise<Team | nu
     }
 
     const sourceTournamentResult = await client.query<RegistrationTournament>(
-      `SELECT modality, max_teams, status
+      `SELECT modality, max_teams, status, organizer_id
        FROM tournaments
        WHERE id = $1
        FOR UPDATE`,
@@ -184,6 +196,7 @@ export const updateTeam = async (id: number, team: TeamInput): Promise<Team | nu
       throw new DomainError('TOURNAMENT_NOT_FOUND', 'The current tournament does not exist');
     }
 
+    assertTournamentManager(sourceTournament.organizer_id, actor);
     validateTeamMutable(current, team, sourceTournament.status);
 
     if (sourceTournament.status !== 'open') {
@@ -217,7 +230,7 @@ export const updateTeam = async (id: number, team: TeamInput): Promise<Team | nu
     const tournament = current.tournament_id === team.tournament_id
       ? sourceTournament
       : (await client.query<RegistrationTournament>(
-        `SELECT modality, max_teams, status
+        `SELECT modality, max_teams, status, organizer_id
          FROM tournaments
          WHERE id = $1
          FOR UPDATE`,
@@ -228,6 +241,7 @@ export const updateTeam = async (id: number, team: TeamInput): Promise<Team | nu
       throw new DomainError('TOURNAMENT_NOT_FOUND', 'The tournament_id does not exist');
     }
 
+    assertTournamentManager(tournament.organizer_id, actor);
     validateRegistration(tournament, team.players_count);
 
     const countResult = await client.query<{ count: string }>(
@@ -261,17 +275,17 @@ export const updateTeam = async (id: number, team: TeamInput): Promise<Team | nu
   }
 };
 
-export const deleteTeam = async (id: number): Promise<boolean> => {
+export const deleteTeam = async (id: number, actor: TournamentActor): Promise<boolean> => {
   const client = await pool.connect();
 
   try {
     await client.query('BEGIN');
-    const contextResult = await client.query<{ status: TournamentStatus }>(
-      `SELECT tournament.status
+    const contextResult = await client.query<{ status: TournamentStatus; organizer_id: number | null }>(
+      `SELECT tournament.status, tournament.organizer_id
        FROM teams team
        JOIN tournaments tournament ON tournament.id = team.tournament_id
        WHERE team.id = $1
-       FOR UPDATE OF tournament`,
+       FOR UPDATE OF team, tournament`,
       [id]
     );
     const context = contextResult.rows[0];
@@ -281,6 +295,7 @@ export const deleteTeam = async (id: number): Promise<boolean> => {
       return false;
     }
 
+    assertTournamentManager(context.organizer_id, actor);
     validateTeamDeletable(context.status);
 
     const result = await client.query('DELETE FROM teams WHERE id = $1 RETURNING id', [id]);
@@ -293,3 +308,49 @@ export const deleteTeam = async (id: number): Promise<boolean> => {
     client.release();
   }
 };
+
+export const getTeamLogo = async (id: number): Promise<TeamLogo | null> => {
+  const result = await pool.query<{ logo_data: Buffer; logo_mime_type: TeamLogoMimeType }>(
+    `SELECT logo_data, logo_mime_type
+     FROM teams
+     WHERE id = $1 AND logo_data IS NOT NULL`,
+    [id]
+  );
+  const row = result.rows[0];
+  return row ? { data: row.logo_data, mime_type: row.logo_mime_type } : null;
+};
+
+const writeTeamLogo = async (id: number, logo: TeamLogo | null, actor: TournamentActor): Promise<boolean> => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    // Bloquea el equipo para que no cambie de torneo entre la autorizacion y la escritura.
+    const context = await client.query<{ organizer_id: number | null }>(
+      `SELECT tournament.organizer_id FROM teams team
+       JOIN tournaments tournament ON tournament.id = team.tournament_id
+       WHERE team.id = $1 FOR UPDATE OF team, tournament`, [id]
+    );
+    if (!context.rows[0]) {
+      await client.query('ROLLBACK');
+      return false;
+    }
+    assertTournamentManager(context.rows[0].organizer_id, actor);
+    await client.query(
+      `UPDATE teams SET logo_data = $1, logo_mime_type = $2 WHERE id = $3`,
+      [logo?.data ?? null, logo?.mime_type ?? null, id]
+    );
+    await client.query('COMMIT');
+    return true;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+export const saveTeamLogo = (id: number, logo: TeamLogo, actor: TournamentActor): Promise<boolean> =>
+  writeTeamLogo(id, logo, actor);
+
+export const removeTeamLogo = (id: number, actor: TournamentActor): Promise<boolean> =>
+  writeTeamLogo(id, null, actor);
