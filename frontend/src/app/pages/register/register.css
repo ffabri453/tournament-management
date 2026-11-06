@@ -1,0 +1,7 @@
+:host { display: block; padding: 2rem 1rem; }
+section { max-width: 26rem; margin: auto; }
+form { display: grid; gap: 0.75rem; }
+input, button { padding: 0.75rem; font: inherit; }
+button { cursor: pointer; margin-top: 0.5rem; }
+button:disabled { cursor: wait; }
+.error { color: #a51b1b; margin: 0; }

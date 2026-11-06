@@ -1,4 +1,5 @@
 import pool from '../config/db';
+import { assertTournamentManager, TournamentActor } from '../domain/tournamentAccess';
 import { PoolClient } from 'pg';
 import {
   DomainError,
@@ -182,13 +183,13 @@ export const validateManualMatchCreation = (
   }
 };
 
-export const createManualMatch = async (match: MatchInput): Promise<Match> => {
+export const createManualMatch = async (match: MatchInput, actor: TournamentActor): Promise<Match> => {
   const client = await pool.connect();
 
   try {
     await client.query('BEGIN');
-    const tournamentResult = await client.query<{ status: TournamentStatus }>(
-      `SELECT status
+    const tournamentResult = await client.query<{ status: TournamentStatus; organizer_id: number | null }>(
+      `SELECT status, organizer_id
        FROM tournaments
        WHERE id = $1
        FOR UPDATE`,
@@ -200,6 +201,7 @@ export const createManualMatch = async (match: MatchInput): Promise<Match> => {
       throw new DomainError('TOURNAMENT_NOT_FOUND', 'Tournament not found');
     }
 
+    assertTournamentManager(tournament.organizer_id, actor);
     validateManualMatchCreation(tournament.status, match);
     await validateLockedMatchRelationships(client, match, null);
 
@@ -275,6 +277,7 @@ export const validateMatchDeletable = (
 
 interface FinalCompletionTournament {
   id: number;
+  organizer_id?: number | null;
   status: TournamentStatus;
   champion_team_id: number | null;
 }
@@ -335,7 +338,7 @@ export const validateFinalCompletion = (
   return winner;
 };
 
-export const updateMatch = async (id: number, match: MatchInput): Promise<Match | null> => {
+export const updateMatch = async (id: number, match: MatchInput, actor: TournamentActor): Promise<Match | null> => {
   const client = await pool.connect();
 
   try {
@@ -358,7 +361,7 @@ export const updateMatch = async (id: number, match: MatchInput): Promise<Match 
       (left, right) => left - right
     );
     const tournamentResult = await client.query<FinalCompletionTournament>(
-      `SELECT id, status, champion_team_id
+      `SELECT id, status, champion_team_id, organizer_id
        FROM tournaments
        WHERE id = ANY($1::integer[])
        ORDER BY id ASC
@@ -375,6 +378,8 @@ export const updateMatch = async (id: number, match: MatchInput): Promise<Match 
       throw new DomainError('TOURNAMENT_NOT_FOUND', 'Tournament not found');
     }
 
+    assertTournamentManager(currentTournament.organizer_id, actor);
+    assertTournamentManager(targetTournament.organizer_id, actor);
     validateMatchEditable(
       current,
       match,
@@ -476,19 +481,19 @@ export const updateMatch = async (id: number, match: MatchInput): Promise<Match 
   }
 };
 
-export const deleteMatch = async (id: number): Promise<boolean> => {
+export const deleteMatch = async (id: number, actor: TournamentActor): Promise<boolean> => {
   const client = await pool.connect();
 
   try {
     await client.query('BEGIN');
-    const currentResult = await client.query<Match & { tournament_status: TournamentStatus }>(
+    const currentResult = await client.query<Match & { tournament_status: TournamentStatus; organizer_id: number | null }>(
       `SELECT match_row.id, match_row.tournament_id,
               match_row.home_team_id, match_row.away_team_id,
               match_row.match_date, match_row.location, match_row.round,
               match_row.home_goals, match_row.away_goals,
               match_row.home_penalties, match_row.away_penalties,
               match_row.winner_team_id, match_row.status, match_row.created_at,
-              tournament.status AS tournament_status
+              tournament.status AS tournament_status, tournament.organizer_id
        FROM matches match_row
        JOIN tournaments tournament ON tournament.id = match_row.tournament_id
        WHERE match_row.id = $1
@@ -502,6 +507,7 @@ export const deleteMatch = async (id: number): Promise<boolean> => {
       return false;
     }
 
+    assertTournamentManager(current.organizer_id, actor);
     validateMatchDeletable(current.status, current.tournament_status);
 
     const result = await client.query('DELETE FROM matches WHERE id = $1 RETURNING id', [id]);

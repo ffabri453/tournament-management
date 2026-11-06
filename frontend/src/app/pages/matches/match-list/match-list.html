@@ -1,1 +1,240 @@
-<p>match-list works!</p>
+<main [class.bracket-view]="activeView() === 'bracket'">
+  <div class="page-content">
+    <nav aria-label="Navegación de partidos y cuadro">
+      @if (tournament(); as current) {
+        <a class="back-link" [routerLink]="['/tournaments', current.id]"><span aria-hidden="true">←</span> Volver al torneo</a>
+      } @else {
+        <a class="back-link" routerLink="/tournaments"><span aria-hidden="true">←</span> Volver a torneos</a>
+      }
+    </nav>
+    <h1>Partidos y resultados</h1>
+    @if (tournament(); as current) {
+      <p class="subtitle">{{ current.name }} · {{ tournamentStatusLabels[current.status] }}</p>
+    }
+    <section class="screen-state" aria-label="Partidos y cuadro del torneo" [attr.aria-busy]="isLoading()">
+      @if (isLoading()) {
+        <app-loading label="Cargando partidos y cuadro..." />
+      } @else if (errorMessage()) {
+        <div class="message error">
+          <p role="alert">{{ errorMessage() }}</p>
+          @if (canRetry()) { <button type="button" (click)="retry()">Reintentar</button> }
+        </div>
+      } @else if (bracket(); as currentBracket) {
+        <div class="view-switch" role="group" aria-label="Vista del torneo">
+          <button type="button" [attr.aria-pressed]="activeView() === 'matches'" aria-controls="matches-panel"
+            [disabled]="editingMatchId() !== null || generatingRound()" (click)="activeView.set('matches')">Partidos</button>
+          <button type="button" [attr.aria-pressed]="activeView() === 'bracket'" aria-controls="bracket-panel"
+            [disabled]="editingMatchId() !== null || generatingRound()" (click)="activeView.set('bracket')">Cuadro</button>
+        </div>
+        @if (currentBracket.tournament.champion; as champion) {
+          <section class="champion-banner" [class.celebrating]="celebratingChampion()" aria-labelledby="champion-title">
+            @if (celebratingChampion()) {
+              <div class="confetti" aria-hidden="true">
+                @for (piece of confettiPieces; track $index) {
+                  <span [style.left.%]="piece.left" [style.animation-delay.ms]="piece.delay" [style.background-color]="piece.color"></span>
+                }
+              </div>
+            }
+            <div class="champion-symbol" aria-hidden="true">
+              <svg viewBox="0 0 48 48"><path d="M15 5h18v12a9 9 0 0 1-18 0V5Zm0 4H7v5a8 8 0 0 0 9 8m17-13h8v5a8 8 0 0 1-9 8M24 26v10m-8 7h16M19 36h10v7" /></svg>
+            </div>
+            @if (championLogoUrl(); as logoUrl) {
+              <img class="champion-crest" [src]="logoUrl" [alt]="'Escudo de ' + champion.name" />
+            }
+            <div class="champion-copy">
+              <strong>CAMPEÓN DEL TORNEO</strong>
+              <h2 id="champion-title">{{ champion.name }}</h2>
+              <p>La gloria se construye en equipo.</p>
+            </div>
+          </section>
+        }
+        <section id="bracket-panel" class="bracket-section" [hidden]="activeView() !== 'bracket'" aria-labelledby="bracket-title">
+          <h2 id="bracket-title">Cuadro de eliminación directa</h2>
+          <div class="bracket-surface">
+            <app-bracket [bracket]="currentBracket" [selectedMatchId]="selectedMatchId()" (matchSelected)="selectMatch($event)" />
+          </div>
+          @if (selectedMatch(); as selected) {
+        <article class="selected-match" aria-labelledby="selected-match-title">
+          <p class="eyebrow">Encuentro seleccionado</p>
+          <h2 id="selected-match-title">{{ teamName(selected.home_team_id) }} vs. {{ teamName(selected.away_team_id) }}</h2>
+          <div class="selected-teams">
+            <div><span class="crest-slot" aria-hidden="true"></span><strong>{{ teamName(selected.home_team_id) }}</strong></div>
+            <span class="selected-result">{{ result(selected) ?? 'Sin resultado' }}</span>
+            <div><span class="crest-slot" aria-hidden="true"></span><strong>{{ teamName(selected.away_team_id) }}</strong></div>
+          </div>
+          <dl>
+            <div><dt>Ronda</dt><dd>{{ roundLabels[selected.round] }}</dd></div>
+            <div><dt>Fecha</dt><dd>{{ selected.match_date | date:'dd/MM/yyyy HH:mm' }}</dd></div>
+            <div><dt>Ubicaci&oacute;n</dt><dd>{{ selected.location }}</dd></div>
+            <div><dt>Estado</dt><dd>{{ statusLabels[selected.status] }}</dd></div>
+          </dl>
+        </article>
+      }
+
+
+        </section>
+        <section id="matches-panel" class="matches-section" [hidden]="activeView() !== 'matches'" aria-label="Partidos y resultados">
+          @if (matches().length === 0) {
+            <p class="message" role="status">Todavía no hay partidos registrados en este torneo.</p>
+          } @else {
+            <div class="round-filter" role="group" aria-label="Filtrar partidos por ronda">
+              <button type="button" [attr.aria-pressed]="selectedRound() === null" [disabled]="editingMatchId() !== null"
+                (click)="selectedRound.set(null)">Todos</button>
+              @for (round of currentBracket.rounds; track round.round) {
+                <button type="button" [attr.aria-pressed]="selectedRound() === round.round" [disabled]="editingMatchId() !== null"
+                  (click)="selectedRound.set(round.round)">{{ roundLabels[round.round] }}</button>
+              }
+            </div>
+            <div class="match-list">
+              @for (match of visibleMatches(); track match.id) {
+                <article class="match-item" [class.selected-row]="selectedMatchId() === match.id"
+                  [attr.aria-label]="teamName(match.home_team_id) + ' contra ' + teamName(match.away_team_id)">
+                  <div class="match-heading">
+                    <span>{{ roundLabels[match.round] }} · Partido #{{ match.id }}</span>
+                    <span class="status" [attr.data-status]="match.status">{{ statusLabels[match.status] }}</span>
+                  </div>
+                  <div class="scoreboard">
+                    <strong [class.winner]="match.winner_team_id === match.home_team_id">{{ teamName(match.home_team_id) }}</strong>
+                    <span class="result">{{ result(match) ?? 'vs.' }}</span>
+                    <strong [class.winner]="match.winner_team_id === match.away_team_id">{{ teamName(match.away_team_id) }}</strong>
+                  </div>
+                  <div class="match-meta"><time [attr.datetime]="match.match_date">{{ match.match_date | date:'dd/MM/yyyy HH:mm' }}</time><span>{{ match.location }}</span></div>
+                  @if (canManage()) {
+                    <div class="actions">
+                      @if (match.status === 'finished') {
+                        <span class="unavailable">Resultado cerrado</span>
+                      } @else if (!canEditResult(match)) {
+                        <span class="unavailable">Disponible desde {{ match.match_date | date:'dd/MM/yyyy HH:mm' }}</span>
+                      } @else if (editingMatchId() !== match.id) {
+                        <button type="button" data-ball-feedback (click)="openResultForm(match)"
+                          [disabled]="editingMatchId() !== null || savingMatchId() !== null || needsRefresh() || generatingRound()"
+                          [attr.aria-label]="(result(match) ? 'Editar resultado de ' : 'Cargar resultado de ') + teamName(match.home_team_id) + ' contra ' + teamName(match.away_team_id)">
+                          {{ result(match) ? 'Editar resultado' : 'Cargar resultado' }}
+                        </button>
+                      }
+                    </div>
+                  }
+                  @if (canReschedule(match) && schedulingMatchId() !== match.id) {
+                    <button class="secondary" type="button" data-ball-feedback (click)="openScheduleForm(match)"
+                      [disabled]="savingMatchId() !== null || generatingRound() || needsRefresh()"
+                      [attr.aria-label]="'Cambiar horario de ' + teamName(match.home_team_id) + ' contra ' + teamName(match.away_team_id)">Cambiar horario</button>
+                  }
+                  @if (canManage() && schedulingMatchId() === match.id) {
+                    <div class="result-editor"><form [formGroup]="scheduleForm" (ngSubmit)="saveSchedule()" [attr.aria-busy]="savingMatchId() === match.id">
+                      <fieldset [disabled]="savingMatchId() !== null || needsRefresh()">
+                        <label [for]="'schedule-' + match.id">Fecha y hora del partido (Argentina)
+                          <input [id]="'schedule-' + match.id" type="datetime-local" step="60" formControlName="match_date" />
+                        </label>
+                        @if (scheduleForm.touched && scheduleForm.invalid) { <p class="error" role="alert">Elegí una fecha y hora futuras válidas.</p> }
+                        @if (saveError()) { <p class="error" role="alert">{{ saveError() }}</p> }
+                        <div class="form-actions">
+                          <button type="submit" data-ball-feedback>Guardar horario</button>
+                          <button type="button" class="secondary" (click)="cancelResultForm()">Cancelar</button>
+                        </div>
+                      </fieldset>
+                      @if (savingMatchId() === match.id) { <app-loading label="Guardando horario..." /> }
+                    </form></div>
+                  }
+                  @if (canManage() && editingMatchId() === match.id) {
+                    <div class="result-editor"><form [formGroup]="resultForm" (ngSubmit)="saveResult()" [attr.aria-busy]="savingMatchId() === match.id">
+                          <h3>Resultado: {{ teamName(match.home_team_id) }} vs. {{ teamName(match.away_team_id) }}</h3>
+                          <fieldset [disabled]="savingMatchId() === match.id || needsRefresh()">
+                            <div class="score-fields">
+                              <label [for]="'home-goals-' + match.id">
+                                Goles de {{ teamName(match.home_team_id) }}
+                                <input [id]="'home-goals-' + match.id" type="number" min="0" max="2147483647" step="1" formControlName="home_goals" />
+                              </label>
+                              <label [for]="'away-goals-' + match.id">
+                                Goles de {{ teamName(match.away_team_id) }}
+                                <input [id]="'away-goals-' + match.id" type="number" min="0" max="2147483647" step="1" formControlName="away_goals" />
+                              </label>
+                            </div>
+
+                            <label [for]="'result-status-' + match.id">
+                              Estado del partido
+                              <select [id]="'result-status-' + match.id" formControlName="status">
+                                <option value="live">En juego (guardar avance)</option>
+                                <option value="finished">Finalizado</option>
+                              </select>
+                            </label>
+
+                            @if (requiresPenalties()) {
+                              <p>El marcador est&aacute; empatado. Ingres&aacute; un resultado por penales con un ganador.</p>
+                              <div class="score-fields">
+                                <label [for]="'home-penalties-' + match.id">
+                                  Penales de {{ teamName(match.home_team_id) }}
+                                  <input [id]="'home-penalties-' + match.id" type="number" min="0" max="2147483647" step="1" formControlName="home_penalties" />
+                                </label>
+                                <label [for]="'away-penalties-' + match.id">
+                                  Penales de {{ teamName(match.away_team_id) }}
+                                  <input [id]="'away-penalties-' + match.id" type="number" min="0" max="2147483647" step="1" formControlName="away_penalties" />
+                                </label>
+                              </div>
+                            }
+
+                            @if (resultForm.touched && resultForm.invalid) {
+                              <p class="error" role="alert">
+                                @if (resultForm.hasError('penaltiesRequired')) {
+                                  Ingres&aacute; los penales de ambos equipos.
+                                } @else if (resultForm.hasError('penaltiesTied')) {
+                                  Los penales deben definir un ganador.
+                                } @else {
+                                  Ingres&aacute; valores enteros iguales o mayores que cero.
+                                }
+                              </p>
+                            }
+                            @if (saveError()) { <p class="error" role="alert">{{ saveError() }}</p> }
+                            <div class="form-actions">
+                              <button type="submit" data-ball-feedback>{{ savingMatchId() === match.id ? 'Guardando...' : 'Guardar resultado' }}</button>
+                              <button type="button" class="secondary" (click)="cancelResultForm()">Cancelar</button>
+                            </div>
+                          </fieldset>
+                          @if (needsRefresh()) {
+                            <button type="button" class="secondary refresh" (click)="refreshMatches()">Actualizar partidos</button>
+                          }
+                        @if (savingMatchId() === match.id) { <app-loading label="Guardando resultado…" /> }</form></div>
+                  }
+                </article>
+              }
+            </div>
+          }
+          @if (saveSuccess()) { <p class="success" role="status">{{ saveSuccess() }}</p> }
+        </section>
+        <div class="round-management">
+          @if (canGenerateNextRound() && nextRound(); as upcomingRound) {
+          <section class="next-round-panel" aria-labelledby="next-round-title">
+            <form [formGroup]="nextRoundForm" (ngSubmit)="generateNextRound()"
+              [attr.aria-busy]="generatingRound()">
+              <h3 id="next-round-title">Generar {{ roundLabels[upcomingRound] }}</h3>
+              <p>Todos los partidos de la ronda actual tienen un ganador. Eleg&iacute; la fecha y hora de los pr&oacute;ximos encuentros.</p>
+              <fieldset [disabled]="generatingRound() || savingMatchId() !== null || needsRefresh()">
+                <label for="next-round-date">
+                  Fecha y hora de la siguiente ronda
+                  <input id="next-round-date" type="datetime-local" formControlName="match_date" />
+                </label>
+                @if (nextRoundForm.controls.match_date.touched && nextRoundForm.controls.match_date.invalid) {
+                  <p class="error" role="alert">Ingres&aacute; una fecha y hora futuras.</p>
+                }
+                <div class="form-actions">
+                  <button type="submit" data-ball-feedback>{{ generatingRound() ? 'Generando...' : 'Generar siguiente ronda' }}</button>
+                </div>
+              </fieldset>
+            @if (generatingRound()) { <app-loading label="Generando ronda…" /> }</form>
+          </section>
+        }
+        @if (roundError()) {
+          <p class="error round-message" role="alert">{{ roundError() }}</p>
+          @if (needsRefresh()) {
+            <button type="button" class="secondary" (click)="refreshMatches()">Actualizar partidos</button>
+          }
+        }
+        @if (roundSuccess()) { <p class="success round-message" role="status">{{ roundSuccess() }}</p> }
+
+          @if (canManage() && tournament()?.status === 'in_progress' && nextRound() && !canGenerateNextRound()) {
+            <p class="round-help">Completá todos los partidos de la ronda actual para habilitar la siguiente.</p>
+          }
+        </div>
+      }
+    </section>
+  </div>
+</main>

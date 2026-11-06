@@ -1,22 +1,190 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { MatchRound } from '../../models/match';
+import { BracketMatch, Tournament, TournamentBracket } from '../../models/tournament';
 import { Bracket } from './bracket';
 
 describe('Bracket', () => {
-  let component: Bracket;
   let fixture: ComponentFixture<Bracket>;
+  let element: HTMLElement;
+  let http: HttpTestingController;
 
-  beforeEach(async () => {
-    await TestBed.configureTestingModule({
-      imports: [Bracket],
-    }).compileComponents();
-
-    fixture = TestBed.createComponent(Bracket);
-    component = fixture.componentInstance;
-    await fixture.whenStable();
+  const tournament = (maxTeams: Tournament['max_teams'] = 8): Tournament => ({ organizer_id: 1,
+    id: 7,
+    name: 'Copa de Clubes Regionales',
+    location: 'Firmat',
+    modality: 'futbol_7',
+    max_teams: maxTeams,
+    rules: 'official_rules_football_7',
+    format: 'knockout',
+    status: 'in_progress',
+    champion_team_id: null,
+    created_at: '2026-10-19T12:00:00.000Z',
   });
 
-  it('should create', () => {
-    expect(component).toBeTruthy();
+  const match = (id: number, round: MatchRound, finished = false): BracketMatch => {
+    const homeId = id * 2 - 1;
+    const awayId = id * 2;
+    return {
+      id,
+      tournament_id: 7,
+      home_team_id: homeId,
+      away_team_id: awayId,
+      match_date: '2026-10-31T18:00:00.000Z',
+      location: 'Cancha Central',
+      round,
+      home_goals: finished ? 2 : null,
+      away_goals: finished ? 1 : null,
+      home_penalties: null,
+      away_penalties: null,
+      winner_team_id: finished ? homeId : null,
+      status: finished ? 'finished' : 'scheduled',
+      created_at: '2026-10-19T12:00:00.000Z',
+      home_team: { id: homeId, name: `Club Deportivo Regional del Norte ${homeId}`, has_logo: false },
+      away_team: { id: awayId, name: `Asociación Atlética del Sur ${awayId}`, has_logo: false },
+      winner_team: finished ? { id: homeId, name: `Club Deportivo Regional del Norte ${homeId}`, has_logo: false } : null,
+    };
+  };
+
+  const response = (maxTeams: Tournament['max_teams'], rounds: TournamentBracket['rounds']): TournamentBracket => ({
+    tournament: { ...tournament(maxTeams), champion: null },
+    rounds,
+  });
+
+  beforeEach(async () => {
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true, writable: true, value: vi.fn(() => 'blob:team-logo'),
+    });
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true, writable: true, value: vi.fn(),
+    });
+    await TestBed.configureTestingModule({
+      imports: [Bracket],
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    }).compileComponents();
+    http = TestBed.inject(HttpTestingController);
+    fixture = TestBed.createComponent(Bracket);
+    element = fixture.nativeElement as HTMLElement;
+  });
+
+  afterEach(() => {
+    http.verify();
+    fixture.destroy();
+  });
+
+  const render = (bracket: TournamentBracket, selectedMatchId: number | null = null) => {
+    fixture.componentRef.setInput('bracket', bracket);
+    fixture.componentRef.setInput('selectedMatchId', selectedMatchId);
+    fixture.detectChanges();
+  };
+
+  it.each([
+    [4, 'semi_final'],
+    [8, 'quarter_final'],
+    [16, 'round_of_16'],
+    [32, 'round_of_32'],
+  ] as const)('builds every round and expected slot for a %i-team tournament', (capacity, firstRound) => {
+    const firstMatches = Array.from({ length: capacity / 2 }, (_, index) => match(index + 1, firstRound));
+    render(response(capacity, [{ round: firstRound, matches: firstMatches }]));
+    expect(element.querySelectorAll('.round')).toHaveLength(Math.log2(capacity));
+    expect(element.querySelectorAll('.match-card')).toHaveLength(capacity - 1);
+    expect(element.querySelectorAll('.pending')).toHaveLength(capacity / 2 - 1);
+    expect(element.querySelectorAll('.crest-slot')).toHaveLength((capacity - 1) * 2);
+  });
+
+  it('preserves full names, goals, penalties and the winner in compact cards', () => {
+    const penaltyMatch = { ...match(1, 'semi_final', true), home_goals: 2, away_goals: 2,
+      home_penalties: 5, away_penalties: 4 };
+    render(response(4, [
+      { round: 'semi_final', matches: [penaltyMatch, match(2, 'semi_final', true)] },
+      { round: 'final', matches: [match(3, 'final')] },
+    ]));
+    const text = element.textContent ?? '';
+    expect(text).toContain('Club Deportivo Regional del Norte 1');
+    expect(text).toContain('Asociación Atlética del Sur 2');
+    expect(text).toContain('(5)');
+    expect(text).toContain('(4)');
+    expect(text).not.toContain('Club Dep.');
+    expect(element.querySelector('.team-name')?.getAttribute('title')).toBe(penaltyMatch.home_team!.name);
+    expect(element.querySelector('.team.winner .team-name')?.textContent).toBe('Club Deportivo Regional del Norte 1');
+    expect(element.querySelector('.team.loser .team-name')?.textContent).toBe('Asociación Atlética del Sur 2');
+  });
+
+  it('shows real team logos and keeps the placeholder for teams without one', () => {
+    const logoMatch = match(1, 'semi_final');
+    logoMatch.home_team = { ...logoMatch.home_team!, has_logo: true };
+    render(response(4, [{ round: 'semi_final', matches: [logoMatch] }]));
+    const request = http.expectOne('/api/teams/1/logo');
+    expect(request.request.method).toBe('GET');
+    expect(request.request.responseType).toBe('blob');
+    request.flush(new Blob([new Uint8Array([0x89, 0x50])], { type: 'image/png' }));
+    fixture.detectChanges();
+    const firstCard = element.querySelector('button.match-card');
+    const logo = firstCard?.querySelector<HTMLImageElement>('.team-crest');
+    expect(logo?.getAttribute('src')).toBe('blob:team-logo');
+    expect(logo?.getAttribute('alt')).toBe('');
+    expect(firstCard?.querySelectorAll('.crest-slot')).toHaveLength(1);
+    expect(firstCard?.textContent).toContain('Club Deportivo Regional del Norte 1');
+  });
+
+  it('does not reload logos when only the selected match changes', () => {
+    const logoMatch = match(1, 'semi_final');
+    logoMatch.home_team = { ...logoMatch.home_team!, has_logo: true };
+    const currentBracket = response(4, [{ round: 'semi_final', matches: [logoMatch, match(2, 'semi_final')] }]);
+    render(currentBracket);
+    http.expectOne('/api/teams/1/logo').flush(new Blob([new Uint8Array([0x89, 0x50])], { type: 'image/png' }));
+    fixture.componentRef.setInput('selectedMatchId', 2);
+    fixture.detectChanges();
+    http.expectNone('/api/teams/1/logo');
+    expect(element.querySelectorAll('button.match-card')[1]?.classList.contains('selected')).toBe(true);
+  });
+
+  it('shows the real match ID and scheduled date in the compact header', () => {
+    const scheduled = match(27, 'semi_final');
+    render(response(4, [{ round: 'semi_final', matches: [scheduled] }]));
+    const header = element.querySelector('button.match-card .match-card-header');
+    expect(header?.textContent).toContain('Partido #27');
+    expect(header?.querySelector('time')?.getAttribute('datetime')).toBe(scheduled.match_date);
+    expect(header?.querySelector('time')?.getAttribute('title')).toMatch(/2026/);
+    expect(header?.querySelector('time')?.textContent).toMatch(/\d{2}\/\d{2} \d{2}:\d{2}/);
+  });
+
+  it('renders future rounds as connected pending slots without inventing teams', () => {
+    const firstRound = Array.from({ length: 4 }, (_, index) => match(index + 1, 'quarter_final'));
+    render(response(8, [{ round: 'quarter_final', matches: firstRound }]));
+    expect(element.querySelectorAll('.pending')).toHaveLength(3);
+    for (const name of element.querySelectorAll('.pending .team-name')) expect(name.textContent).toBe('Por definir');
+    expect(element.querySelectorAll('.connector')).toHaveLength(3);
+    expect(element.querySelectorAll('.round:last-child .has-next-round')).toHaveLength(0);
+    expect(element.textContent).not.toContain('Equipo #');
+  });
+
+  it('emits the selected real match and displays its selected state', () => {
+    const selected = vi.fn();
+    fixture.componentInstance.matchSelected.subscribe(selected);
+    render(response(4, [{ round: 'semi_final', matches: [match(1, 'semi_final'), match(2, 'semi_final')] }]), 2);
+    const cards = element.querySelectorAll<HTMLButtonElement>('button.match-card');
+    expect(cards[1]?.getAttribute('aria-pressed')).toBe('true');
+    cards[0]?.click();
+    expect(selected).toHaveBeenCalledExactlyOnceWith(1);
+  });
+
+  it('keeps the final winner highlighted without a repeated champion announcement', () => {
+    const final = match(3, 'final', true);
+    const bracket = response(4, [{ round: 'final', matches: [final] }]);
+    bracket.tournament = { ...bracket.tournament, status: 'finished', champion_team_id: 5,
+      champion: final.winner_team };
+    render(bracket);
+    expect(element.querySelector('.champion')).toBeNull();
+    expect(element.querySelector('.bracket-heading')).toBeNull();
+    expect(element.querySelector('.team.winner .team-name')?.textContent).toBe(final.home_team!.name);
+    expect(element.querySelector('.team.winner .score')?.textContent?.trim()).toBe('2');
+  });
+
+  it('shows an empty state when the backend returns no rounds', () => {
+    render(response(8, []));
+    expect(element.querySelector('[role="status"]')?.textContent).toContain('no hay partidos para mostrar');
+    expect(element.querySelector('.bracket-grid')).toBeNull();
   });
 });

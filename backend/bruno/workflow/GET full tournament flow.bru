@@ -1,0 +1,158 @@
+meta {
+  name: Run full tournament flow
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/tournaments/{{tournamentId}}/bracket
+  body: none
+  auth: none
+}
+
+script:pre-request {
+  const targetBaseUrl = bru.getEnvVar("baseUrl");
+  if (!targetBaseUrl) {
+    throw new Error("Select an environment with baseUrl before running this workflow");
+  }
+  if (/^http:\/\/(?:localhost|127\.0\.0\.1):3000\/?$/i.test(targetBaseUrl)) {
+    throw new Error("The full workflow refuses to write to the default port 3000");
+  }
+
+  const send = async function (label, method, path, body, token, expectedStatus) {
+    const headers = {};
+    if (body !== undefined) headers["Content-Type"] = "application/json";
+    if (token) headers.Authorization = "Bearer " + token;
+
+    let response;
+    try {
+      response = await bru.sendRequest({
+        method: method,
+        url: targetBaseUrl + path,
+        headers: headers,
+        data: body
+      });
+    } catch (error) {
+      const status = error && error.response ? error.response.status : "network error";
+      throw new Error(label + " failed with " + status);
+    }
+
+    if (!response || response.status !== expectedStatus) {
+      const status = response ? response.status : "no response";
+      throw new Error(label + " returned " + status + ", expected " + expectedStatus);
+    }
+    return response.data;
+  };
+
+  const workflowId = Date.now() + "-" + Math.floor(Math.random() * 100000);
+  const email = "organizer." + workflowId + "@example.test";
+  const password = "Tm!" + workflowId + "Aa";
+
+  await send("Register", "POST", "/auth/register", {
+    name: "Tournament Organizer",
+    email: email,
+    password: password,
+    role: "organizer"
+  }, null, 201);
+
+  const login = await send("Login", "POST", "/auth/login", {
+    email: email,
+    password: password
+  }, null, 200);
+  const token = login && login.access_token;
+  if (!token) throw new Error("Login did not return access_token");
+
+  const tournament = await send("Create tournament", "POST", "/tournaments", {
+    name: "Demo Cup " + workflowId,
+    location: "Venado Tuerto",
+    rules: "official_rules_football_5",
+    format: "knockout",
+    modality: "futbol_5",
+    max_teams: 4,
+    status: "open"
+  }, token, 201);
+  const tournamentId = tournament && tournament.id;
+  if (!tournamentId) throw new Error("Create tournament did not return an id");
+
+  for (let index = 0; index < 4; index += 1) {
+    await send("Create team " + (index + 1), "POST", "/api/teams", {
+      tournament_id: tournamentId,
+      name: "Team " + (index + 1),
+      players_count: 7
+    }, token, 201);
+  }
+
+  const started = await send("Start tournament", "POST", "/tournaments/" + tournamentId + "/start", {
+    match_date: new Date(Date.now() + 86400000).toISOString()
+  }, token, 201);
+  const semifinals = started && started.data && Array.isArray(started.data.matches)
+    ? started.data.matches
+    : [];
+  if (semifinals.length !== 2) throw new Error("Start tournament did not create two semifinals");
+
+  const finishMatch = async function (label, match, homeGoals, awayGoals) {
+    return send(label, "PUT", "/matches/" + match.id, {
+      tournament_id: tournamentId,
+      home_team_id: match.home_team_id,
+      away_team_id: match.away_team_id,
+      match_date: new Date(Date.now() - 60000).toISOString(),
+      location: match.location,
+      round: match.round,
+      home_goals: homeGoals,
+      away_goals: awayGoals,
+      status: "finished"
+    }, token, 200);
+  };
+
+  await finishMatch("Finish semifinal 1", semifinals[0], 2, 1);
+  await finishMatch("Finish semifinal 2", semifinals[1], 3, 1);
+
+  const advanced = await send("Generate final", "POST", "/tournaments/" + tournamentId + "/next-round", {
+    match_date: new Date(Date.now() + 86400000).toISOString()
+  }, token, 201);
+  const finals = advanced && advanced.data && Array.isArray(advanced.data.matches)
+    ? advanced.data.matches
+    : [];
+  if (finals.length !== 1 || finals[0].round !== "final") {
+    throw new Error("Next round did not create one final");
+  }
+
+  const finalMatch = finals[0];
+  await finishMatch("Finish final", finalMatch, 4, 2);
+
+  const finishedTournament = await send(
+    "Verify champion",
+    "GET",
+    "/tournaments/" + tournamentId,
+    undefined,
+    null,
+    200
+  );
+  if (finishedTournament.status !== "finished" ||
+      finishedTournament.champion_team_id !== finalMatch.home_team_id) {
+    throw new Error("The expected champion was not persisted");
+  }
+
+  bru.setVar("tournamentId", tournamentId);
+}
+
+script:post-response {
+  if (res.getStatus() !== 200) {
+    throw new Error("The final bracket request did not return HTTP 200");
+  }
+
+  const body = res.getBody();
+  const tournament = body && body.tournament;
+  const champion = tournament && tournament.champion;
+  const rounds = body && Array.isArray(body.rounds) ? body.rounds : [];
+  const finishedMatches = rounds.reduce(function (total, round) {
+    const matches = Array.isArray(round.matches) ? round.matches : [];
+    return total + matches.filter(function (match) {
+      return match.status === "finished";
+    }).length;
+  }, 0);
+
+  if (!tournament || tournament.status !== "finished" || !champion || finishedMatches !== 3) {
+    throw new Error("The workflow did not finish the tournament with a champion and three completed matches");
+  }
+}

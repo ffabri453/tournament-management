@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { respondWithAccessError } from '../middleware/accessError';
 import {
   DomainError,
   MATCH_ROUNDS,
@@ -247,6 +248,7 @@ const validateMatchRelationships = async (
 };
 
 const respondWithMatchWriteError = (error: any, res: Response, fallback: string): void => {
+  if (respondWithAccessError(error, res)) return;
   if (error instanceof DomainError) {
     const status = error.code === 'TOURNAMENT_NOT_FOUND' ? 404 : 409;
     res.status(status).json({ error: true, message: error.message });
@@ -316,8 +318,8 @@ const writeMatch = async (
     }
 
     const match = id === undefined
-      ? await createManualMatch(validation.data)
-      : await updateMatch(id, validation.data);
+      ? await createManualMatch(validation.data, res.locals.user)
+      : await updateMatch(id, validation.data, res.locals.user);
 
     if (!match) {
       res.status(404).json({ error: true, message: 'Match not found' });
@@ -357,7 +359,7 @@ export const removeMatch = async (req: Request, res: Response): Promise<void> =>
       res.status(400).json({ error: true, message: 'Invalid match id' });
       return;
     }
-    if (!await deleteMatch(id)) {
+    if (!await deleteMatch(id, res.locals.user)) {
       res.status(404).json({ error: true, message: 'Match not found' });
       return;
     }

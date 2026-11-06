@@ -1,1 +1,83 @@
-<p>team-list works!</p>
+<main>
+  <div class="page-content">
+    <nav aria-label="Navegación de equipos">
+      @if (tournament(); as current) {
+        <a class="back-link" data-ball-feedback [routerLink]="['/tournaments', current.id]">Volver al torneo</a>
+      } @else {
+        <a class="back-link" data-ball-feedback routerLink="/tournaments">Volver a torneos</a>
+      }
+    </nav>
+    <header class="page-heading">
+      <div>
+        <p class="eyebrow">EL VESTUARIO</p>
+        <h1>Equipos</h1>
+        @if (tournament(); as current) { <p class="tournament-name">{{ current.name }}</p> }
+      </div>
+      @if (canManage() && canAdd() && !isLoading() && !errorMessage()) {
+        <a class="primary" data-ball-feedback [routerLink]="['/tournaments', tournament()!.id, 'teams', 'new']">Agregar equipo</a>
+      }
+    </header>
+    <section aria-label="Equipos del torneo" [attr.aria-busy]="isLoading()">
+      @if (isLoading()) {
+        <app-loading label="Cargando equipos..." />
+      } @else if (errorMessage()) {
+        <p role="alert" class="error">{{ errorMessage() }}</p>
+        @if (canRetry()) { <button type="button" data-ball-feedback (click)="retry()">Reintentar</button> }
+      } @else if (tournament(); as current) {
+        <div class="team-summary">
+          <p><strong>{{ teams().length }}</strong> de {{ current.max_teams }} equipos</p>
+          <span>Fútbol {{ current.modality.replace('futbol_', '') }}</span>
+        </div>
+        @if (canManage() && current.status !== 'open') {
+          <div class="notice">
+            <p>El torneo ya fue iniciado o finalizado. No se pueden agregar equipos.</p>
+            <p>Podés editar los nombres y escudos; no se pueden eliminar equipos ni cambiar la cantidad de jugadores.</p>
+          </div>
+        } @else if (current.status === 'open' && !canAdd()) {
+          <p class="notice">El torneo alcanzó su capacidad máxima de equipos.</p>
+        }
+        @if (deleteError()) {
+          <p role="alert" class="error">{{ deleteError() }}</p>
+          <button type="button" data-ball-feedback (click)="refreshTeams()" [disabled]="deletingId() !== null">Actualizar equipos</button>
+        }
+        @if (deletingId() !== null) { <app-loading label="Eliminando equipo..." /> }
+        @if (teams().length === 0) {
+          <div class="empty-state" role="status">
+            <svg aria-hidden="true" viewBox="0 0 32 32"><path d="m10 5-7 5 4 7 4-2v13h10V15l4 2 4-7-7-5c-2 5-10 5-12 0Z"/></svg>
+            <h2>El vestuario está listo</h2>
+            <p>Todavía no hay equipos registrados en este torneo.</p>
+          </div>
+        } @else {
+          <ul class="team-grid">
+            @for (team of teams(); track team.id) {
+              <li class="team-card">
+                @if (logoUrls()[team.id]; as logoUrl) {
+                  <img class="team-crest" [src]="logoUrl" [alt]="'Escudo de ' + team.name"
+                    width="52" height="52" (error)="hideTeamLogo(team.id)" />
+                } @else {
+                  <div class="team-icon" aria-hidden="true">
+                    <svg viewBox="0 0 32 32"><path d="m10 5-7 5 4 7 4-2v13h10V15l4 2 4-7-7-5c-2 5-10 5-12 0Z"/></svg>
+                  </div>
+                }
+                <h2>{{ team.name }}</h2>
+                <p class="players"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="9" cy="7" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3M16 4a3 3 0 0 1 0 6m2 4a5 5 0 0 1 3 4v3"/></svg><span><strong class="player-count">{{ team.players_count }}</strong> jugadores</span></p>
+                @if (canManage()) {
+                  <div class="actions">
+                    <a data-ball-feedback [routerLink]="deletingId() === null ? ['/tournaments', current.id, 'teams', team.id, 'edit'] : null"
+                      [attr.aria-disabled]="deletingId() !== null" [attr.tabindex]="deletingId() === null ? null : -1"
+                      [attr.aria-label]="'Editar ' + team.name">Editar</a>
+                    <button type="button" class="delete" data-ball-feedback (click)="deleteTeam(team)"
+                      [disabled]="deletingId() !== null || current.status !== 'open'"
+                      [attr.aria-label]="'Eliminar ' + team.name">
+                      {{ deletingId() === team.id ? 'Eliminando...' : 'Eliminar' }}
+                    </button>
+                  </div>
+                }
+              </li>
+            }
+          </ul>
+        }
+      }
+    </section>
+  </div>
+</main>

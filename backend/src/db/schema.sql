@@ -90,6 +90,10 @@ CREATE TABLE IF NOT EXISTS teams (
 
     players_count INTEGER NOT NULL,                -- Cantidad de jugadores cargados o declarados para el equipo.
 
+    logo_data BYTEA DEFAULT NULL,                  -- Escudo opcional, limitado a 1 MB.
+
+    logo_mime_type VARCHAR(10) DEFAULT NULL,        -- Tipo real del escudo: PNG, JPEG o WebP.
+
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                                                       -- Fecha y hora en que se creó el equipo.
 
@@ -108,6 +112,16 @@ CREATE TABLE IF NOT EXISTS teams (
         CHECK (
             BTRIM(name) <> ''
             AND BTRIM(name) !~ '^[0-9]+([.,][0-9]+)?$'
+        ),
+
+    CONSTRAINT chk_team_logo_consistency
+        CHECK (
+            (logo_data IS NULL AND logo_mime_type IS NULL)
+            OR (
+                logo_data IS NOT NULL
+                AND logo_mime_type IN ('image/png', 'image/jpeg', 'image/webp')
+                AND OCTET_LENGTH(logo_data) BETWEEN 1 AND 1048576
+            )
         ),
 
     CONSTRAINT unique_team_id_tournament
@@ -288,7 +302,7 @@ ON matches (
     GREATEST(home_team_id, away_team_id)            -- Equipo con mayor id, sin importar si es local o visitante.
 );
 
--- Guarda usuarios sin relacionarlos todavia con los torneos.
+-- Usuarios registrados; los visitantes no necesitan cuenta.
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -305,3 +319,8 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE UNIQUE INDEX IF NOT EXISTS unique_user_email
 ON users (LOWER(BTRIM(email)));
+
+-- Se agrega despues de users porque la clave foranea depende de esa tabla.
+ALTER TABLE tournaments
+    ADD COLUMN IF NOT EXISTS organizer_id INTEGER REFERENCES users(id) ON DELETE RESTRICT;
+CREATE INDEX IF NOT EXISTS idx_tournaments_organizer_id ON tournaments (organizer_id);

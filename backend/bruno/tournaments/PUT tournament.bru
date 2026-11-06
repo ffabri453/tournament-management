@@ -5,13 +5,17 @@ meta {
 }
 
 put {
-  url: http://localhost:3000/tournaments/1
+  url: {{baseUrl}}/tournaments/{{tournamentId}}
   body: json
-  auth: none
+  auth: bearer
 }
 
 headers {
   Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{accessToken}}
 }
 
 body:json {
